@@ -852,6 +852,22 @@ void integrate_3d_vl(DomainS *pD)
   }
 #endif /* CYLINDRICAL */
 
+
+/*----Add radiation source terms to half time step -------------------------*/
+#ifdef FULL_RADIATION_TRANSFER
+    for (k=kl; k<=ku; k++) {
+     for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[k][j][i].M1 += (0.5 * pG->dt * pG->Frsource[k][j][i][0]);
+        Uhalf[k][j][i].M2 += (0.5 * pG->dt * pG->Frsource[k][j][i][1]);
+	Uhalf[k][j][i].M3 += (0.5 * pG->dt * pG->Frsource[k][j][i][2]);
+        Uhalf[k][j][i].E += (0.5 * pG->Radheat[k][j][i]);
+      }
+    }
+  }
+#endif
+
+
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
 
 /*--- Step 7a ------------------------------------------------------------------
@@ -1853,6 +1869,23 @@ void integrate_3d_vl(DomainS *pD)
     }
   }
 #endif /* CYLINDRICAL */
+
+
+/*=====   Add radiation source term for full time step =============*/
+#ifdef FULL_RADIATION_TRANSFER
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
+	pG->U[k][j][i].M1 += pG->dt * pG->Frsource[k][j][i][0];
+	pG->U[k][j][i].M2 += pG->dt * pG->Frsource[k][j][i][1];
+	pG->U[k][j][i].M3 += pG->dt * pG->Frsource[k][j][i][2];
+	pG->U[k][j][i].E += pG->Radheat[k][j][i];
+    }/* end i */
+  }/* end j */
+ }
+
+#endif
+
 
 /*=== STEP 13: Update cell-centered values for a full timestep ===============*/
 

@@ -315,6 +315,49 @@ void lrstate_PPM(Real imu[5], Real iLeft[1], Real iRight[1])
 	
 }
 
+void flux_AdvJ(Real *tempJ, Real *tempV, int nstart,int nend,Real ds, Real dt, Real *tempAdv)
+{
+	int i, j;
+	Real vel, meanJ, dtods;
+	Real Jarray[5];
+	dtods = dt/ds;
+
+	for(i=nstart; i<=nend; i++){
+		vel = 0.5 * (tempV[i-1] + tempV[i]);
+		if(vel > 0.0){
+#ifdef SECOND_ORDER_PRIM
+			for(j=0; j<3; j++)
+				Jarray[j] = tempJ[i-2+j];
+			
+			flux_PLM(dt, ds, vel, Jarray, &(meanJ));	
+#else
+
+			for(j=0; j<5; j++)
+				Jarray[j] = tempJ[i-3+j];
+
+			flux_PPM(dt, ds, vel, Jarray, &(meanJ)); 
+
+#endif
+		}/* End if vel >0 */
+		else{
+#ifdef SECOND_ORDER_PRIM
+			for(j=0; j<3; j++)
+				Jarray[j] = tempJ[i+1-j];
+			
+			flux_PLM(dt, ds, -vel, Jarray, &(meanJ));
+#else
+
+			for(j=0; j<5; j++)
+				Jarray[j] = tempJ[i+2-j];
+
+			flux_PPM(dt, ds, -vel, Jarray, &(meanJ));
+
+#endif
+		}
+		tempAdv[i] = vel * meanJ * dtods;
+	}/* end i */
+
+}
 
 #endif /* RADIATION_TRANSFER */
 

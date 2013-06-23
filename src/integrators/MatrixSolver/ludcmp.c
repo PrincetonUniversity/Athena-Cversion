@@ -14,7 +14,7 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
 
 
 void ludcmpnew(Real **a, int n, int *indx, Real *d, int *status)

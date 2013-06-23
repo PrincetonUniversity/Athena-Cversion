@@ -2368,7 +2368,7 @@ k][j][i].M3);
 						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
 						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 						
-						Ul_x2Face[k][j][i].Mz -= qx1*(phir-phil)*pG->U[k][j-1][i].d;
+						Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 #ifndef BAROTROPIC
 						Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
 													+ x1Flux[k][j-1][i+1].d*(phir - phic));
@@ -4216,7 +4216,7 @@ k][j][i].M3);
 			divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) * dx2ri;
 			divFlux2[4] = (x2Flux[k][j+1][i].E  - x2Flux[k][j][i].E ) * dx2ri; 
 
-			divFlux3[0] = (x3Flux[k+1][j][i].d  - x3Flux[k][j][i].d )  dx3;
+			divFlux3[0] = (x3Flux[k+1][j][i].d  - x3Flux[k][j][i].d ) / dx3;
 			divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
 			divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
 			divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;

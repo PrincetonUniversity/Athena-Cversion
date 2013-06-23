@@ -544,6 +544,8 @@ void integrate_2d_vl(DomainS *pD)
   }
 #endif
 
+
+
 /*--- Step 6d ------------------------------------------------------------------
  * Add the geometric source-term now using cell-centered conserved variables
  *   at time t^n 
@@ -576,6 +578,17 @@ void integrate_2d_vl(DomainS *pD)
 #endif /* CYLINDRICAL */
 
 
+/*----Add radiation source terms to half time step -------------------------*/
+#ifdef FULL_RADIATION_TRANSFER
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        Uhalf[j][i].M1 += (0.5 * pG->dt * pG->Frsource[ks][j][i][0]);
+        Uhalf[j][i].M2 += (0.5 * pG->dt * pG->Frsource[ks][j][i][1]);
+        Uhalf[j][i].E += (0.5 * pG->Radheat[ks][j][i]);
+      }
+    }
+
+#endif
 
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/
 
@@ -1114,10 +1127,12 @@ void integrate_2d_vl(DomainS *pD)
 #endif /* CYLINDRICAL */
 
 
-/*=====   Add radiation source term for half time step =============*/
+/*=====   Add radiation source term for full time step =============*/
 #ifdef FULL_RADIATION_TRANSFER
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
+	pG->U[ks][j][i].M1 += pG->dt * pG->Frsource[ks][j][i][0];
+	pG->U[ks][j][i].M2 += pG->dt * pG->Frsource[ks][j][i][1];
 	pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
     }/* end i */
   }/* end j */

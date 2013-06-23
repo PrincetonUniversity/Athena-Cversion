@@ -63,7 +63,8 @@
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  * - dump_history()        - Writes variables as formatted table
- * - dump_history_enroll() - Adds new user-defined history variables	      */
+ * - dump_history_enroll() - Adds new user-defined history variables	      
+ * - Intensity_history_enroll() - Adds history dump for specifity intensity (l, n) */
 /*============================================================================*/
 
 #include <stdio.h>
@@ -87,6 +88,15 @@ static char *usr_label[MAX_USR_H_COUNT];
 static ConsFun_t phst_fun[MAX_USR_H_COUNT];
 
 static int usr_hst_cnt = 0; /* User History Counter <= MAX_USR_H_COUNT */
+
+#ifdef FULL_RADIATION_TRANSFER
+static int I_hst_cnt = 0; /* Number of specific intensity we want to dump */
+#define MAX_I_COUNT 32
+static char *Ilabel[MAX_I_COUNT];
+static int Il[MAX_I_COUNT];
+static int In[MAX_I_COUNT];
+static int Ifre[MAX_I_COUNT];
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void dump_history(MeshS *pM, OutputS *pOut)
@@ -119,8 +129,15 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef FULL_RADIATION_TRANSFER
   RadGridS *pRG;
   int nfr, ifr;
-  int kr, jr, ir;
-  Real J, H1, H2, H3;
+  int kr, jr, ir, koff, joff, ioff, m;
+  Real J, H1, H2, H3, Edd[6];
+  ioff = Radghost - nghost;
+  if(pM->Nx[1] > 1) joff = ioff;
+  else joff = 0;
+
+  if(pM->Nx[2] > 1) koff = ioff;
+  else koff = 0;
+
 #endif
 
 
@@ -136,7 +153,9 @@ void dump_history(MeshS *pM, OutputS *pOut)
 
 /* Add J, and H1, H2, H3 */
 #ifdef FULL_RADIATION_TRANSFER
-  total_hst_cnt += 4;
+  /* Add six components of Eddington tensor */
+  total_hst_cnt += (4+6);
+  total_hst_cnt += I_hst_cnt; /* Add the number of specific intensity we want to dump */
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
@@ -181,6 +200,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef FULL_RADIATION_TRANSFER
 	pRG = pM->Domain[nl][nd].RadGrid;
 	nfr = pRG->nf;
+	/* allocate memory for Il and In */
 #endif
         is = pG->is, ie = pG->ie;
         js = pG->js, je = pG->je;
@@ -264,22 +284,20 @@ void dump_history(MeshS *pM, OutputS *pOut)
 #ifdef FULL_RADIATION_TRANSFER
 	      /* dump the frequency averaged quantities */
 	      J = 0.0; H1 = 0.0; H2 = 0.0; H3 = 0.0;
-	      if(k>1)
-	      	kr = k-nghost+Radghost;
-	      else
-		kr = k;
+	      for(m=0; m<6; m++)
+		Edd[m] = 0.0;
 
-	      if(j > 1) 
-	      	jr = j-nghost+Radghost;
-	      else
-		jr = j;
-
-	      ir = i-nghost+Radghost;
+	      kr = k + koff;
+	      jr = j + joff;
+	      ir = i + ioff;
+	      
 	      for(ifr=0; ifr<nfr; ifr++){
  		 J += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].J;
 		 H1 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[0];
 		 H2 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[1];
 		 H3 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[2];
+	      	 for(m=0; m<6; m++)
+			Edd[m] += pRG->R[ifr][kr][jr][ir].K[m]/pRG->R[ifr][kr][jr][ir].J;
 	      }
 
 	      mhst++;
@@ -290,6 +308,10 @@ void dump_history(MeshS *pM, OutputS *pOut)
 	      scal[mhst] += dVol*H2;
 	      mhst++;
 	      scal[mhst] += dVol*H3;
+	      for(m=0; m<6; m++){
+		 mhst++;
+	         scal[mhst] += dVol*Edd[m];
+	      }
 #endif
 
 
@@ -360,6 +382,15 @@ void dump_history(MeshS *pM, OutputS *pOut)
                 mhst++;
                 scal[mhst] += dVol*(*phst_fun[n])(pG, i, j, k);
               }
+#ifdef FULL_RADIATION_TRANSFER
+		/* dump a particular specific intensity for each cell */
+              for(n=0; n<I_hst_cnt; n++){
+                mhst++;
+                scal[mhst] += dVol*(pRG->imu[Ifre[n]][Il[n]][In[n]][kr][jr][ir]);
+              } /* End specific intensity */
+
+#endif
+
             }
           }
         }
@@ -502,6 +533,19 @@ void dump_history(MeshS *pM, OutputS *pOut)
             fprintf(pfile,"   [%i]=Flux2   ",mhst);
 	    mhst++;
             fprintf(pfile,"   [%i]=Flux3   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fxx   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fxy   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fyy   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fxz   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fxy   ",mhst);
+	    mhst++;
+            fprintf(pfile,"   [%i]=fzz   ",mhst);
+
 #endif
 
 
@@ -546,6 +590,13 @@ void dump_history(MeshS *pM, OutputS *pOut)
               mhst++;
               fprintf(pfile,"  [%i]=%s",mhst,usr_label[n]);
             }
+/* The specific intensity */
+#ifdef FULL_RADIATION_TRANSFER
+	   for(n=0; n<I_hst_cnt; n++){
+              mhst++;
+              fprintf(pfile,"  [%i]=%s",mhst,Ilabel[n]);
+            }
+#endif
             fprintf(pfile,"\n#\n");
           }
 
@@ -561,6 +612,8 @@ void dump_history(MeshS *pM, OutputS *pOut)
       }
     }
   }
+
+
 
   return;
 }
@@ -587,6 +640,33 @@ void dump_history_enroll(const ConsFun_t pfun, const char *label){
   return;
 
 }
+#ifdef FULL_RADIATION_TRANSFER
+void Intensity_history_enroll(const int fre, const int l, const int n, const char *label)
+{
+  if(I_hst_cnt >= MAX_I_COUNT)
+    ath_error("[Intensity_history_enroll]: MAX_I_COUNT = %d exceeded\n",
+              MAX_I_COUNT);
+
+    /* Copy the label string */
+  if((Ilabel[I_hst_cnt] = ath_strdup(label)) == NULL)
+    ath_error("[dump_history_enroll]: Error on sim_strdup(\"%s\")\n",label);
+
+   /* set the fre, l and n numbers */
+  Il[I_hst_cnt] = l;
+  Ifre[I_hst_cnt] = fre;
+  In[I_hst_cnt] = n;
+
+  I_hst_cnt++;
+
+  return;
+}
+
+#undef MAX_I_COUNT
+
+#endif
 
 #undef NSCAL
 #undef MAX_USR_H_COUNT
+
+
+

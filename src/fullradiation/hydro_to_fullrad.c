@@ -24,7 +24,7 @@
 #ifdef FULL_RADIATION_TRANSFER
 
 
-void GetSource(const Real dt, const Real Tnew, const RadS R, const Real I0, Real *heatcool);
+void GetSource(const Real dt, const Real Tnew, const Real SigmaB, const Real SigmaI, const Real Jsource, const Real I0, Real *heatcool);
 void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Real Sigma[4], Real *heatcool, Real *Tnew);
 
 /*----------------------------------------------------------------------------*/
@@ -34,14 +34,14 @@ void hydro_to_fullrad(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
   RadGridS *pRG=(pD->RadGrid);
-  int i,j,k,ifr;
+  int i,j,k,ifr,m;
   int il = pRG->is, iu = pRG->ie;
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nf = pRG->nf;
   int ig,jg,kg,ioff,joff,koff;
   int nang = pRG->nang, noct = pRG->noct, l, n;
-  Real d, etherm, Tgas, Tnew, J0;
+  Real d, etherm, Tgas, Tnew, J0, AngleV, Jsource;
   Real Sigma[4];
  
 
@@ -111,18 +111,60 @@ void hydro_to_fullrad(DomainS *pD)
 
 	GetTnew(pG->dt,d,Tgas,J0,Sigma,&(pG->Radheat[kg][jg][ig]),&Tnew);
 
+	/* Save the new gas temperature at pG->tgas */
+	pG->tgas[kg][jg][ig] = Tnew;
+
+	/* Set the momentum source term -Prat * v sigmaa(T^4 - Er)/C*/
+	/* pG->Radheat is -Prat * Crat * sigmaa(T^4 - Er) */
+	/* So the momentum source is Energy*v/Crat^2 */
+	/* Also add momentum source term Prat Sigmaa Fr  */
+	pG->Frsource[kg][jg][ig][0] = pG->U[kg][jg][ig].M1 * pG->Radheat[kg][jg][ig] / (d * Crat * Crat);
+	pG->Frsource[kg][jg][ig][1] = pG->U[kg][jg][ig].M2 * pG->Radheat[kg][jg][ig] / (d * Crat * Crat);
+	pG->Frsource[kg][jg][ig][2] = pG->U[kg][jg][ig].M3 * pG->Radheat[kg][jg][ig] / (d * Crat * Crat);
+
+	/* The momentum source term is added in function UpdateRT when the new H is updated */
+	/* We do not try to conserve the momentums because of the stiff scattering source terms */
+
+
+       }/* Finish i */
+      }/* Finish j */
+    }/* Finish k */
+
+
 	for(ifr=0; ifr<nf; ifr++) {	
 		/* Now calculate the energy change due to for each array with this new temperature */
 	  for(l=0; l<noct; l++){
 		for(n=0; n<nang; n++){
-			GetSource(pG->dt, Tnew, pRG->R[ifr][k][j][i],pRG->imu[ifr][l][n][k][j][i],&(pRG->heatcool[ifr][l][n][k][j][i]));	
+		   for(k=kl; k<=ku; k++){
+			kg = k + koff;
+		   for(j=jl; j<=ju; j++){
+			 jg = j + joff;
+		   for(i=il; i<=iu; i++){
+			ig = i + ioff;
+
+			/* calculate AngleV */
+			AngleV = (pG->U[kg][jg][ig].M1 * pRG->mu[l][n][k][j][i][0] + pG->U[kg][jg][ig].M2 * pRG->mu[l][n][k][j][i][1] 
+				+ pG->U[kg][jg][ig].M3 * pRG->mu[l][n][k][j][i][2])/pG->U[kg][jg][ig].d;			
+
+			 /* Now add the term 3n\dot vsigma (T^4/4pi - J) */
+                        if(Prat > TINY_NUMBER)
+                                Jsource = -pG->Radheat[kg][jg][ig] * 3.0 * AngleV/(Prat * Crat * 4.0 * PI);
+			else
+				Jsource = pG->dt * Crat * (pRG->R[ifr][k][j][i].Sigma[0] * pG->tgas[kg][jg][ig] * pG->tgas[kg][jg][ig] * pG->tgas[kg][jg][ig] * pG->tgas[kg][jg][ig]/(4.0*PI) - pRG->R[ifr][k][j][i].Sigma[1] * pRG->R[ifr][k][j][i].J)/(1.0 + pG->dt * Crat * pRG->R[ifr][k][j][i].Sigma[1]);
+
+			GetSource(pG->dt, pG->tgas[kg][jg][ig], pRG->R[ifr][k][j][i].Sigma[0], pRG->R[ifr][k][j][i].Sigma[1], Jsource, pRG->imu[ifr][l][n][k][j][i],&(pRG->heatcool[ifr][l][n][k][j][i]));	
+			/* Now calculate the momentum source term due to this partially updated I */
+			for(m=0; m<3; m++){
+				pG->Frsource[kg][jg][ig][m] += Prat * pRG->R[ifr][k][j][i].Sigma[1] * (pRG->imu[ifr][l][n][k][j][i] + pRG->heatcool[ifr][l][n][k][j][i] - Jsource) * pRG->mu[l][n][k][j][i][m] *  pRG->wmu[n][k][j][i] * 4.0 * PI;  				
+			}
+		   }/* Finish i */
+                   }/* finish j */
+                   }/* Finish k */
+
 		}/* Finish number of angles */
 	  }/* Finish number of octant */
-
-	}/* Finish opacity */
-      }
-    }
-  }/* Finish k */
+	}/* Finish frequency */
+      
 
   return;
 }
@@ -159,7 +201,7 @@ void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Re
 	Er0 = J0 * 4.0 * PI;
 
 	/* Negative radiation energy density */
-	if(Er0 < 0.0){
+	if(Er0 < 0.0 || Prat < TINY_NUMBER){
 		*heatcool = 0.0;
 		*Tnew = Tgas;
 		
@@ -208,7 +250,6 @@ void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Re
 	
 		*heatcool = d * ((*Tnew) - Tgas) * R_ideal/(Gamma - 1.0);
 		
-		
 
 		
 	}
@@ -216,19 +257,14 @@ void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Re
 }
 
 
-void GetSource(const Real dt, const Real Tnew, const RadS R, const Real I0, Real *heatcool)
+void GetSource(const Real dt, const Real Tnew, const Real SigmaB, const Real SigmaI, const Real Jsource, const Real I0, Real *heatcool)
 {
-	Real SigmaB, SigmaI, Sigmas;
-	Real J = R.J, Inew, Tnew4;
-
-	SigmaB  = R.Sigma[0]; 
-	SigmaI  = R.Sigma[1];
-	Sigmas  = R.Sigma[2];
-
+	Real Inew, Tnew4;
+	
 	Tnew4 = Tnew * Tnew * Tnew * Tnew;
 
 	/* Negative radiation energy density */
-	if(J < 0.0){
+	if(Prat < TINY_NUMBER){
 		*heatcool = 0.0;		
 		
 		return;
@@ -236,7 +272,7 @@ void GetSource(const Real dt, const Real Tnew, const RadS R, const Real I0, Real
 	else{
 
 
-		Inew = (I0 + dt * Crat * SigmaB * Tnew4 / (4.0 * PI))/(1.0 + dt * Crat * SigmaI);
+		Inew = (I0 + Jsource + dt * Crat * SigmaB * Tnew4 / (4.0 * PI))/(1.0 + dt * Crat * SigmaI);
 
 		(*heatcool) = Inew - I0;	
 		/*----------------------------------------------------------*/

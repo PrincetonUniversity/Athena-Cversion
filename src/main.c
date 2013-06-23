@@ -473,6 +473,9 @@ int main(int argc, char *argv[])
 
 #ifdef FULL_RADIATION_TRANSFER
 	bvals_fullrad(&(Mesh.Domain[nl][nd]));
+	/* Update the momentums */
+	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
+	UpdateRT(&(Mesh.Domain[nl][nd]));
 #endif
       }
     }
@@ -689,6 +692,7 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {		
 		/* update specific intensity */
+        	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
 		FullRT(&(Mesh.Domain[nl][nd]));		
 
 		/* update boundary condition */
@@ -696,6 +700,7 @@ int main(int argc, char *argv[])
 
 		/* Update the moments with the new specific intensities */
 		/* Including the ghost zones */
+		/* momentum source terms are also updated in this function */
 		UpdateRT(&(Mesh.Domain[nl][nd]));
 
 

@@ -165,12 +165,9 @@ enum {
 #else
   nghost = 4,
 #endif
+
 #ifdef FULL_RADIATION_TRANSFER
-#ifdef SECOND_ORDER_PRIM
- Radghost = 2,
-#else
  Radghost = 3,
-#endif
 #endif 
   num_digit = 4
 

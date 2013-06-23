@@ -746,6 +746,7 @@ typedef void (*VResFun_t)(MeshS *pM, struct Output_s *pout);
 /*! \fn Real (*ConsFun_t)(const GridS *pG, const int i,const int j,const int k) 
  *  \brief Pointer to expression that computes quant for output.*/
 typedef Real (*ConsFun_t)(const GridS *pG, const int i,const int j,const int k);
+
 #ifdef PARTICLES
 /*! \fn int (*PropFun_t)(const GrainS *gr, const GrainAux *grsub)
  *  \brief Particle property selection function */

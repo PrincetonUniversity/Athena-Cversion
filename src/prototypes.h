@@ -241,6 +241,10 @@ void data_output(MeshS *pM, const int flag);
 void add_rst_out(OutputS *new_out);
 void data_output_destruct(void);
 void dump_history_enroll(const ConsFun_t pfun, const char *label);
+#ifdef FULL_RADIATION_TRANSFER
+void Intensity_history_enroll(const int fre, const int l, const int n, const char *label);
+#endif
+
 Real ***OutData3(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2, int *Nx3);
 Real  **OutData2(GridS *pGrid, OutputS *pOut, int *Nx1, int *Nx2);
 Real   *OutData1(GridS *pGrid, OutputS *pOut, int *Nx1);

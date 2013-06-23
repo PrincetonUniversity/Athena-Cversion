@@ -271,6 +271,18 @@ void new_dt(MeshS *pM)
     if (pGrid->Nx[2] > 1)
       max_dti = MAX(max_dti, max_v3/pGrid->dx3);
 
+#ifdef FULL_RADIATION_TRANSFER
+/* Limit to speed of light for explicit time dependent radiation transfer */
+    if (pGrid->Nx[0] > 1)
+      max_dti = MAX(max_dti, Crat/pGrid->dx1);
+    if (pGrid->Nx[1] > 1)
+      max_dti = MAX(max_dti, Crat/pGrid->dx2);
+    if (pGrid->Nx[2] > 1)
+      max_dti = MAX(max_dti, Crat/pGrid->dx3);
+
+#endif
+
+
   }}} /*--- End loop over Domains --------------------------------------------*/
 
   old_dt = pM->dt; 
