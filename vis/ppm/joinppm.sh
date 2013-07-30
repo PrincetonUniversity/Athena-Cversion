@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # Script to join ppm files
-# Last updated August 24, 2012 by Sasha Philippov, modified from joinvtk script. 
+# Last updated August 24, 2012 by Sasha Philippov
 
 # Usage is, e.g.,
-# joinppm.sh -i FP -o comb/FPc -f 1:4 -p 16 -s d.ppm -x 8 -y 2
+# joinppm.sh -i FP -o comb/FPc -f 1:4 -p 16 -s d.ppm -x 2 -y 2
 
 # That will take the d.ppm files from the id*/ sub-directories of the current
-# directory and put the output (changing the filename from FP*.d.ppm to FPc*.d.ppm
+# directory and put the output (changing the filename from FP*.ppm to FPc*.ppm
 # so you don't confuse the two) in the sub-directory comb (which it will
-# create, if necessary).
+# create, if necessary). -x and -y specify the mpi decomposition of the
+#computational domain. See also below.
 
 scrdir=$(dirname $0)
 script=$(basename $0)
@@ -32,7 +33,7 @@ ret=0
 usage ()
 {
   echo "This script joins ppm files."
-  echo "      (e-mail philippo@astro for assistance)"
+  echo "      (e-mail lemaster@astro for assistance)"
   echo ""
   echo "Options:"
   echo "  -i inbase"
@@ -56,10 +57,10 @@ usage ()
   echo "          Wait while files are transfered by another script"
   echo "  [-z]"
   echo "          Root process does not write to id0 sub-directory"
-  echo "  -x Nx"
-  echo "          Number of Grids in x direction (Nx)"
-  echo "  -y Ny"
-  echo "          Number of Grids in y direction (Ny)"
+echo "  -x Nx"
+echo "          Number of zones in x direction (Nx)"
+echo "  -y Ny"
+echo "          Number of zones in y direction (Ny)"
 }
 
 # ***************************************************************************
@@ -138,7 +139,6 @@ checkopts ()
     usage
     exit 1
   fi
-
 }
 
 # ***************************************************************************
@@ -212,7 +212,7 @@ convert ${outfile} -flip ${outfile}
 
 # ***************************************************************************
 
-while getopts "enwzd:f:b:i:o:p:s:x:y:" opt ; do
+while getopts "enwzd:f:b:i:o:p:s:x:y" opt ; do
   case $opt in
     "e" )
 #      echo "writing eight ppms a-h"
