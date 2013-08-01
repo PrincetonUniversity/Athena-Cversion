@@ -25,6 +25,7 @@
 #ifdef FULL_RADIATION_TRANSFER
 
 static int nDim;
+static int Rotate_flag;
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
@@ -44,6 +45,8 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG);
+static void Rotate180_ix2_fullrad(RadGridS *pRG);
+static void Rotate180_ox2_fullrad(RadGridS *pRG);
 
 static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG);
 static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG);
@@ -91,8 +94,9 @@ void bvals_fullrad(DomainS *pD)
 {
   RadGridS *pRG=(pD->RadGrid);
   GridS *pG=(pD->Grid);
+  int myL,myM,myN;
 #ifdef SHEARING_BOX
-  int myL,myM,myN,BCFlag;
+  int BCFlag;
 #endif
 #ifdef MPI_PARALLEL
   int cnt, ierr, mIndex;
@@ -283,6 +287,22 @@ void bvals_fullrad(DomainS *pD)
       (*(pD->ix2_RBCFun))(pG,pRG);
       (*(pD->ox2_RBCFun))(pG,pRG);
     } 
+	  
+
+/*-------------------------------------------*/
+/* Check whether we need to rotate the angles or not */
+/* Only do this if Rotate_flag > 0 && the domain is near the J physical boundary */	  
+	get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+	if((myM == 0) && (Rotate_flag == 1)){
+		Rotate180_ix2_fullrad(pRG);
+	}
+	  
+	if ((myM == ((pD->NGrid[1])-1)) && (Rotate_flag == 1)) {
+		Rotate180_ox2_fullrad(pRG);
+	}
+	  
+/*-------------------------------------------*/
+	  
  
 /* shearing sheet BCs; function defined in problem generator.
  * Enroll outflow BCs if perdiodic BCs NOT selected.  This assumes the root
@@ -418,6 +438,10 @@ void bvals_fullrad_init(MeshS *pM)
 /* Number of words passed in x1/x2/x3-dir. */
   int nang, nf, noct, xcnt;
 #endif /* MPI_PARALLEL */
+	
+	/* Default, no rotation for the angles */
+	/* this flag only works for j boundary flag > 6 */
+	Rotate_flag = 0;
 
 /* Cycle through all the Domains that have active RadGrids on this proc */
 
@@ -551,7 +575,17 @@ void bvals_fullrad_init(MeshS *pM)
 	  case 6:
 	    pD->ix2_RBCFun = vacuum_ix2_fullrad;
 	    break;
-
+			  
+	  case 7:
+		pD->ix2_RBCFun = periodic_ix2_fullrad;
+	    Rotate_flag = 1;
+#ifdef MPI_PARALLEL
+	    if(pRG->lx2_id < 0 && pD->NGrid[1] > 1){
+		  pRG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
+		}
+#endif /* MPI_PARALLEL */
+			  
+	    break;
 	  default:
 	    ath_perr(-1,"[bvals_fullrad_init]:rbc_ix2=%d unknown\n",pM->RBCFlag_ix2);
 	    exit(EXIT_FAILURE);
@@ -590,6 +624,17 @@ void bvals_fullrad_init(MeshS *pM)
 	  case 6:
 	    pD->ox2_RBCFun = vacuum_ox2_fullrad;
 	    break;
+			  
+	  case 7:
+	    pD->ox2_RBCFun = periodic_ox2_fullrad;
+	    Rotate_flag = 1;
+			  
+#ifdef MPI_PARALLEL
+		if(pRG->rx2_id < 0 && pD->NGrid[1] > 1){
+		  pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
+		}
+#endif /* MPI_PARALLEL */
+	  break;
 
 	  default:
 	    ath_perr(-1,"[bvals_fullrad_init]:rbc_ox2=%d unknown\n",pM->RBCFlag_ox2);
@@ -1366,6 +1411,92 @@ for(ifr=0; ifr<nf; ifr++) {
 }
 
 
+
+/*----------------------------------------------------------------------------*/
+/* Rotate PERIODIC boundary conditions (cont), Inner x2 boundary (rbc_ix2=7) */
+/* Angles for specific intensities rotates for 90 degrees  */
+
+static void Rotate180_ix2_fullrad(RadGridS *pRG)
+{
+	int is = pRG->is, ie = pRG->ie;
+	int js = pRG->js;
+	int ks = pRG->ks, ke = pRG->ke;
+	int nang = pRG->nang;
+	int nf = pRG->nf;
+	int i, j, k, n, ifr;
+	Real swap;
+	
+	
+	for(ifr=0; ifr<nf; ifr++) {		
+			for(n=0; n<nang; n++){
+				for(k=ks; k<=ke; k++){
+					for(j=1; j<=Radghost; j++){
+						for(i=is-Radghost; i<=ie+Radghost; i++){
+							/* Swap l = 0 && l =3 */
+							swap = pRG->imu[ifr][0][n][k][js-j][i];
+							pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
+							pRG->imu[ifr][3][n][k][js-j][i] = swap;
+							
+							/* If for 3D */ 
+							if(pRG->noct > 4){
+								swap = pRG->imu[ifr][4][n][k][js-j][i];
+								pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
+								pRG->imu[ifr][7][n][k][js-j][i] = swap;
+							}
+							
+						}/* end i */
+					}/* end J */
+				} /* End k */
+			}/* end nang */ 
+	}/* end ifr */
+	
+	return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* Rotate PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=7) */
+
+static void Rotate180_ox2_fullrad(RadGridS *pRG)
+{
+	
+	int is = pRG->is, ie = pRG->ie;
+	int je = pRG->je;
+	int ks = pRG->ks, ke = pRG->ke;
+	int nang = pRG->nang;
+	int nf = pRG->nf;
+	int i, j, k, n, ifr;
+	Real swap;
+	
+	
+	for(ifr=0; ifr<nf; ifr++) {		
+		for(n=0; n<nang; n++){
+			for(k=ks; k<=ke; k++){
+				for(j=1; j<=Radghost; j++){
+					for(i=is-Radghost; i<=ie+Radghost; i++){
+						/* Swap l = 0 && l =3 */
+						swap = pRG->imu[ifr][0][n][k][je+j][i];
+						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
+						pRG->imu[ifr][3][n][k][je+j][i] = swap;
+						
+						if(pRG->noct > 4){
+							swap = pRG->imu[ifr][4][n][k][je+j][i];
+							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
+							pRG->imu[ifr][7][n][k][je+j][i] = swap;
+						}
+						
+					}/* end i */
+				}/* end J */
+			} /* End k */
+		}/* end nang */ 
+	}/* end ifr */
+
+	
+	
+	return;
+}
+
+
+
 /*---------------------------------------------------------------------------*/
 /* The vacuum boundary conditions means outgoing specifiy intensity is continuous,*/
 /* But incoming specific intensity is zero */
@@ -1380,6 +1511,23 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+#ifdef CYLINDRICAL
+  Real x1, x2, x3, miux, miuy;
+  int ioff, joff, koff;
+  ioff = nghost - Radghost;
+  if(je > js)
+	  joff = ioff;
+  else {
+	  joff = 0;
+  }
+
+  if(ke > ks){
+	koff = ioff;	
+  }else {
+ 	koff = 0;
+  }
+
+#endif
 
   /* set the angle independent values */
 
@@ -1391,12 +1539,26 @@ for(ifr=0; ifr<nf; ifr++) {
         for(k=ks; k<=ke; k++){
      	    for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
+#ifdef CYLINDRICAL
+			miux = pRG->mu[l][n][k][j][is-i][0]; 
+			miuy = pRG->mu[l][n][k][j][is-i][1];
+			cc_pos(pG,is-i+ioff,j+joff,k+koff,&x1,&x2,&x3);
+			convert_angle(x2,miux,miuy,&miux,&miuy);
+			if(miux > 0.0){
+				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;  
+			}else {
+				pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];
+			}
+				
+#else
+			  
 			if((l == 1) || (l == 3) || (l == 5) || (l == 7)){
 				pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];
 			}	
 			else{
 				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;
-			}		
+			}	
+#endif			  
 		/*	This needs to be re-calculated based on local specific intensity */
 		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
 		*/
@@ -1437,6 +1599,23 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+#ifdef CYLINDRICAL
+	Real x1, x2, x3, miux, miuy;
+	int ioff, joff, koff;
+	ioff = nghost - Radghost;
+	if(je > js)
+		joff = ioff;
+	else {
+		joff = 0;
+	}
+	
+	if(ke > ks){
+		koff = ioff;	
+	}else {
+		koff = 0;
+	}
+	
+#endif	
 
   /* set the angle independent values */
 
@@ -1448,12 +1627,26 @@ for(ifr=0; ifr<nf; ifr++) {
         for(k=ks; k<=ke; k++){
      	    for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
+#ifdef CYLINDRICAL
+			  miux = pRG->mu[l][n][k][j][ie+i][0]; 
+			  miuy = pRG->mu[l][n][k][j][ie+i][1];
+			  cc_pos(pG,ie+i+ioff,j+joff,k+koff,&x1,&x2,&x3);
+			  convert_angle(x2,miux,miuy,&miux,&miuy);
+			  if(miux < 0.0){
+				  pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;  
+			  }else {
+				  pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];
+			  }
+			  
+#else			  
 			if((l == 0) || (l == 2) || (l == 4) || (l == 6)){
 				pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];
 			}	
 			else{
 				pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;
-			}		
+			}
+			  
+#endif
 		/*	This needs to be re-calculated based on local specific intensity */
 		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
 		*/

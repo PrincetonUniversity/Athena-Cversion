@@ -23,14 +23,25 @@
 /* calculate the specific intensity at i-1/2 and i+1/2 
    with second-order accurate van Leer slope, Stone & Mihalas (1992)
 */
+/* The r[3] and dir are needed for cylindrical coordinate */
+/* dir label the direction along which the flux is calculated */
+/* r[3] is coordinate center of each cell */
 
-void flux_PLM(const Real dt, const Real ds, const Real vel, Real imu[3], Real imhalf[1])
+void flux_PLM(Real r[3]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[3], Real imhalf[1])
 {
 /* for each ray, we always use the upwind specific intensity , therefore velocity is always positive */
 /* imup[0:2] is i-2, i-1, i*/
 	
 	Real dqi0, delq1, delq2;
 	Real *imup;
+	Real distance;
+#ifdef CYLINDRICAL
+	Real *pr;
+	pr = &(r[2]);
+	Real geom1 = 1.0, geom2 = 1.0; 
+#endif
+	
+	Real geom3 = 1.0, geom4 = 1.0; /* geometric weighting factor */
 
 	imup = &(imu[2]);
 
@@ -38,15 +49,51 @@ void flux_PLM(const Real dt, const Real ds, const Real vel, Real imu[3], Real im
 	/* The upwind slope */
 	delq1 = (imup[0] - imup[-1]) / ds;
 	delq2 = (imup[-1] - imup[-2]) / ds;
+#ifdef CYLINDRICAL
+	/* Only need to apply the weighting factor when we want to calculate 
+	 * flux along radial direction */
+	if(dir == 1){
+		geom1 = 1.0/(1.0 - ds * ds/(12.0 * pr[0] * pr[-1]));
+		geom2 = 1.0/(1.0 - ds * ds/(12.0 * pr[-1] * pr[-2])); 
+
+		delq1 *= geom1;
+		delq2 *= geom2;
+	}
+#endif
+
+
 	if(delq1 * delq2 > 0.0){
 		dqi0 = 2.0 * delq1 * delq2 / (delq1 + delq2);
 	} 
 	else{
 		dqi0 = 0.0;
 	}
+	
+#ifdef CYLINDRICAL
+	/* Take into account the curvature effect for time averaged interface state */
+	/* See eq. 64 of skinner & ostriker 2010 */
+	if(dir == 1){
+		geom3 = 1.0 - ds /(6.0 * pr[-1]);
+		geom4 = 1.0 - vel * dt/(6.0*(0.5 * (pr[-1] + pr[0]) - 0.5 * vel * dt));
+	}
+#endif
+
+	distance = ds * geom3;
+	distance -= ((vel * dt) * geom4);
+
+#ifdef CYLINDRICAL
+	/* Take into account the curvature effect for time averaged interface state */
+	if(dir == 1){
+		
+		if(distance < 0.0){
+			ath_error("[FullRT_flux plm]: CFL condition should be satisfied for volume centered distance %e\n",distance);
+
+		}
+	}
+#endif
 
 	/* The upwind flux */
-	imhalf[0] = imup[-1] + (ds - vel * dt) * (dqi0/2.0);
+	imhalf[0] = imup[-1] + distance * (dqi0/2.0);
 	
 	return;
 }
@@ -57,7 +104,7 @@ void flux_PLM(const Real dt, const Real ds, const Real vel, Real imu[3], Real im
    with third-order accurate Colella & Woodward slope, Stone & Mihalas (1992)
 */
 
-void flux_PPM(const Real dt, const Real ds, const Real vel, Real imu[5], Real imhalf[1])
+void flux_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[5], Real imhalf[1])
 {
 /* for each ray, we always use the upwind specific intensity , therefore velocity is always positive */
 /* imup[0:4] is i-3, i-2, i-1, i, i+1, from downwind to upwind */
@@ -65,9 +112,15 @@ void flux_PPM(const Real dt, const Real ds, const Real vel, Real imu[5], Real im
 	Real xsi;
 	Real imup;
 	int n;
+	
+#ifdef CYLINDRICAL
+	Real a6, gcurve, adiff, radius, radiusi, betacurve;
+	
+#endif
+	
 	/* First, we need to calculate left and right state for zone i and i-1, in order to calculate half state i+1/2 */
 
-	lrstate_PPM(imu, &(iLeft), &(iRight));
+	lrstate_PPM(r, dir, ds, imu, &(iLeft), &(iRight));
 
 	/* iLeft[0] and iRight[0] are for cell i-1 and iLeft[1] and iRight[1] are for cell i */
 
@@ -82,9 +135,32 @@ void flux_PPM(const Real dt, const Real ds, const Real vel, Real imu[5], Real im
 	/*	Itemp = 6.0 * imup[n] - 3.0 * (iLeft[n] + iRight[n]);
 		imhalf[n] = iRight[n] - 0.5 * xsi * ((iRight[n] - iLeft[n]) - (1.0 - 2.0 * xsi/3.0) * Itemp);
 	*/
+		
+#ifdef CYLINDRICAL
+		/* Only need to add the curvature factor along radial direction */
+		/* Following eq. 66a of Skinner & Ostriker 2010 */
+		/* If gcurve and betacurve are all zero, this formula is reduced to the normal one */
+		if(dir == 1){
+			radius = r[n+2];
+			radiusi = 0.5 * (r[n+2] + r[n+3]);
+			adiff = iRight - iLeft;
+			gcurve = ds/(6.0 * radius);
+			a6 = 6.0 * (imup - iLeft - 0.5 * adiff * (1.0 + gcurve));
+			betacurve = vel * dt / (6.0 * (radiusi - 0.5 * vel * dt));
+			imhalf[n] = iRight - 0.5 * xsi * (adiff - (1.0 - 2.0 * xsi / 3.0) * a6)
+						+ 0.5 * xsi * (adiff - (1.0 - xsi) * a6) * betacurve;
+			
+		}else {
+			imhalf[n] = (xsi - 1.0) * (xsi - 1.0) * iRight + xsi * (xsi - 1.0) * iLeft + xsi * (3.0 - 2.0 * xsi) * imup;
+		}
+
+
+		
+#else		
 		imhalf[n] = (xsi - 1.0) * (xsi - 1.0) * iRight + xsi * (xsi - 1.0) * iLeft + xsi * (3.0 - 2.0 * xsi) * imup;
-	
-	 }	
+#endif
+		
+	 }/* end n=0 and 1 */	
 
 	return;
 }
@@ -92,7 +168,9 @@ void flux_PPM(const Real dt, const Real ds, const Real vel, Real imu[5], Real im
 	/* Get left and right state with PPM for cell i, and i-1 */
 	/* We need both left and right state */
 	/* This assume uniform spacing */
-void lrstate_PPM(Real imu[5], Real iLeft[1], Real iRight[1])
+	/* pG and dir are needed for cylindrical coordinate cases */
+	/* dir is the direction along which the flux is calculated */
+void lrstate_PPM2(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
 {
 	/* imu[0:4] i-3, i-2, i-1, i, i+1 */
 	Real Ihalf0, Ihalf1, lim_slope, IL, IR;
@@ -119,7 +197,7 @@ void lrstate_PPM(Real imu[5], Real iLeft[1], Real iRight[1])
 	dIc = 3.0 * (I02 - 2.0 * Ihalf0 + I01);
 	dIl = (I03 - 2.0 * I02 + I01);
 	dIr = (I02 - 2.0 * I01 + I0);
-	dIlim = 0.0; 
+	dIlim = 0.0;  
 
 	lim_slope = MIN(fabs(dIl),fabs(dIr));
 		
@@ -315,46 +393,230 @@ void lrstate_PPM(Real imu[5], Real iLeft[1], Real iRight[1])
 	
 }
 
-void flux_AdvJ(Real *tempJ, Real *tempV, int nstart,int nend,Real ds, Real dt, Real *tempAdv)
+/* Try a new ppm scheme adopted from lr_state_ppm */
+void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
+{
+	/* imu[0:4] i-3, i-2, i-1, i, i+1 */
+	Real Ihalf0, Ihalf1, IL, IR;
+	Real I03, I02, I01, I0, I1;
+	Real qa, qb, qc, dI, dIc, dIl, dIr, dIlim;
+#ifdef CYLINDRICAL
+	Real *pr;
+	pr = &(r[3]);
+#endif
+	Real gcurve = 0.0;
+	
+	
+	/* Do not use pointer, save variables */
+	I03 = imu[0]; I02 = imu[1]; I01 = imu[2]; I0 = imu[3]; I1 = imu[4];
+	
+	/* First, calculate the left state between i-2 and i-1 */
+	/* We need gradient for cell i-2 and i-1 */
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		dIl = (pr[-2] * I02 - pr[-3] * I03) / (0.5 * (pr[-2] + pr[-3]));
+		dIr = (pr[-1] * I01 - pr[-2] * I02) / (0.5 * (pr[-1] + pr[-2]));		
+	}
+	else
+#endif
+	{	
+		dIl = I02 - I03;
+		dIr = I01 - I02;
+	}
+	
+	if(dIl * dIr > 0.0)
+		dIlim = 2.0 * dIl * dIr/(dIl + dIr);
+	else {
+		dIlim = 0.0;
+	}
+	
+	/*--------------------*/
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		dIl = (pr[-1] * I01 - pr[-2] * I02) / (0.5 * (pr[-1] + pr[-2]));
+		dIr = (pr[0] * I0 - pr[-1] * I01) / (0.5 * (pr[0] + pr[-1]));		
+	}
+	else
+#endif	
+	{	
+		dIl = I01 - I02;
+		dIr = I0 - I01;
+	}
+	
+	if(dIl * dIr > 0.0)
+		dI = 2.0 * dIl * dIr/(dIl + dIr);
+	else {
+		dI = 0.0;
+	}
+
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		Ihalf0 = (0.5 * (I01 * pr[-1] + I02 * pr[-2]) - (dI * pr[-1] - dIlim * pr[-2])/6.0)/(0.5*(pr[-1]+pr[-2]));
+	}
+	else
+#endif
+	{
+		Ihalf0 = 0.5 * (I01 + I02) - (dI - dIlim)/6.0;
+	
+	}
+	/*-------------------------------------------------*/
+	/* Second, calculate the Right state between i and i-1 */
+	/* We need gradient for cell i and i-1 */
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		dIl = (pr[-1] * I01 - pr[-2] * I02) / (0.5 * (pr[-1] + pr[-2]));
+		dIr = (pr[0] * I0 - pr[-1] * I01) / (0.5 * (pr[0] + pr[-1]));		
+	}
+	else
+#endif
+	{
+		dIl = I01 - I02;
+		dIr = I0 - I01;
+	}
+	
+	
+	if(dIl * dIr > 0.0)
+		dIlim = 2.0 * dIl * dIr/(dIl + dIr);
+	else {
+		dIlim = 0.0;
+	}
+	
+	
+	/*-------------------*/
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		dIl = (pr[0] * I0 - pr[-1] * I01) / (0.5 * (pr[0] + pr[-1]));
+		dIr = (pr[1] * I1 - pr[0] * I0) / (0.5 * (pr[1] + pr[0]));		
+	}
+	else
+#endif
+	{
+		dIl = I0 - I01;
+		dIr = I1 - I0;
+	}
+		
+	if(dIl * dIr > 0.0)
+		dI = 2.0 * dIl * dIr/(dIl + dIr);
+	else {
+		dI = 0.0;
+	}
+	
+	
+	
+#ifdef CYLINDRICAL
+	if(dir == 1){
+		Ihalf1 = (0.5 * (I0 * pr[0] + I01 * pr[-1]) - (dI * pr[0] - dIlim * pr[-1])/6.0)/(0.5*(pr[0]+pr[-1]));
+	}
+	else
+#endif
+	{
+		Ihalf1 = 0.5 * (I0 + I01) - (dI - dIlim)/6.0;
+	}
+	
+	
+	/*================================================*/
+	 /* Now make monotonic contrain */
+	
+	
+	 IL = Ihalf0;
+	 IR = Ihalf1;
+	
+#ifdef CYLINDRICAL
+    if (dir == 1) gcurve = ds/(6.0*pr[-1]);
+#endif
+	
+	
+	 qa = (IR - I01) * (I01 - IL);
+	 qb = IR - IL;
+	 qc = 6.0 * (I01 - 0.5 * (IL * (1.0 - gcurve) + IR * (1.0 + gcurve)));
+	
+	 if(qa <= 0.0){
+		IL = I01;
+		IR = I01;
+	 }else if((qb * qc) > (qb * qb)){
+		IL = (6.0 * I01 - IR * (4.0 + 3.0 * gcurve))/(2.0 - 3.0 * gcurve);
+	 } else if ((qb * qc) < -(qb * qb)){
+		IR = (6.0 * I01 - IL * (4.0 - 3.0 * gcurve))/(2.0 + 3.0 * gcurve);
+	 }
+	
+	 IL = MAX(MIN(I01,I02),IL);
+	 IL = MIN(MAX(I01,I02),IL);
+	
+	 IR = MAX(MIN(I01,I0),IR);
+	 IR = MIN(MAX(I01,I0),IR);
+	
+	 /* Now set left and right state */
+	 iLeft[0] = IL;
+	 iRight[0] = IR;
+	
+	
+
+}
+
+/* This function is used to calculate the interface value, for the case the direction 
+ * of velocity is uncertain. So we need to determine the upwind direction first. 
+ * The returned value is the interface only */
+
+void flux_AdvJ(Real *r  __attribute__((unused)), const int dir __attribute__((unused)), Real *tempJ, Real *tempV, int nstart,int nend,Real ds, Real dt, Real *tempAdv)
 {
 	int i, j;
 	Real vel, meanJ, dtods;
 	Real Jarray[5];
+	Real tempr[5];
 	dtods = dt/ds;
 
 	for(i=nstart; i<=nend; i++){
 		vel = 0.5 * (tempV[i-1] + tempV[i]);
 		if(vel > 0.0){
-#ifdef SECOND_ORDER_PRIM
-			for(j=0; j<3; j++)
+#if defined(SECOND_ORDER_PRIM) || defined(SECOND_ORDER_CHAR)
+			for(j=0; j<3; j++){
 				Jarray[j] = tempJ[i-2+j];
+#ifdef CYLINDRICAL
+				tempr[j] = r[i-2+j];
+#endif
+			}
 			
-			flux_PLM(dt, ds, vel, Jarray, &(meanJ));	
+			flux_PLM(tempr, dir, dt, ds, vel, Jarray, &(meanJ));	
 #else
 
-			for(j=0; j<5; j++)
+			for(j=0; j<5; j++){
 				Jarray[j] = tempJ[i-3+j];
+#ifdef CYLINDRICAL
+				tempr[j] = r[i-3+j];
+#endif
 
-			flux_PPM(dt, ds, vel, Jarray, &(meanJ)); 
+			}
+
+			flux_PPM(tempr, dir, dt, ds, vel, Jarray, &(meanJ)); 
 
 #endif
 		}/* End if vel >0 */
 		else{
-#ifdef SECOND_ORDER_PRIM
-			for(j=0; j<3; j++)
+#if defined(SECOND_ORDER_PRIM) || defined(SECOND_ORDER_CHAR)
+			for(j=0; j<3; j++){
 				Jarray[j] = tempJ[i+1-j];
+#ifdef CYLINDRICAL
+				tempr[j] = r[i+1-j];
+#endif				
+
+			}
 			
-			flux_PLM(dt, ds, -vel, Jarray, &(meanJ));
+			flux_PLM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
 #else
 
-			for(j=0; j<5; j++)
+			for(j=0; j<5; j++){
 				Jarray[j] = tempJ[i+2-j];
+#ifdef CYLINDRICAL
+				tempr[j] = r[i+2-j];
+#endif
 
-			flux_PPM(dt, ds, -vel, Jarray, &(meanJ));
+			}
+
+			flux_PPM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
 
 #endif
 		}
-		tempAdv[i] = vel * meanJ * dtods;
+		tempAdv[i] = meanJ;
 	}/* end i */
 
 }

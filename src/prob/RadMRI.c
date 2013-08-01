@@ -124,7 +124,7 @@ static Real dz = 0.0; /* cell size along z direction */
 static void Thindiskopacity(const PrimS *pW, Real Sigma[NOPACITY], Real dSigma[4]);
 #endif
 #ifndef SHEARING_BOX
-static Real Omega_0 = 4.749736;
+static Real Omega_0 = 4.704954;
 static Real qshear = 1.5;
 #endif
 
@@ -161,7 +161,7 @@ static Real inidata[3];
 /* Save the initial Er, Fr and rho at ke */
 
 static Real Tfloor = 0.03;
-static Real dfloor = 5.e-6;
+static Real dfloor = 1.e-6;
 
 
 
@@ -341,20 +341,19 @@ void problem(DomainS *pDomain)
 #endif
 
 	betaz=0.0;
-	betay=3.0;
+	betay=10.0;
 	pres = 1.0;
 
   	B0z = 0.0;
   	B0y = sqrt((double)(2.0*pres/betay));
-	B0y = 0.9988;
 	B0 = sqrt(B0z * B0z + B0y * B0y);	
 
-	kappaes = 2.719701e4;
-        kappaffP = 182.926;
-        kappaffR = 4.94395;
+	kappaes = 2.503311e4;
+        kappaffP = 164.786;
+        kappaffR = 4.45368;
 
 	/* Initialize temperature unit */
-	T0= 2.63375e7;
+	T0= 2.408128e7;
 
 
 /* Ensure a different initial random seed for each process in an MPI calc. */

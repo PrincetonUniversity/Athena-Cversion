@@ -39,13 +39,14 @@ void ReduceVelocity(const Real sigma, const Real ds, Real *alpha);
 void SpecialMatrix(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real *UN, const int N);
 void SpecialMatrix2(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real *UN, const int N);
 void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS, Real **lN,  Real **UN, const int N);
+void convert_angle(const Real x2, const Real miux0, const Real miuy0, Real *miux, Real *miuy);
 /* FullRT_flux.c */
 
 /* piece linear flux */
-void flux_PLM(const Real dt, const Real ds, const Real vel, Real imu[3], Real imhalf[1]);
-void flux_PPM(const Real dt, const Real ds, const Real vel, Real imu[5], Real imhalf[1]);
-void lrstate_PPM(Real imu[5], Real iLeft[1], Real iRight[1]);
-void flux_AdvJ(Real *tempJ, Real *tempV, int nstart, int nend, Real ds, Real dt, Real *tempAdv);
+void flux_PLM(Real r[3]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[3], Real imhalf[1]);
+void flux_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[5], Real imhalf[1]);
+void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1]);
+void flux_AdvJ(Real r[3]  __attribute__((unused)), const int dir __attribute__((unused)), Real *tempJ, Real *tempV, int nstart, int nend, Real ds, Real dt, Real *tempAdv);
 
 int permutation(int i, int j, int k, int **pl, int np);
 

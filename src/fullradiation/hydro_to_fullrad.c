@@ -43,7 +43,10 @@ void hydro_to_fullrad(DomainS *pD)
   int nang = pRG->nang, noct = pRG->noct, l, n;
   Real d, etherm, Tgas, Tnew, J0, AngleV, Jsource;
   Real Sigma[4];
- 
+  Real mu[3];
+#ifdef CYLINDRICAL
+  Real x1, x2, x3;
+#endif
 
 /* Assumes ghost zone conserved variables have been set by
  * bvals routines.  These values are used to set B, chi, eps,
@@ -143,8 +146,17 @@ void hydro_to_fullrad(DomainS *pD)
 			ig = i + ioff;
 
 			/* calculate AngleV */
-			AngleV = (pG->U[kg][jg][ig].M1 * pRG->mu[l][n][k][j][i][0] + pG->U[kg][jg][ig].M2 * pRG->mu[l][n][k][j][i][1] 
-				+ pG->U[kg][jg][ig].M3 * pRG->mu[l][n][k][j][i][2])/pG->U[kg][jg][ig].d;			
+			for(m=0; m<3; m++)
+				mu[m] = pRG->mu[l][n][k][j][i][0];
+
+#ifdef CYLINDRICAL
+			cc_pos(pG,ig,jg,kg,&x1,&x2,&x3);
+			convert_angle(x2,mu[0],mu[1],&mu[0],&mu[1]);
+#endif
+
+
+
+			AngleV = (pG->U[kg][jg][ig].M1 * mu[0] + pG->U[kg][jg][ig].M2 * mu[1] + pG->U[kg][jg][ig].M3 * mu[2])/pG->U[kg][jg][ig].d;			
 
 			 /* Now add the term 3n\dot vsigma (T^4/4pi - J) */
                         if(Prat > TINY_NUMBER)

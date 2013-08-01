@@ -3315,6 +3315,22 @@ void integrate_3d_ctu(DomainS *pD)
     }
   }
 #endif /* BAROTROPIC */
+	
+/* Add radiation momentum and energy source terms */
+
+#ifdef FULL_RADIATION_TRANSFER
+	for (k=ks; k<=ke; k++) {
+		for (j=js; j<=je; j++) {
+			for (i=is; i<=ie; i++) {
+				pG->U[k][j][i].M1 += pG->dt * pG->Frsource[k][j][i][0];
+				pG->U[k][j][i].M2 += pG->dt * pG->Frsource[k][j][i][1];
+				pG->U[k][j][i].M3 += pG->dt * pG->Frsource[k][j][i][2];
+				pG->U[k][j][i].E += pG->Radheat[k][j][i];
+			}/* end i */
+		}/* end j */
+	}
+	
+#endif
 
 /*--- Step 11d -----------------------------------------------------------------
  * Add source terms for particle feedback

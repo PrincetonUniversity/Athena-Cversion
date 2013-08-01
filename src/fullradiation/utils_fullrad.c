@@ -24,6 +24,9 @@ void UpdateRT(DomainS *pD){
   RadGridS *pRG=(pD->RadGrid);
   GridS *pG = (pD->Grid);
   int i,j,k ,ifr, l, n, m;
+#ifdef CYLINDRICAL
+  Real x1, x2, x3;
+#endif
 
   int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
   int jl = pRG->js, ju = pRG->je;
@@ -88,6 +91,13 @@ for(ifr=0; ifr<pRG->nf; ifr++){
 					wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
 					for(m=0; m<3; m++)
 						mu[m] = pRG->mu[l][n][k][j][i][m];
+
+					/* For cylindrical coordinate, we nned to convert the angle */
+#ifdef CYLINDRICAL
+					cc_pos(pG,i+ioff,j+joff,k+koff,&x1,&x2,&x3);
+					convert_angle(x2,mu[0],mu[1],&mu[0],&mu[1]);
+#endif
+
 					/* for energy density */
 					pRG->R[ifr][k][j][i].J += wimu;
 	
@@ -819,6 +829,21 @@ void ReduceVelocity(const Real sigma, const Real ds, Real *alpha)
 
 }
 
+/* Convert the cosphi values from the global cartesian coordinate to the local cylindrical coordinate */
+/* cosphi0 = miux0, sinphi0 = miuy0 
+ * miux = cos(phi0 - x2), miuy = sin(phi0-x2)
+ */
+void convert_angle(const Real x2, const Real miux0, const Real miuy0, Real *miux, Real *miuy)
+{
+	Real cosphi, sinphi;
+	cosphi = cos(x2);
+	sinphi = sin(x2);
+	
+	*miux = cosphi * miux0 + sinphi * miuy0;
+	*miuy = cosphi * miuy0 - sinphi * miux0;
+
+
+}
 
 
 #endif /* RADIATION_TRANSFER */

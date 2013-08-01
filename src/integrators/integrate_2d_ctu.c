@@ -319,7 +319,8 @@ void integrate_2d_ctu(DomainS *pD)
         Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
       }
     }
-#endif /* BAROTROPIC */
+#endif /* BAROTROPIC */	  
+	  
 
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
@@ -1786,7 +1787,21 @@ void integrate_2d_ctu(DomainS *pD)
     }
   }
 #endif /* BAROTROPIC */
-
+	
+/* Add radiation source term for full time step */
+#ifdef FULL_RADIATION_TRANSFER
+	for (j=js; j<=je; j++) {
+		for (i=is; i<=ie; i++) {
+			pG->U[ks][j][i].M1 += pG->dt * pG->Frsource[ks][j][i][0];
+			pG->U[ks][j][i].M2 += pG->dt * pG->Frsource[ks][j][i][1];
+			pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
+		}/* end i */
+	}/* end j */
+	
+#endif
+	
+	
+	
 /*--- Step 11d -----------------------------------------------------------------
  * Add source terms for particle feedback
  */

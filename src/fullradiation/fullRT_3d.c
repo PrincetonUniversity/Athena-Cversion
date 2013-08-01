@@ -23,6 +23,7 @@
 static Real ******Divi = NULL;	/* temporary array to store flux for each array */
 static Real *flux = NULL;
 static Real *fluxsource3 = NULL;
+static Real *tempV3V = NULL; /* The advection velocity for source 3 */
 static Real *tempimu = NULL;
 static Real *vsource1 = NULL;
 static Real *vsource2 = NULL;
@@ -66,6 +67,12 @@ void fullRT_3d(DomainS *pD)
 
 	RadGridS *pRG=(pD->RadGrid);
 	GridS *pG=  pD->Grid;
+#ifdef CYLINDRICAL
+	const Real *r=pG->r, *ri=pG->ri;
+#endif
+	Real *Radr;
+	int dir;
+
 	Real dt = pG->dt;
 	int i, is, ie;
 	int j, js, je;
@@ -78,8 +85,11 @@ void fullRT_3d(DomainS *pD)
 	int offset;
 	
 	offset = nghost - Radghost;
+#ifdef CYLINDRICAL
+	Radr = (Real*)&(r[offset]);
+#endif
 	
-	Real dx1, dx2, dx3, ds, alpha, sigma;
+	Real dx1, dx2, dx3, ds, alpha, sigma, dtods;
 	dx1 = pRG->dx1;
 	dx2 = pRG->dx2;
 	dx3 = pRG->dx3;
@@ -87,6 +97,14 @@ void fullRT_3d(DomainS *pD)
 	Real imu[5];
 	Real vel, velsource3;
 	Real sigmas, sigmaa, AngleV, AngleV2, vx, vy, vz, miux, miuy, miuz;
+#ifdef CYLINDRICAL
+	Real x1, x2, x3;
+	/* the direction cosin with respect to the vertical direction does not change */
+#endif
+	Real rsf, lsf;
+	rsf = 1.0;
+	lsf = 1.0;
+	
 	
 	
 	
@@ -96,6 +114,8 @@ void fullRT_3d(DomainS *pD)
 
 				/* Now calculate the x flux */
 				ds = dx1;
+				dtods = dt/ds;
+				dir = 1;
 				for(k=ks; k<=ke; k++){	
 					for(j=js; j<=je; j++){
 						
@@ -108,6 +128,13 @@ void fullRT_3d(DomainS *pD)
 							miux = pRG->mu[l][n][k][j][i][0]; 
 							miuy = pRG->mu[l][n][k][j][i][1];
 							miuz = pRG->mu[l][n][k][j][i][2];
+#ifdef CYLINDRICAL						
+							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
+							convert_angle(x2,miux,miuy,&miux,&miuy);	
+							
+#endif								
+							
+							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
@@ -124,129 +151,60 @@ void fullRT_3d(DomainS *pD)
 								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
 								tempS[i] = miux * miux * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
 								tempSV[i] = vx + miuy * vy/miux + miuz * vz/miux;
+								tempV3V[i] = miux;
 							}else{
 								vsource1[i] = 0.0;
 								vsource2[i] = 0.0;
 								vsource3[i] = 0.0;
 								tempS[i] = 0.0;
 								tempSV[i] = 0.0;
+								tempV3V[i] = 0.0;
 								
 							}
-							tempimu[i] = pRG->mu[l][n][k][j][i][0] * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[i] + vsource2[i] + vsource3[i])/Crat);
-							ReduceVelocity(sigmaa+sigmas, dx1, &alpha);	
-							tempV[i] = Crat * alpha;		
+							tempimu[i] = miux * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[i] + vsource2[i] + vsource3[i])/Crat);
+							ReduceVelocity(sigmaa+sigmas, ds, &alpha);	
+							tempV[i] = Crat * alpha * SIGN(miux);		
 						}
 						
+						
 						/* first, calculate the advection part v(3J+I) */
-						flux_AdvJ(tempS, tempSV, is, ie+1, dx1, dt, tempAdv);
-						for(i=is; i<=ie; i++)
-							Divi[ifr][l][n][k][j][i] = (tempAdv[i+1] - tempAdv[i]);
-					
+						flux_AdvJ(Radr, dir, tempS,	tempSV,	is, ie+1, ds, dt, tempAdv);
+						/* second, calculate the flux due to vsource3 */
+						flux_AdvJ(Radr, dir, vsource3, tempV3V,	is, ie+1, ds, dt, fluxsource3);
+						/* Third, calculate flux due to co-moving miu */
+						flux_AdvJ(Radr, dir, tempimu,	tempV,	is, ie+1, ds, dt, flux);
 						
-						
-						if((l == 0) || (l == 2) || (l == 4) || (l == 6)){
-							for(i=is; i<=ie+1; i++){
-								/* This is only true for constant angle */
-								/* Need to consider when advection with non-uniform velocity */
-								vel = 0.5 * (tempV[i-1]+tempV[i]);
-								velsource3 = 0.5 * (pRG->mu[l][n][k][j][i-1][0] + pRG->mu[l][n][k][j][i][0]);
-
-								
-								/* From small i to large i */
-#ifdef SECOND_ORDER_PRIM
-								for(m=0; m<3; m++)
-									imu[m] = pRG->imu[ifr][l][n][k][j][i-2+m] * pRG->mu[l][n][k][j][i-2+m][0];
-
+						/* Now save the flux difference. Note that flux_advJ only calculates the interface values, not the actual flux */
+						for(i=is; i<=ie; i++){
+#ifdef CYLINDRICAL
+							rsf = ri[i+1+offset]/r[i+offset];  lsf = ri[i+offset]/r[i+offset];		
+#endif						
 							
-
-								flux_PLM(dt, ds, vel, imu, &(flux[i]));	
-								
-								/* Now calculate flux due to vsource3 */
-								for(m=0; m<3; m++){
-									imu[m] = vsource3[i-2+m];
-								}
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[i]));
-#else							/*------------------------------------------------------------------*/
-								for(m=0; m<5; m++)
-									imu[m] = pRG->imu[ifr][l][n][k][j][i-3+m] * pRG->mu[l][n][k][j][i-3+m][0];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[i]));
-								
-								/* flux due to vsource3 */
-								for(m=0; m<5; m++){
-									imu[m] = vsource3[i-3+m];
-									
-								}
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[i]));
-																
-#endif					
-								
-								/* multiple flux with velocity and dtods */
-								fluxsource3[i] *= (velsource3 * dt/dx1);
-													
-
-							}/* end i */		
-						}/* end l==0, 2, 4, 6*/
-						else{
-							for(i=is-1; i<=ie; i++){
-								/* From large i to small i */
-								vel = 0.5 * (tempV[i]+tempV[i+1]);
-								velsource3 = 0.5 * (pRG->mu[l][n][k][j][i+1][0] + pRG->mu[l][n][k][j][i][0]);
-								
-#ifdef SECOND_ORDER_PRIM
-								for(m=2; m>=0; m--)
-									imu[m] = pRG->imu[ifr][l][n][k][j][i+2-m] * pRG->mu[l][n][k][j][i+2-m][0];
-
-								flux_PLM(dt, ds, vel, imu, &(flux[i+1]));	
-								
-								/* flux due to vsource3 */
-								for(m=2; m>=0; m--){
-									imu[m] = vsource3[i+2-m];
-								}
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[i+1]));
-								
-
-#else							/*------------------------------------------------------------------*/
-
-								for(m=4; m>=0; m--)
-									imu[m] = pRG->imu[ifr][l][n][k][j][i+3-m] * pRG->mu[l][n][k][j][i+3-m][0];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[i+1]));
-								
-								
-								/* flux due to vsource3 */
-								
-								for(m=4; m>=0; m--){
-									imu[m] = vsource3[i+3-m];
-									
-								}
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[i+1]));
-#endif	
-								
-								fluxsource3[i+1] *= (velsource3 * dt/dx1);
-
-							} /* end i */
-						}/* end l == 1, 3, 5, 7 */
-	
-		/* Now save the flux difference */
-				
-			   			for(i=is; i<=ie; i++){
-							Divi[ifr][l][n][k][j][i] =  (Crat * dt * (flux[i+1] - flux[i]) /(dx1)
-												+ (fluxsource3[i+1] - fluxsource3[i]));	
-		   				}/* end i */
+							Divi[ifr][l][n][k][j][i] = 0.5 * (rsf * (tempSV[i+1]+tempSV[i]) * tempAdv[i+1] - lsf * (tempSV[i] + tempSV[i-1]) * tempAdv[i]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= 0.5 * (rsf * (tempV3V[i+1]+tempV3V[i]) * fluxsource3[i+1] - lsf * (tempV3V[i] + tempV3V[i-1]) * fluxsource3[i]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= Crat * (rsf * flux[i+1] - lsf * flux[i]) * dtods;
+							
+						}/* End i */
+						
+					
 					}/* End j */
 				}/* End k */
 
 				/*---------------------------------------------------------------------*/
 
-				ds = dx2;
+				
 			/* Now calculate the flux along j direction */
+				dir = 2;
 				for(k=ks; k<=ke; k++){
 					for(i=is; i<=ie; i++){
+						ds = dx2;
+#ifdef CYLINDRICAL
+						/* The scale factor r[i] is the same for each i, for different angles j */
+						ds *= r[i+offset];
+#endif
+						
+						dtods = dt/ds;						
+						
 						/* first save the data */
 						for(j=0; j<=je+Radghost; j++){
 							/* First, prepare the array */
@@ -256,6 +214,12 @@ void fullRT_3d(DomainS *pD)
 							miux = pRG->mu[l][n][k][j][i][0];
 							miuy = pRG->mu[l][n][k][j][i][1];
 							miuz = pRG->mu[l][n][k][j][i][2];
+#ifdef CYLINDRICAL						
+							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
+							convert_angle(x2,miux,miuy,&miux,&miuy);						
+							
+#endif						
+							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
@@ -268,111 +232,41 @@ void fullRT_3d(DomainS *pD)
 								vsource1[j] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
 								vsource2[j] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
 								vsource3[j] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1]
-															   + vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
+									+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
 								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
 								tempS[j] = miuy * miuy * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
 								tempSV[j] = miux * vx/miuy + vy + miuz * vz/miuy;
+								tempV3V[j] = miuy;
 							}else{
 								vsource1[j] = 0.0;
 								vsource2[j] = 0.0;
 								vsource3[j] = 0.0;
 								tempS[j] = 0.0;
 								tempSV[j] = 0.0;
+								tempV3V[j] = 0.0;
 								
 							}
-							tempimu[j] = pRG->mu[l][n][k][j][i][1] * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[j] + vsource2[j] + vsource3[j])/Crat);
-							ReduceVelocity(sigmaa+sigmas, dx2, &alpha);
-							tempV[j] = Crat * alpha;
-						}
+							tempimu[j] = miuy * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[j] + vsource2[j] + vsource3[j])/Crat);
+							ReduceVelocity(sigmaa+sigmas, ds, &alpha);
+							tempV[j] = Crat * alpha * SIGN(miuy);
+						}/* End j */				
+						
+						
 						
 						/* first, calculate the advection part v(3J+I) */
-						flux_AdvJ(tempS, tempSV, js, je+1, dx2, dt, tempAdv);
-						for(j=js; j<=je; j++)
-							Divi[ifr][l][n][k][j][i] += (tempAdv[j+1] - tempAdv[j]);
+						flux_AdvJ(Radr, dir, tempS, tempSV,	js, je+1, ds, dt, tempAdv);
+						/* second, calculate the flux due to vsource3 */
+						flux_AdvJ(Radr, dir, vsource3, tempV3V,	js, je+1, ds, dt, fluxsource3);
+						/* Third, calculate flux due to co-moving miu */
+						flux_AdvJ(Radr, dir, tempimu,	tempV,	js, je+1, ds, dt, flux);
 						
-
-						if((l == 0) || (l == 1) || (l == 4) || (l == 5)){
-							for(j=js; j<=je+1; j++){
-								vel = 0.5 * (tempV[j-1]+tempV[j]);
-								velsource3 = 0.5 * (pRG->mu[l][n][k][j-1][i][1] + pRG->mu[l][n][k][j][i][1]);
-
+						/* Now save the flux difference. Note that flux_advJ only calculates the interface values, not the actual flux */
+						for(j=js; j<=je; j++){
+							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempSV[j+1]+tempSV[j])	* tempAdv[j+1] - (tempSV[j] + tempSV[j-1]) * tempAdv[j]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempV3V[j+1]+tempV3V[j]) * fluxsource3[j+1] - (tempV3V[j] + tempV3V[j-1]) * fluxsource3[j]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= Crat * (flux[j+1] - flux[j]) * dtods;						
+						}/* End j */	
 						
-#ifdef SECOND_ORDER_PRIM
-								for(m=0; m<3; m++)
-									imu[m] = tempimu[j-2+m];
-							
-								flux_PLM(dt, ds, vel, imu, &(flux[j]));	
-								
-								/* Now calculate flux due to vsource3 */
-								for(m=0; m<3; m++){
-									imu[m] = vsource3[j-2+m];
-								}
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[j]));
-								
-#else
-								for(m=0; m<5; m++)
-									imu[m] = tempimu[j-3+m];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[j]));
-								
-								
-								/* flux due to vsource3 */
-								for(m=0; m<5; m++){
-									imu[m] = vsource3[j-3+m];
-								}
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[j]));
-								
-#endif		
-								
-								fluxsource3[j] *= (velsource3 * dt/dx2);
-
-							}/* end j */
-						}/* end l ==0, 1, 4, 5, */
-						else{
-							for(j=js-1; j<=je; j++){
-								vel = 0.5 * (tempV[j]+tempV[j+1]);
-								velsource3 = 0.5 * (pRG->mu[l][n][ks][j+1][i][1] + pRG->mu[l][n][ks][j][i][1]);
-
-#ifdef SECOND_ORDER_PRIM
-								for(m=2; m>=0; m--)
-									imu[m] = tempimu[j+2-m];
-			
-								flux_PLM(dt, ds, vel, imu, &(flux[j+1]));	
-								
-								/*-----------------------------------*/
-								for(m=2; m>=0; m--)
-									imu[m] = vsource3[j+2-m];
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[j+1]));
-								
-#else
-								for(m=4; m>=0; m--)
-									imu[m] = tempimu[j+3-m];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[j+1]));
-								
-								/*----------------------------------------*/
-								for(m=4; m>=0; m--)
-									imu[m] = vsource3[j+3-m];
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[j+1]));
-								
-								
-#endif					
-								fluxsource3[j+1] *= (velsource3 * dt/dx2);
-								
-							} /* end j */				
-						}/* end l == 2, 3, 6, 7 */				
-						
-		/* Now save the flux difference */
-		
-		
-		   				for(j=js; j<=je; j++){
-							Divi[ifr][l][n][k][j][i] += (Crat * dt * (flux[j+1] - flux[j]) /(dx2)
-													+ (fluxsource3[j+1] - fluxsource3[j]));
-						} /* end j */
 					} /* Finish i */
 				}/* Finish k */
 
@@ -381,7 +275,8 @@ void fullRT_3d(DomainS *pD)
 
 				/* Now calculate the flux along x3 direction */
 				ds = dx3;
-
+				dtods = dt/ds;
+				dir = 3;
 				for(j=js; j<=je; j++){
 					for(i=is; i<=ie; i++){
 						/* first save the data */
@@ -393,6 +288,12 @@ void fullRT_3d(DomainS *pD)
 							miux = pRG->mu[l][n][k][j][i][0];
 							miuy = pRG->mu[l][n][k][j][i][1];
 							miuz = pRG->mu[l][n][k][j][i][2];
+#ifdef CYLINDRICAL						
+							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
+						 	convert_angle(x2,miux,miuy,&miux,&miuy);						
+							
+#endif	
+							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
@@ -405,107 +306,39 @@ void fullRT_3d(DomainS *pD)
 								vsource1[k] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
 								vsource2[k] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
 								vsource3[k] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1]
-															   + vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
+									+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
 								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
 								tempS[k] = miuz * miuz * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
 								tempSV[k] = miux * vx/miuz + miuy * vy/miuz  + vz;
+								tempV3V[k] = miuz;
 							}else{
 								vsource1[k] = 0.0;
 								vsource2[k] = 0.0;
 								vsource3[k] = 0.0;
 								tempS[k] = 0.0;
 								tempSV[k] = 0.0;
+								tempV3V[k] = 0.0;
 								
 							}
-							tempimu[k] = pRG->mu[l][n][k][j][i][2] * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[k] + vsource2[k] + vsource3[k])/Crat);
-							ReduceVelocity(sigmaa+sigmas, dx3, &alpha);
-							tempV[k] = Crat * alpha;
-						}
+							tempimu[k] = miuz * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[k] + vsource2[k] + vsource3[k])/Crat);
+							ReduceVelocity(sigmaa+sigmas, ds, &alpha);
+							tempV[k] = Crat * alpha * SIGN(miuz);
+						}/* End k */
 						
 						/* first, calculate the advection part v(3J+I) */
-						flux_AdvJ(tempS, tempSV, ks, ke+1, dx3, dt, tempAdv);
-						for(k=ks; k<=ke; k++)
-							Divi[ifr][l][n][k][j][i] += (tempAdv[k+1] - tempAdv[k]);
+						flux_AdvJ(Radr, dir, tempS,	tempSV,	ks, ke+1, ds, dt, tempAdv);
+						/* second, calculate the flux due to vsource3 */
+						flux_AdvJ(Radr, dir, vsource3, tempV3V,	ks, ke+1, ds, dt, fluxsource3);
+						/* Third, calculate flux due to co-moving miu */
+						flux_AdvJ(Radr, dir, tempimu,	tempV,	ks, ke+1, ds, dt, flux);
 						
-					
-						if((l == 0) || (l == 1) || (l == 2) || (l == 3)){
-							for(k=ks; k<=ke+1; k++){
-								vel = 0.5 * (tempV[k-1]+tempV[k]);
-								velsource3 = 0.5 * (pRG->mu[l][n][k-1][j][i][2] + pRG->mu[l][n][k][j][i][2]);
-						
-#ifdef SECOND_ORDER_PRIM
-								for(m=0; m<3; m++)
-									imu[m] = tempimu[k-2+m];
-							
-								flux_PLM(dt, ds, vel, imu, &(flux[k]));	
-								
-								/* Now calculate flux due to vsource3 */
-								for(m=0; m<3; m++){
-									imu[m] = vsource3[k-2+m];
-								}
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[k]));
-#else
-								for(m=0; m<5; m++)
-									imu[m] = tempimu[k-3+m];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[k]));
-								
-								/* flux due to vsource3 */
-								for(m=0; m<5; m++){
-									imu[m] = vsource3[k-3+m];
-								}
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[k]));
-#endif							
-								
-								
-								fluxsource3[k] *= (velsource3 * dt/dx3);
-
-							}/* end k */
-						}/* end l ==0, 1, 2, 3, */
-						else{
-							for(k=ks-1; k<=ke; k++){
-								vel = 0.5 * (tempV[k]+tempV[k+1]);
-								velsource3 = 0.5 * (pRG->mu[l][n][k+1][j][i][2] + pRG->mu[l][n][k][j][i][2]);
-								
-#ifdef SECOND_ORDER_PRIM
-								for(m=2; m>=0; m--)
-									imu[m] = tempimu[k+2-m];
-			
-								flux_PLM(dt, ds, vel, imu, &(flux[k+1]));
-								
-								/*-----------------------------------*/
-								for(m=2; m>=0; m--)
-									imu[m] = vsource3[k+2-m];
-								
-								flux_PLM(dt, ds, velsource3, imu, &(fluxsource3[k+1]));
-#else
-								for(m=4; m>=0; m--)
-									imu[m] = tempimu[k+3-m];
-
-								flux_PPM(dt, ds, vel, imu, &(flux[k+1]));
-
-								/*----------------------------------------*/
-								for(m=4; m>=0; m--)
-									imu[m] = vsource3[k+3-m];
-								
-								flux_PPM(dt, ds, velsource3, imu, &(fluxsource3[k+1]));
-#endif				
-								
-								fluxsource3[k+1] *= (velsource3 * dt/dx3);
-								
-								
-							} /* end k */				
-						}/* end l == 4, 5, 6, 7 */				
-						
-		/* Now save the flux difference */
-		
-		
-		   				for(k=ks; k<=ke; k++){
-							Divi[ifr][l][n][k][j][i] += (Crat * dt * (flux[k+1] - flux[k]) /(dx3)
-														 + (fluxsource3[k+1] - fluxsource3[k]));
-						} /* end k */
+						/* Now save the flux difference. Note that flux_advJ only calculates the interface values, not the actual flux */
+						for(k=ks; k<=ke; k++){
+							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempSV[k+1]+tempSV[k])	* tempAdv[k+1] - (tempSV[k] + tempSV[k-1]) * tempAdv[k]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempV3V[k+1]+tempV3V[k]) * fluxsource3[k+1] - (tempV3V[k] + tempV3V[k-1]) * fluxsource3[k]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= Crat * (flux[k+1] - flux[k]) * dtods;						
+						}/* End k */	
+				
 					} /* Finish i */
 				}/* Finish j */
 
@@ -541,6 +374,12 @@ void fullRT_3d(DomainS *pD)
 							miux = pRG->mu[l][n][k][j][i][0];
 							miuy = pRG->mu[l][n][k][j][i][1];
 							miuz = pRG->mu[l][n][k][j][i][2];
+							
+#ifdef CYLINDRICAL						
+							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
+							convert_angle(x2,miux,miuy,&miux,&miuy);						
+	
+#endif	
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
@@ -602,6 +441,7 @@ void fullRT_3d_destruct(void)
 	if(Divi != NULL) free_6d_array(Divi);	
 	if(flux != NULL) free_1d_array(flux);
 	if(fluxsource3 != NULL) free_1d_array(fluxsource3);
+	if(tempV3V != NULL) free_1d_array(tempV3V);
 	if(tempimu != NULL) free_1d_array(tempimu);
 	if(tempS != NULL) free_1d_array(tempS);
 	if(tempSV != NULL) free_1d_array(tempSV);
@@ -637,6 +477,9 @@ void fullRT_3d_init(RadGridS *pRG)
 		goto on_error;
 	
 	if ((fluxsource3 = (Real *)calloc_1d_array( nmax+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((tempV3V = (Real *)calloc_1d_array( nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
 	if ((Divi = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
