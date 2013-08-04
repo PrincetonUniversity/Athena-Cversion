@@ -1512,21 +1512,7 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
 #ifdef CYLINDRICAL
-  Real x1, x2, x3, miux, miuy;
-  int ioff, joff, koff;
-  ioff = nghost - Radghost;
-  if(je > js)
-	  joff = ioff;
-  else {
-	  joff = 0;
-  }
-
-  if(ke > ks){
-	koff = ioff;	
-  }else {
- 	koff = 0;
-  }
-
+  Real  miux, miuy;
 #endif
 
   /* set the angle independent values */
@@ -1540,10 +1526,9 @@ for(ifr=0; ifr<nf; ifr++) {
      	    for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
 #ifdef CYLINDRICAL
-			miux = pRG->mu[l][n][k][j][is-i][0]; 
-			miuy = pRG->mu[l][n][k][j][is-i][1];
-			cc_pos(pG,is-i+ioff,j+joff,k+koff,&x1,&x2,&x3);
-			convert_angle(x2,miux,miuy,&miux,&miuy);
+			miux = pRG->Rphimu[l][n][k][j][is-i][0]; 
+			miuy = pRG->Rphimu[l][n][k][j][is-i][1];
+
 			if(miux > 0.0){
 				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;  
 			}else {
@@ -1600,21 +1585,7 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
 #ifdef CYLINDRICAL
-	Real x1, x2, x3, miux, miuy;
-	int ioff, joff, koff;
-	ioff = nghost - Radghost;
-	if(je > js)
-		joff = ioff;
-	else {
-		joff = 0;
-	}
-	
-	if(ke > ks){
-		koff = ioff;	
-	}else {
-		koff = 0;
-	}
-	
+	Real miux, miuy;
 #endif	
 
   /* set the angle independent values */
@@ -1628,10 +1599,8 @@ for(ifr=0; ifr<nf; ifr++) {
      	    for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
 #ifdef CYLINDRICAL
-			  miux = pRG->mu[l][n][k][j][ie+i][0]; 
-			  miuy = pRG->mu[l][n][k][j][ie+i][1];
-			  cc_pos(pG,ie+i+ioff,j+joff,k+koff,&x1,&x2,&x3);
-			  convert_angle(x2,miux,miuy,&miux,&miuy);
+			  miux = pRG->Rphimu[l][n][k][j][ie+i][0]; 
+			  miuy = pRG->Rphimu[l][n][k][j][ie+i][1];
 			  if(miux < 0.0){
 				  pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;  
 			  }else {

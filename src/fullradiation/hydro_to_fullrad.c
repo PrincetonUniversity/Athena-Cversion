@@ -44,9 +44,6 @@ void hydro_to_fullrad(DomainS *pD)
   Real d, etherm, Tgas, Tnew, J0, AngleV, Jsource;
   Real Sigma[4];
   Real mu[3];
-#ifdef CYLINDRICAL
-  Real x1, x2, x3;
-#endif
 
 /* Assumes ghost zone conserved variables have been set by
  * bvals routines.  These values are used to set B, chi, eps,
@@ -146,12 +143,14 @@ void hydro_to_fullrad(DomainS *pD)
 			ig = i + ioff;
 
 			/* calculate AngleV */
-			for(m=0; m<3; m++)
-				mu[m] = pRG->mu[l][n][k][j][i][0];
 
 #ifdef CYLINDRICAL
-			cc_pos(pG,ig,jg,kg,&x1,&x2,&x3);
-			convert_angle(x2,mu[0],mu[1],&mu[0],&mu[1]);
+			for(m=0; m<3; m++)
+                                mu[m] = pRG->Rphimu[l][n][k][j][i][m];
+#else
+			for(m=0; m<3; m++)
+                                mu[m] = pRG->mu[l][n][k][j][i][m];	
+
 #endif
 
 
@@ -213,7 +212,7 @@ void GetTnew(const Real dt,const Real d,const Real Tgas, const Real J0, const Re
 	Er0 = J0 * 4.0 * PI;
 
 	/* Negative radiation energy density */
-	if(Er0 < 0.0 || Prat < TINY_NUMBER){
+	if(Er0 < 0.0 || Prat < TINY_NUMBER || ((SigmaB < TINY_NUMBER) && (SigmaI < TINY_NUMBER))){
 		*heatcool = 0.0;
 		*Tnew = Tgas;
 		

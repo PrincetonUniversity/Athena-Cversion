@@ -21,6 +21,10 @@
 
 
 static Real ******Divi = NULL;	/* temporary array to store flux for each array */
+static Real ******FullAngleV = NULL;	/* temporary array to store vn */
+static Real ******FullAngleV2 = NULL;	/* temporary array to store vPr */
+static Real ******FullVsource3 = NULL;	/* temporary array to store vsource3 */
+
 static Real *flux = NULL;
 static Real *fluxsource3 = NULL;
 static Real *tempV3V = NULL; /* The advection velocity for source 3 */
@@ -81,7 +85,7 @@ void fullRT_3d(DomainS *pD)
 	js = pRG->js; je = pRG->je;
 	ks = pRG->ks; ke = pRG->ke;
 
-	int l, n, ifr, m, Mi;
+	int l, n, ifr,  Mi;
 	int offset;
 	
 	offset = nghost - Radghost;
@@ -89,18 +93,13 @@ void fullRT_3d(DomainS *pD)
 	Radr = (Real*)&(r[offset]);
 #endif
 	
-	Real dx1, dx2, dx3, ds, alpha, sigma, dtods;
+	Real dx1, dx2, dx3, ds, alpha, dtods;
 	dx1 = pRG->dx1;
 	dx2 = pRG->dx2;
 	dx3 = pRG->dx3;
 	
-	Real imu[5];
-	Real vel, velsource3;
 	Real sigmas, sigmaa, AngleV, AngleV2, vx, vy, vz, miux, miuy, miuz;
-#ifdef CYLINDRICAL
-	Real x1, x2, x3;
-	/* the direction cosin with respect to the vertical direction does not change */
-#endif
+	
 	Real rsf, lsf;
 	rsf = 1.0;
 	lsf = 1.0;
@@ -111,6 +110,42 @@ void fullRT_3d(DomainS *pD)
 	for(ifr=0; ifr<pRG->nf; ifr++){
 		for(l=0; l<pRG->noct; l++){
 			for(n=0; n<pRG->nang; n++){
+				
+				/* First, prepare the data for AngleV, AngleV2 and Vsource3 */
+				for(k=0; k<=ke+Radghost; k++){	
+					for(j=0; j<=je+Radghost; j++){					
+						for(i=0; i<=ie+Radghost; i++){
+							/* First, prepare the array */
+							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
+							/* The absorption opacity in front of I */
+							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
+#ifdef CYLINDRICAL						
+							miux = pRG->Rphimu[l][n][k][j][i][0];
+                            				miuy = pRG->Rphimu[l][n][k][j][i][1];
+							miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
+							miux = pRG->mu[l][n][k][j][i][0];
+							miuy = pRG->mu[l][n][k][j][i][1];
+							miuz = pRG->mu[l][n][k][j][i][2];	
+#endif								
+							
+							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
+							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
+							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+							
+							FullAngleV[ifr][l][n][k][j][i] = miux * vx + miuy * vy + miuz * vz;
+							FullAngleV2[ifr][l][n][k][j][i] = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1] 
+															+ 2.0 * vx * vz * pRG->R[ifr][k][j][i].K[3] + vy * vy * pRG->R[ifr][k][j][i].K[2] 
+															+ 2.0 * vy * vz * pRG->R[ifr][k][j][i].K[4] + vz * vz * pRG->R[ifr][k][j][i].K[5];
+							
+							FullVsource3[ifr][l][n][k][j][i] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1] 
+								+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
+								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+FullAngleV2[ifr][l][n][k][j][i])/(Crat*(sigmas+sigmaa));
+						}/* end i */
+					}/* end j */
+				}/* end k */
+				
+				
 
 				/* Now calculate the x flux */
 				ds = dx1;
@@ -125,32 +160,32 @@ void fullRT_3d(DomainS *pD)
 							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
 							/* The absorption opacity in front of I */
 							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
-							miux = pRG->mu[l][n][k][j][i][0]; 
-							miuy = pRG->mu[l][n][k][j][i][1];
-							miuz = pRG->mu[l][n][k][j][i][2];
 #ifdef CYLINDRICAL						
-							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
-							convert_angle(x2,miux,miuy,&miux,&miuy);	
-							
+							miux = pRG->Rphimu[l][n][k][j][i][0];
+                            miuy = pRG->Rphimu[l][n][k][j][i][1];
+							miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
+							miux = pRG->mu[l][n][k][j][i][0];
+							miuy = pRG->mu[l][n][k][j][i][1];
+							miuz = pRG->mu[l][n][k][j][i][2];	
 #endif								
 							
 							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
-							AngleV = miux * vx + miuy * vy + miuz * vz;
-							AngleV2 = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1] 
-							+ 2.0 * vx * vz * pRG->R[ifr][k][j][i].K[3] + vy * vy * pRG->R[ifr][k][j][i].K[2] 
-							+ 2.0 * vy * vz * pRG->R[ifr][k][j][i].K[4] + vz * vz * pRG->R[ifr][k][j][i].K[5];
-							
+							AngleV = FullAngleV[ifr][l][n][k][j][i];
+														
 							if((sigmas + sigmaa) > TINY_NUMBER){
 								vsource1[i] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
 								vsource2[i] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[i] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1] 
-									   + vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
-								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
+								vsource3[i] = FullVsource3[ifr][l][n][k][j][i];
+								
 								tempS[i] = miux * miux * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
-								tempSV[i] = vx + miuy * vy/miux + miuz * vz/miux;
+								if(fabs(miux) > TINY_NUMBER)
+									tempSV[i] = vx + miuy * vy/miux + miuz * vz/miux;
+								else
+									tempSV[i] = 0.0;
 								tempV3V[i] = miux;
 							}else{
 								vsource1[i] = 0.0;
@@ -211,31 +246,33 @@ void fullRT_3d(DomainS *pD)
 							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
 							/* The absorption opacity in front of I */
 							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
-							miux = pRG->mu[l][n][k][j][i][0];
-							miuy = pRG->mu[l][n][k][j][i][1];
-							miuz = pRG->mu[l][n][k][j][i][2];
 #ifdef CYLINDRICAL						
-							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
-							convert_angle(x2,miux,miuy,&miux,&miuy);						
-							
+							miux = pRG->Rphimu[l][n][k][j][i][0];
+                                                        miuy = pRG->Rphimu[l][n][k][j][i][1];
+                                                        miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
+							miux = pRG->mu[l][n][k][j][i][0];
+                                                        miuy = pRG->mu[l][n][k][j][i][1];
+                                                        miuz = pRG->mu[l][n][k][j][i][2];	
 #endif						
 							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
-							AngleV = miux * vx + miuy * vy + miuz * vz;
-							AngleV2 = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1]
-							+ 2.0 * vx * vz * pRG->R[ifr][k][j][i].K[3] + vy * vy * pRG->R[ifr][k][j][i].K[2]
-							+ 2.0 * vy * vz * pRG->R[ifr][k][j][i].K[4] + vz * vz * pRG->R[ifr][k][j][i].K[5];
+							AngleV = FullAngleV[ifr][l][n][k][j][i];
+							
 							
 							if((sigmas + sigmaa) > TINY_NUMBER){
 								vsource1[j] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
 								vsource2[j] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[j] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1]
-									+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
-								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
+								vsource3[j] = FullVsource3[ifr][l][n][k][j][i];
+								
+								
 								tempS[j] = miuy * miuy * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
-								tempSV[j] = miux * vx/miuy + vy + miuz * vz/miuy;
+								if(fabs(miuy) > TINY_NUMBER)
+									tempSV[j] = miux * vx/miuy + vy + miuz * vz/miuy;
+								else
+									tempSV[j] = 0.0;
 								tempV3V[j] = miuy;
 							}else{
 								vsource1[j] = 0.0;
@@ -285,31 +322,33 @@ void fullRT_3d(DomainS *pD)
 							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
 							/* The absorption opacity in front of I */
 							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
+#ifdef CYLINDRICAL						
+							miux = pRG->Rphimu[l][n][k][j][i][0];
+							miuy = pRG->Rphimu[l][n][k][j][i][1];
+                            miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
 							miux = pRG->mu[l][n][k][j][i][0];
 							miuy = pRG->mu[l][n][k][j][i][1];
-							miuz = pRG->mu[l][n][k][j][i][2];
-#ifdef CYLINDRICAL						
-							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
-						 	convert_angle(x2,miux,miuy,&miux,&miuy);						
-							
+							miuz = pRG->mu[l][n][k][j][i][2];	
 #endif	
 							
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
-							AngleV = miux * vx + miuy * vy + miuz * vz;
-							AngleV2 = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1]
-							+ 2.0 * vx * vz * pRG->R[ifr][k][j][i].K[3] + vy * vy * pRG->R[ifr][k][j][i].K[2]
-							+ 2.0 * vy * vz * pRG->R[ifr][k][j][i].K[4] + vz * vz * pRG->R[ifr][k][j][i].K[5];
+							AngleV = FullAngleV[ifr][l][n][k][j][i];
+							
 							
 							if((sigmas + sigmaa) > TINY_NUMBER){
 								vsource1[k] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
 								vsource2[k] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[k] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1]
-									+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
-								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+AngleV2)/(Crat*(sigmas+sigmaa));
+								vsource3[k] = FullVsource3[ifr][l][n][k][j][i];
+								
+								
 								tempS[k] = miuz * miuz * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
-								tempSV[k] = miux * vx/miuz + miuy * vy/miuz  + vz;
+								if(fabs(miuz) > TINY_NUMBER)
+									tempSV[k] = miux * vx/miuz + miuy * vy/miuz  + vz;
+								else
+									tempSV[k] = 0.0;
 								tempV3V[k] = miuz;
 							}else{
 								vsource1[k] = 0.0;
@@ -371,22 +410,23 @@ void fullRT_3d(DomainS *pD)
 							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
 							/* The absorption opacity in front of I */
 							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
-							miux = pRG->mu[l][n][k][j][i][0];
-							miuy = pRG->mu[l][n][k][j][i][1];
-							miuz = pRG->mu[l][n][k][j][i][2];
 							
 #ifdef CYLINDRICAL						
-							cc_pos(pG,i+offset,j+offset,k+offset,&x1,&x2,&x3);
-							convert_angle(x2,miux,miuy,&miux,&miuy);						
-	
+							miux = pRG->Rphimu[l][n][k][j][i][0];
+                                                        miuy = pRG->Rphimu[l][n][k][j][i][1];
+                                                        miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
+							miux = pRG->mu[l][n][k][j][i][0];
+                                                        miuy = pRG->mu[l][n][k][j][i][1];
+                                                        miuz = pRG->mu[l][n][k][j][i][2];	
 #endif	
+
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
-							AngleV = miux * vx + miuy * vy + miuz * vz;	
-							AngleV2 = vx * vx * miux * miux + vy * vy * miuy * miuy + vz * vz * miuz * miuz
-								+ 2.0 * vx * vy * miux * miuy + 2.0 * vx * vz * miux * miuz
-								+ 2.0 * vy * vz * miuy * miuz;
+							AngleV = FullAngleV[ifr][l][n][k][j][i];
+							AngleV2 = FullAngleV2[ifr][l][n][k][j][i];
+							
 							Ma[k][j][i][Mi] = (1.0 + dt * (sigmas * Crat - (sigmaa + sigmas) * AngleV))/pRG->wmu[n][k][j][i];
 							Mc[k][j][i][Mi] = -dt * (sigmas * Crat + 3.0 * AngleV * (sigmas + sigmaa));
 							Mb[k][j][i][Mi] = dt * 2.0 * sigmas * AngleV 
@@ -438,7 +478,11 @@ void fullRT_3d_destruct(void)
 
  
 
-	if(Divi != NULL) free_6d_array(Divi);	
+	if(Divi != NULL) free_6d_array(Divi);
+	if(FullAngleV != NULL) free_6d_array(FullAngleV);	
+	if(FullAngleV2 != NULL) free_6d_array(FullAngleV2);	
+	if(FullVsource3 != NULL) free_6d_array(FullVsource3);
+	
 	if(flux != NULL) free_1d_array(flux);
 	if(fluxsource3 != NULL) free_1d_array(fluxsource3);
 	if(tempV3V != NULL) free_1d_array(tempV3V);
@@ -483,6 +527,15 @@ void fullRT_3d_init(RadGridS *pRG)
 		goto on_error;
 	
 	if ((Divi = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((FullAngleV = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((FullAngleV2 = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((FullVsource3 = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
 	if ((tempimu = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)

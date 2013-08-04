@@ -334,6 +334,10 @@ typedef struct RadGrid_s {
   Real *wmu;         /* weights for angular quad. */
 #else
   Real ******mu;     /* direction cosine relative to x1, x2, x3 axis for each octant, for each angle, for each cell k, j, i,  */
+#ifdef CYLINDRICAL
+  Real ******Rphimu; /* direction cosin relative to the radius and azimuthal direction in cylindrical coordinate case */  
+#endif
+
   Real ****wmu;	    /* weight for each angle at each cell k, j, i */	
 #endif
 

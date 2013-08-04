@@ -399,7 +399,7 @@ void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__
 	/* imu[0:4] i-3, i-2, i-1, i, i+1 */
 	Real Ihalf0, Ihalf1, IL, IR;
 	Real I03, I02, I01, I0, I1;
-	Real qa, qb, qc, dI, dIc, dIl, dIr, dIlim;
+	Real qa, qb, qc, dI, dIl, dIr, dIlim;
 #ifdef CYLINDRICAL
 	Real *pr;
 	pr = &(r[3]);
@@ -568,7 +568,7 @@ void flux_AdvJ(Real *r  __attribute__((unused)), const int dir __attribute__((un
 	for(i=nstart; i<=nend; i++){
 		vel = 0.5 * (tempV[i-1] + tempV[i]);
 		if(vel > 0.0){
-#if defined(SECOND_ORDER_PRIM) || defined(SECOND_ORDER_CHAR)
+#ifdef SECOND_RAD_ORDER
 			for(j=0; j<3; j++){
 				Jarray[j] = tempJ[i-2+j];
 #ifdef CYLINDRICAL
@@ -592,7 +592,7 @@ void flux_AdvJ(Real *r  __attribute__((unused)), const int dir __attribute__((un
 #endif
 		}/* End if vel >0 */
 		else{
-#if defined(SECOND_ORDER_PRIM) || defined(SECOND_ORDER_CHAR)
+#ifdef SECOND_RAD_ORDER
 			for(j=0; j<3; j++){
 				Jarray[j] = tempJ[i+1-j];
 #ifdef CYLINDRICAL

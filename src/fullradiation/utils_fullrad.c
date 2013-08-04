@@ -24,9 +24,6 @@ void UpdateRT(DomainS *pD){
   RadGridS *pRG=(pD->RadGrid);
   GridS *pG = (pD->Grid);
   int i,j,k ,ifr, l, n, m;
-#ifdef CYLINDRICAL
-  Real x1, x2, x3;
-#endif
 
   int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
   int jl = pRG->js, ju = pRG->je;
@@ -89,13 +86,14 @@ for(ifr=0; ifr<pRG->nf; ifr++){
 
 					/* sum rays along different directions */
 					wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
-					for(m=0; m<3; m++)
-						mu[m] = pRG->mu[l][n][k][j][i][m];
 
 					/* For cylindrical coordinate, we nned to convert the angle */
 #ifdef CYLINDRICAL
-					cc_pos(pG,i+ioff,j+joff,k+koff,&x1,&x2,&x3);
-					convert_angle(x2,mu[0],mu[1],&mu[0],&mu[1]);
+					for(m=0; m<3; m++)
+                                                mu[m] = pRG->Rphimu[l][n][k][j][i][m];
+#else
+					for(m=0; m<3; m++)
+                                                mu[m] = pRG->mu[l][n][k][j][i][m];
 #endif
 
 					/* for energy density */

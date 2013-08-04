@@ -67,6 +67,14 @@ static Real ***density_old=NULL;
 Real dotphil, dotgxl;
 #endif
 
+
+#ifdef FULL_RADIATION_TRANSFER
+/* Radiation source term for gas pressure, 
+ * which is calculated based Tnew */
+static Real ***RadPsource=NULL;
+
+#endif
+
 /* The interface magnetic fields and emfs */
 #ifdef MHD
 static Real ***B1_x1Face=NULL, ***B2_x2Face=NULL, ***B3_x3Face=NULL;
@@ -231,6 +239,37 @@ void integrate_3d_ctu(DomainS *pD)
   feedback_predictor(pD);
   exchange_gpcouple(pD,1);
 #endif
+	
+	/*===============================================================*/
+	/* First of all, calculate the radiation source term for pressure  */
+	/* sigma_a(T^4 - Er) */	
+	
+#ifdef FULL_RADIATION_TRANSFER
+	Real T, rho;	
+	for(k=ks-Radghost; k<=ke+Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				/* First, calculate current T */
+				rho = pG->U[k][j][i].d;
+				T = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + 
+										   pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / rho;
+#ifdef MHD       
+				T -= 0.5 * (SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) +
+							SQR(pG->U[k][j][i].B3c) );
+#endif			
+				T *= Gamma_1;
+			
+				T = MAX(T/(rho*R_ideal), 0.0);
+			
+				RadPsource[k][j][i] = (pG->tgas[k][j][i] - T) * rho * R_ideal;
+			
+			}/* end i */	
+		}/* end j */
+	}/* end k */
+	
+#endif
+	
+	
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
@@ -430,6 +469,22 @@ void integrate_3d_ctu(DomainS *pD)
         }
       }
 #endif /* BAROTROPIC */
+		
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add radiation velocity and pressure source terms 0.5*dt to L/R states
+ */
+		
+#ifdef FULL_RADIATION_TRANSFER
+		
+	 for (i=il+1; i<=iu; i++) {
+		 Wl[i].P += 0.5*RadPsource[k][j][i-1];
+		 Wl[i].Vx += 0.5 * pG->dt * pG->Frsource[k][j][i-1][0]/Wl[i].d;	
+		 Wr[i].P += 0.5*RadPsource[k][j][i];
+		 Wr[i].Vx += 0.5 * pG->dt * pG->Frsource[k][j][i][0]/Wr[i].d;
+	}
+		
+#endif /* FULL_RADIATION_TRANSFER */	  
+		
 
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
@@ -761,6 +816,19 @@ void integrate_3d_ctu(DomainS *pD)
       }
 #endif /* BAROTROPIC */
 
+		
+#ifdef FULL_RADIATION_TRANSFER
+		
+	for (j=jl+1; j<=ju; j++) {
+		Wl[j].P += 0.5*RadPsource[k][j-1][i];
+		Wl[j].Vy += 0.5 * pG->dt * pG->Frsource[k][j-1][i][1]/Wl[j].d;	
+		Wr[j].P += 0.5*RadPsource[k][j][i];
+		Wr[j].Vy += 0.5 * pG->dt * pG->Frsource[k][j][i][1]/Wr[j].d;
+	}
+		
+#endif /* FULL_RADIATION_TRANSFER */	 		
+		
+
 /*--- Step 2c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
  */
@@ -778,8 +846,8 @@ void integrate_3d_ctu(DomainS *pD)
       Wr[j].Vz -= pG->Coup[k][j][i].fb1*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[k][j-1][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
+      Wl[j].P += pG->Coup[k][j-1][i].Eloss*Gamma_1;
+      Wr[j].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
 
     }
@@ -968,6 +1036,18 @@ void integrate_3d_ctu(DomainS *pD)
         }
       }
 #endif /* BAROTROPIC */
+		
+		
+#ifdef FULL_RADIATION_TRANSFER
+		
+		for (k=kl+1; k<=ku; k++) {
+			Wl[k].P += 0.5*RadPsource[k-1][j][i];
+			Wl[k].Vz += 0.5 * pG->dt * pG->Frsource[k-1][j][i][2]/Wl[k].d;	
+			Wr[k].P += 0.5*RadPsource[k][j][i];
+			Wr[k].Vz += 0.5 * pG->dt * pG->Frsource[k][j][i][2]/Wr[k].d;
+		}
+		
+#endif /* FULL_RADIATION_TRANSFER */			
 
 /*--- Step 3c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
@@ -986,8 +1066,8 @@ void integrate_3d_ctu(DomainS *pD)
       Wr[k].Vz -= pG->Coup[k][j][i].fb2*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[k-1][j][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
+      Wl[k].P += pG->Coup[k-1][j][i].Eloss*Gamma_1;
+      Wr[k].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */
@@ -3899,6 +3979,12 @@ void integrate_init_3d(MeshS *pM)
   if ((density_old   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
     ==NULL)  goto on_error;
 #endif
+	
+#ifdef FULL_RADIATION_TRANSFER
+  if ((RadPsource=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
+	goto on_error;	
+ 	
+#endif	
 
 #ifdef CYLINDRICAL
 #ifndef MHD
@@ -3995,6 +4081,10 @@ void integrate_destruct_3d(void)
   if (x3Flux_grav    != NULL) free_3d_array(x3Flux_grav);
   if (density_old    != NULL) free_3d_array(density_old);
 #endif
+	
+#ifdef FULL_RADIATION_TRANSFER
+  if (RadPsource != NULL) free_3d_array(RadPsource); 	
+#endif	
 
   /* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL

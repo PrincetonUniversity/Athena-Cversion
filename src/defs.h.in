@@ -84,6 +84,10 @@
  * SECOND_ORDER_CHAR, SECOND_ORDER_PRIM, THIRD_ORDER_CHAR, THIRD_ORDER_PRIM */
 #define @ACCURACY@
 
+/* order of spatial reconstruction for specific intensity,
+ * SECOND_RAD_ORDER, THIRD_RAD_ORDER */
+#define @RADACCURACY@
+
 /* flux type
  * ROE_FLUX, HLLE_FLUX, HLLC_FLUX, HLLD_FLUX, FORCE_FLUX, EXACT_FLUX,
  * TWO_SHOCK_FLUX*/
@@ -167,7 +171,7 @@ enum {
 #endif
 
 #ifdef FULL_RADIATION_TRANSFER
- Radghost = 3,
+ Radghost = 4,
 #endif 
   num_digit = 4
 

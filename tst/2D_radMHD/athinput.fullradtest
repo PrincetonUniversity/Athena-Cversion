@@ -66,8 +66,8 @@ NGrid_x3        = 1         # with MPI, number of Grids in X3 coordinate
 
 <fullradiation>
 nf		= 1	     # number of frequencies
-nmu		= 4	     # number of polar angles 
-
+nmu		= 10	     # number of polar angles 
+Angleflag	= 1
 
 <problem>
 iso_csound      = 0.00408    # Isothermal sound speed squared

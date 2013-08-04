@@ -58,6 +58,13 @@ static Real **density_old=NULL;
 Real dotphil, dotgxl;
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+/* Radiation source term for gas pressure, 
+ * which is calculated based Tnew */
+static Real **RadPsource=NULL;
+
+#endif
+
 /* The interface magnetic fields and emfs */
 #ifdef MHD
 static Real **B1_x1Face=NULL, **B2_x2Face=NULL;
@@ -185,6 +192,35 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef FEEDBACK
   feedback_predictor(pD);
   exchange_gpcouple(pD,1);
+#endif
+	
+
+/*===============================================================*/
+/* First of all, calculate the radiation source term for pressure  */
+/* sigma_a(T^4 - Er) */	
+	
+#ifdef FULL_RADIATION_TRANSFER
+	Real T, rho;	
+	
+	for(j=js-Radghost; j<=je+Radghost; j++){
+		for(i=is-Radghost; i<=ie+Radghost; i++){
+			/* First, calculate current T */
+			rho = pG->U[ks][j][i].d;
+			T = pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 + pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 + 
+										   pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / rho;
+#ifdef MHD       
+			T -= 0.5 * (SQR(pG->U[ks][j][i].B1c) + SQR(pG->U[ks][j][i].B2c) +
+							 SQR(pG->U[ks][j][i].B3c) );
+#endif			
+			T *= Gamma_1;
+			
+			T = MAX(T/(rho*R_ideal), 0.0);
+			
+			RadPsource[j][i] = (pG->tgas[ks][j][i] - T) * rho * R_ideal;
+			
+		}/* end i */	
+	}/* end j */
+	
 #endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -320,6 +356,23 @@ void integrate_2d_ctu(DomainS *pD)
       }
     }
 #endif /* BAROTROPIC */	  
+	  
+	  
+/*--- Step 1c (cont) -----------------------------------------------------------
+ * Add radiation velocity and pressure source terms 0.5*dt to L/R states
+ */
+	  
+#ifdef FULL_RADIATION_TRANSFER
+	  
+	for (i=il+1; i<=iu; i++) {
+	   Wl[i].P += 0.5*RadPsource[j][i-1];
+	   Wl[i].Vx += 0.5 * pG->dt * pG->Frsource[ks][j][i-1][0]/Wl[i].d;	
+	   Wr[i].P += 0.5*RadPsource[j][i];
+	   Wr[i].Vx += 0.5 * pG->dt * pG->Frsource[ks][j][i][0]/Wr[i].d;
+    }
+	  
+#endif /* FULL_RADIATION_TRANSFER */	  
+	  
 	  
 
 /*--- Step 1c (cont) -----------------------------------------------------------
@@ -601,6 +654,19 @@ void integrate_2d_ctu(DomainS *pD)
       }
     }
 #endif /* BAROTROPIC */
+	  
+	  
+	  
+#ifdef FULL_RADIATION_TRANSFER
+	  
+	  for (j=jl+1; j<=ju; j++) {
+		  Wl[j].P += 0.5*RadPsource[j-1][i];
+		  Wl[j].Vy += 0.5 * pG->dt * pG->Frsource[ks][j-1][i][1]/Wl[j].d;	
+		  Wr[j].P += 0.5*RadPsource[j][i];
+		  Wr[j].Vy += 0.5 * pG->dt * pG->Frsource[ks][j][i][1]/Wr[j].d;
+	  }
+	  
+#endif /* FULL_RADIATION_TRANSFER */	  
 
 /*--- Step 2c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
@@ -619,8 +685,8 @@ void integrate_2d_ctu(DomainS *pD)
       Wr[j].Vz -= pG->Coup[ks][j][i].fb1*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[ks][j-1][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[ks][j][i].Eloss*Gamma_1;
+      Wl[j].P += pG->Coup[ks][j-1][i].Eloss*Gamma_1;
+      Wr[j].P += pG->Coup[ks][j][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */
@@ -2176,6 +2242,12 @@ void integrate_init_2d(MeshS *pM)
     goto on_error;
 #endif
 
+#ifdef FULL_RADIATION_TRANSFER
+  if ((RadPsource=(Real**)calloc_2d_array(size2,size1,sizeof(Real)))==NULL)
+		goto on_error;	
+ 	
+#endif
+
 #ifndef CYLINDRICAL
 #ifndef MHD
 #ifndef PARTICLES
@@ -2242,6 +2314,10 @@ void integrate_destruct_2d(void)
   if (density_old    != NULL) free_2d_array(density_old);
 
 #endif
+	
+#ifdef FULL_RADIATION_TRANSFER
+  if (RadPsource != NULL) free_2d_array(RadPsource); 	
+#endif	
 
   if (dhalf     != NULL) free_2d_array(dhalf);
   if (phalf     != NULL) free_2d_array(phalf);

@@ -35,6 +35,7 @@
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
+#   --with-rad_order=[2,3]	 (Spatial reconstruction for specific intensity)
 #   --with-flux=[roe,hlle,hllc,hlld,force,exact,two-shock]       (flux function)
 #   --with-integrator=[ctu,vl]                   (unsplit integration algorithm)
 #   --with-cflags=[opt,debug,profile]                       (set compiler flags)
@@ -96,13 +97,15 @@ if test   "$with_gas" = "hydro"; then
   GAS="HYDRO"
   flux_default="hllc"
   integrator_default="ctu"
-  order_default="2"
+  order_default="3"
+  rad_order_default="2"
   matrix_solver="off"
 elif test "$with_gas" = "mhd";   then
   GAS="MHD"
   flux_default="roe"
   integrator_default="ctu"
-  order_default="2"
+  order_default="3"
+  rad_order_default="2"
   matrix_solver="off"
 elif test "$with_gas" = "rad_hydro"; then
   GAS="RADIATION_HYDRO"
@@ -420,6 +423,7 @@ fi
 # ALGORITHM PACKAGE: set the order and type of the spatial reconstruction
 #   --with-order=[1,2,3] - #-order reconstruction in the characteristic vars
 #   --with-order=[2p,3p] - #-order reconstruction in the primitive      vars
+#   --with-rad_order=[2,3] # order reconstruction for specific intensity
 #  (default is 2 -- 2nd-order reconstruction in the characteristic vars)
 
 AC_SUBST(ORDER)
@@ -441,6 +445,22 @@ elif test "$with_order" = "3p"; then
   ACCURACY="THIRD_ORDER_PRIM"
 else
   AC_MSG_ERROR([expected --with-order=1, 2, 3, 2p, or 3p])
+fi
+
+
+AC_SUBST(RADORDER)
+AC_SUBST(RADACCURACY)
+
+AC_ARG_WITH(rad_order,
+	[--with-rad_order=RADORDER      Order of Accuracy (2,3)],
+	with_rad_order=$withval, with_rad_order=$order_default)
+RADORDER=$with_rad_order
+if test   "$with_rad_order" = "2"; then
+  RADACCURACY="SECOND_RAD_ORDER"
+elif test "$with_rad_order" = "3"; then
+  RADACCURACY="THIRD_RAD_ORDER"
+else
+  AC_MSG_ERROR([expected --with-rad_order=2, 3])
 fi
 
 #-------------------------------------------------------------------------------
@@ -916,10 +936,11 @@ echo ""
 echo "--- Algorithm Options ----"
 echo ""
 echo "Spatial Order:           $ORDER ($ACCURACY)"
+echo "Rad Spatial Order:       $RADORDER ($RADACCURACY)"
 echo "Flux:                    $FLUX_NAME"
 echo "unsplit integrator:      $INTEGRATOR"
 echo "Precision:               $PRECISION"
-echo "Matirx Solver:	         $MATRIX_LIBRARY"
+echo "Matirx Solver:	       $MATRIX_LIBRARY"
 echo "Compiler options:        $COMPILER_OPTS"
 echo "Ghost cell output:       $WRITE_GHOST_MODE_USER"
 echo "Parallel modes: MPI      $MPI_MODE_USER"
