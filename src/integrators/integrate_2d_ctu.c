@@ -639,8 +639,8 @@ void integrate_2d_ctu(DomainS *pD)
       Wr[j].Vz -= pG->Coup[ks][j][i].fb1*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[ks][j-1][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[ks][j][i].Eloss*Gamma_1;
+      Wl[j].P += pG->Coup[ks][j-1][i].Eloss*Gamma_1;
+      Wr[j].P += pG->Coup[ks][j][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */

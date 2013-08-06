@@ -735,8 +735,8 @@ void integrate_3d_ctu(DomainS *pD)
       Wr[j].Vz -= pG->Coup[k][j][i].fb1*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[k][j-1][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
+      Wl[j].P += pG->Coup[k][j-1][i].Eloss*Gamma_1;
+      Wr[j].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
 
     }
@@ -929,8 +929,8 @@ void integrate_3d_ctu(DomainS *pD)
       Wr[k].Vz -= pG->Coup[k][j][i].fb2*d1;
 
 #ifndef BAROTROPIC
-      Wl[i].P += pG->Coup[k-1][j][i].Eloss*Gamma_1;
-      Wr[i].P += pG->Coup[k][j][i].Eloss*Gamma_1;
+      Wl[k].P += pG->Coup[k-1][j][i].Eloss*Gamma_1;
+      Wr[k].P += pG->Coup[k][j][i].Eloss*Gamma_1;
 #endif
     }
 #endif /* FEEDBACK */
