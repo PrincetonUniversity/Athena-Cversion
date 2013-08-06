@@ -133,6 +133,44 @@ void problem(DomainS *pDomain)
     }
   }
 
+/* iprob=3.  Test in SR paper, based on iprob=2
+ */
+
+  if (iprob == 3) {
+    a = 0.01;
+    sigma = 0.1;
+    for (k=ks; k<=ke; k++) {
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+          pGrid->U[k][j][i].d = 0.505 + 0.495*tanh((fabs(x2)-0.5)/a);
+          pGrid->U[k][j][i].M1 = vflow*tanh((fabs(x2)-0.5)/a);
+          pGrid->U[k][j][i].M2 = amp*vflow*sin(2.0*PI*x1)
+               *exp(-((fabs(x2)-0.5)*(fabs(x2)-0.5))/(sigma*sigma));
+          if (x2 < 0.0) pGrid->U[k][j][i].M2 *= -1.0;
+          pGrid->U[k][j][i].M1 *= pGrid->U[k][j][i].d;
+          pGrid->U[k][j][i].M2 *= pGrid->U[k][j][i].d;
+          pGrid->U[k][j][i].M3 = 0.0;
+#ifndef BAROTROPIC
+          pGrid->U[k][j][i].E = 1.0/Gamma_1
+             + 0.5*(SQR(pGrid->U[k][j][i].M1) + SQR(pGrid->U[k][j][i].M2)
+             + SQR(pGrid->U[k][j][i].M3))/pGrid->U[k][j][i].d;
+#endif /* BAROTROPIC */
+#ifdef MHD
+          pGrid->B1i[k][j][i] = b0;
+          pGrid->U[k][j][i].B1c = b0;
+#ifndef BAROTROPIC
+          pGrid->U[k][j][i].E += 0.5*b0*b0;
+#endif /* BAROTROPIC */
+#endif /* MHD */
+        }
+#ifdef MHD
+      pGrid->B1i[k][j][ie+1] = b0;
+#endif
+      }
+    }
+  }
+
 /* With viscosity and/or resistivity, read diffusion coeffs */
 
 #ifdef RESISTIVITY
