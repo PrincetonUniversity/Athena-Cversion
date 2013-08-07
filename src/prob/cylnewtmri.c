@@ -199,7 +199,7 @@ void problem(DomainS *pDomain)
 #endif /* MHD */
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
+//  x1GravAcc = grav_acc;//JB
   bvals_mhd_fun(pDomain,left_x1,disk_ir);
   bvals_mhd_fun(pDomain,right_x1,disk_or);
 #ifdef FARGO
@@ -424,7 +424,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   Mbc       = par_getd_def("problem","Mbc",1);
 
   StaticGravPot = grav_pot;
-  x1GravAcc = grav_acc;
+//  x1GravAcc = grav_acc;//JB
   bvals_mhd_fun(&(pM->Domain[0][0]),left_x1,disk_ir);
   bvals_mhd_fun(&(pM->Domain[0][0]),right_x1,disk_or);
 #ifdef FARGO
@@ -590,7 +590,8 @@ void disk_ir(GridS *pGrid) {
 #ifdef FARGO
     	Lper = R*pGrid->U[k][j][is].M2;
 #else
-    	Vkep = sqrt(R*(*x1GravAcc)(R,p,z));
+//    	Vkep = sqrt(R*(*x1GravAcc)(R,p,z));//JB
+    	Vkep = sqrt(R*grav_acc(R,p,z));//JB
     	Lper = R*pGrid->U[k][j][is].M2 - R*pGrid->U[k][j][is].d*Vkep;
 #endif
     	Lper = MIN(Lper,0.0);
@@ -601,7 +602,8 @@ void disk_ir(GridS *pGrid) {
 				pGrid->U[k][j][is-i].M1 = MIN(pGrid->U[k][j][is-i].M1,0.0);
 				// Calculate Keplerian velocity
 				cc_pos(pGrid,is-i,j,k,&R,&p,&z);
-				Vkep = sqrt(R*(*x1GravAcc)(R,p,z));
+//				Vkep = sqrt(R*(*x1GravAcc)(R,p,z));//JB
+				Vkep = sqrt(R*grav_acc(R,p,z));//JB
 #ifdef FARGO
 				if (Hbc == 1) {
 					pGrid->U[k][j][is-i].M2 = 0.0;
@@ -697,15 +699,18 @@ void disk_or(GridS *pGrid) {
     	Lper = pGrid->r[ie]*pGrid->U[k][j][ie].M2;
 #else
 			cc_pos(pGrid,ie,j,k,&R,&p,&z);
-			Vkep = sqrt(R*(*x1GravAcc)(R,p,z));
-			Lper = R*pGrid->U[k][j][ie].M2 - x1p*pGrid->U[k][j][ie]*Vkep;
+//			Vkep = sqrt(R*(*x1GravAcc)(R,p,z));//JB
+			Vkep = sqrt(R*grav_acc(R,p,z));//JB
+//			Lper = R*pGrid->U[k][j][ie].M2 - x1p*pGrid->U[k][j][ie]*Vkep;//JB
+			Lper = R*pGrid->U[k][j][ie].M2 - R*pGrid->U[k][j][ie].d*Vkep;//JB
 #endif
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
 				// Enforce diode
 				pGrid->U[k][j][ie+i].M1 = MAX(pGrid->U[k][j][ie+i].M1,0.0);
 				cc_pos(pGrid,ie+i,j,k,&R,&p,&z);
-				Vkep = sqrt(R*(*x1GravAcc)(R,p,z));
+//				Vkep = sqrt(R*(*x1GravAcc)(R,p,z));//JB
+				Vkep = sqrt(R*grav_acc(R,p,z));//JB
 #ifdef FARGO
 				if (Hbc == 1) {
 					pGrid->U[k][j][ie+i].M2 = 0.0;
