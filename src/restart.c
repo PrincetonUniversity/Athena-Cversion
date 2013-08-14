@@ -642,7 +642,14 @@ void restart_grids(char *res_file, MeshS *pM)
     nf = pRG->nf;
     nang = pRG->nang;
     noct = pRG->noct;
-    printf("noct, nang: %d %d\n",nang,noct);
+#ifdef MPI_PARALLEL 
+  if(myID_Comm_world == 0){
+#endif
+
+    printf("noct, nang: %d %d\n",noct, nang);
+#ifdef MPI_PARALLEL 
+  }
+#endif
 
 /* Read the mean intensity */
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
@@ -825,7 +832,17 @@ void restart_grids(char *res_file, MeshS *pM)
     nf = pRG->nf;
     nang = pRG->nang;
     noct = pRG->noct;
-    printf("noct, nang: %d %d\n",nang,noct);
+#ifdef MPI_PARALLEL 
+  if(myID_Comm_world == 0){
+#endif
+
+    printf("noct, nang: %d %d\n",noct, nang);
+
+#ifdef MPI_PARALLEL 
+  }
+#endif
+
+
 
 /* Read the mean intensity */
     fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */

@@ -21,7 +21,8 @@
 
 static Real *****Divi = NULL;	/* temporary array to store flux for each array */
 static Real *****FullAngleV = NULL;	/* temporary array to store vn */
-static Real *****FullAngleV2 = NULL;	/* temporary array to store vPr */
+static Real *****FullAngleV2 = NULL;	/* temporary array to store vKr */
+static Real *****MatrixAngleV2 = NULL;	/* temporary array to store vKr/I */
 static Real *****FullVsource3 = NULL;	/* temporary array to store vsource3 */
 
 static Real *flux = NULL;
@@ -122,12 +123,16 @@ void fullRT_2d(DomainS *pD)
 						
 						FullAngleV[ifr][l][n][j][i] = miux * vx + miuy * vy + miuz * vz;
 						FullAngleV2[ifr][l][n][j][i] = vx * vx * pRG->R[ifr][ks][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][ks][j][i].K[1] 
-													+ 2.0 * vx * vz * pRG->R[ifr][ks][j][i].K[3] + vy * vy * pRG->R[ifr][ks][j][i].K[2] 
-													+ 2.0 * vy * vz * pRG->R[ifr][ks][j][i].K[4] + vz * vz * pRG->R[ifr][ks][j][i].K[5];
+									+ 2.0 * vx * vz * pRG->R[ifr][ks][j][i].K[3] + vy * vy * pRG->R[ifr][ks][j][i].K[2] 
+									+ 2.0 * vy * vz * pRG->R[ifr][ks][j][i].K[4] + vz * vz * pRG->R[ifr][ks][j][i].K[5];
+
+						MatrixAngleV2[ifr][l][n][j][i] = vx * vx * miux * miux + 2.0 * vx * vy * miux * miuy 
+											+ 2.0 * vx * vz * miux * miuz + vy * vy * miuy * miuy 
+											+ 2.0 * vy * vz * miuy * miuz + vz * vz * miuz * miuz;
 						
 						FullVsource3[ifr][l][n][j][i] = -2.0 * sigmas * (vx * pRG->R[ifr][ks][j][i].H[0] + vy * pRG->R[ifr][ks][j][i].H[1] 
-													   + vz * pRG->R[ifr][ks][j][i].H[2])/(sigmaa+sigmas)
-											+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][ks][j][i].J+FullAngleV2[ifr][l][n][j][i])/(Crat*(sigmas+sigmaa));
+									   + vz * pRG->R[ifr][ks][j][i].H[2])/(sigmaa+sigmas)
+									+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][ks][j][i].J+FullAngleV2[ifr][l][n][j][i])/(Crat*(sigmas+sigmaa));
 						
 						
 					}/* end i */
@@ -330,7 +335,7 @@ void fullRT_2d(DomainS *pD)
 						vy = pG->U[0][j+offset][i+offset].M2 / pG->U[0][j+offset][i+offset].d;
 						vz = pG->U[0][j+offset][i+offset].M3 / pG->U[0][j+offset][i+offset].d;
 						AngleV = FullAngleV[ifr][l][n][j][i];
-						AngleV2 = FullAngleV2[ifr][l][n][j][i];
+						AngleV2 = MatrixAngleV2[ifr][l][n][j][i];
 						
 						
 						Ma[j][i][Mi] = (1.0 + dt * (sigmas * Crat - (sigmaa + sigmas) * AngleV))/pRG->wmu[n][0][j][i];
@@ -384,6 +389,7 @@ void fullRT_2d_destruct(void)
   if(Divi != NULL) free_5d_array(Divi);	
   if(FullAngleV != NULL) free_5d_array(FullAngleV);	
   if(FullAngleV2 != NULL) free_5d_array(FullAngleV2);	
+  if(MatrixAngleV2 != NULL) free_5d_array(MatrixAngleV2);
   if(FullVsource3 != NULL) free_5d_array(FullVsource3);		
   if(flux != NULL) free_1d_array(flux);
   if(fluxsource3 != NULL) free_1d_array(fluxsource3);
@@ -434,6 +440,9 @@ void fullRT_2d_init(RadGridS *pRG)
 		goto on_error;
 	
 	if ((FullAngleV2 = (Real *****)calloc_5d_array(nfr, noct, nang, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+
+	if ((MatrixAngleV2 = (Real *****)calloc_5d_array(nfr, noct, nang, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
 	if ((FullVsource3 = (Real *****)calloc_5d_array(nfr, noct, nang, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)

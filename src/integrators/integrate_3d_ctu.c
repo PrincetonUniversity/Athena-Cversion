@@ -156,6 +156,7 @@ void integrate_3d_ctu(DomainS *pD)
   Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,M1h,M2h,M3h,Bx=0.0;
 
   Real Vx, Velocity;
+  PrimS Wtemp;
 
 #ifndef BAROTROPIC
   Real coolfl,coolfr,coolf,Eh=0.0;
@@ -239,6 +240,33 @@ void integrate_3d_ctu(DomainS *pD)
   feedback_predictor(pD);
   exchange_gpcouple(pD,1);
 #endif
+	/* Check negative pressure */
+	/* This is particular for the ghost zones */
+	
+ 	for (k=ks-nghost; k<=ke+nghost; k++){
+		for (j=js-nghost; j<=je+nghost; j++) {
+			for (i=is-nghost; i<=ie+nghost; i++) {
+				
+				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+				if(Wtemp.d < dfloor){
+					Wtemp.d = dfloor;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+				}
+				
+				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+					
+					
+				} /* End if wtemp negative */
+								
+			}/* end i */
+		}/* end j*/
+	}/* end k*/
+	
+	
+	
+	
 	
 	/*===============================================================*/
 	/* First of all, calculate the radiation source term for pressure  */
@@ -2431,6 +2459,14 @@ void integrate_3d_ctu(DomainS *pD)
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           M3h -= q3*(phir-phil)*pG->U[k][j][i].d;
         }
+		  
+		/* Add radiation source term */
+#ifdef FULL_RADIATION_TRANSFER
+		M1h += (0.5 * pG->dt * pG->Frsource[k][j][i][0]);  
+		M2h += (0.5 * pG->dt * pG->Frsource[k][j][i][1]); 
+		M3h += (0.5 * pG->dt * pG->Frsource[k][j][i][2]);   
+		  
+#endif
 
         /* Add source terms due to self-gravity  */
 #ifdef SELF_GRAVITY
@@ -2738,7 +2774,10 @@ void integrate_3d_ctu(DomainS *pD)
          }
 
 
-#endif /* ifndef isothermal */
+#endif 
+*/
+
+/* ifndef isothermal */
 
 
         fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],Bx,
@@ -3579,6 +3618,39 @@ for(k=ks; k<=ke; k++){
     }
   }
 #endif /* MHD */
+	
+	
+	/* Check negative pressure */
+
+	
+ 	for (k=ks-nghost; k<=ke+nghost; k++){
+		for (j=js-nghost; j<=je+nghost; j++) {
+			for (i=is-nghost; i<=ie+nghost; i++) {
+				
+				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+				if(Wtemp.d < dfloor){
+					Wtemp.d = dfloor;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+				}
+				
+				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+					
+					
+				} /* End if wtemp negative */
+				
+			}/* end i */
+		}/* end j*/
+	}/* end k*/
+	
+	
+	
+	
+	
+	
+	
+	
 
 #ifdef STATIC_MESH_REFINEMENT
 /*--- Step 12e -----------------------------------------------------------------

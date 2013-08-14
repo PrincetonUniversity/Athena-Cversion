@@ -135,6 +135,7 @@ void integrate_3d_vl(DomainS *pD)
   int k, ks = pG->ks, ke = pG->ke;
   Real x1,x2,x3,phicl,phicr,phifc,phil,phir,phic,Bx;
 
+
   Real Vx, Velocity;
 #if (NSCALARS > 0)
   int n;
@@ -1963,6 +1964,33 @@ void integrate_3d_vl(DomainS *pD)
       }
     }
   }
+	
+	/* Check negative pressure */
+
+	
+ 	for (k=ks-nghost; k<=ke+nghost; k++){
+		for (j=js-nghost; j<=je+nghost; j++) {
+			for (i=is-nghost; i<=ie+nghost; i++) {
+				
+				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+				if(Wtemp.d < dfloor){
+					Wtemp.d = dfloor;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+				}
+				
+				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+					
+					
+				} /* End if wtemp negative */
+				
+			}/* end i */
+		}/* end j*/
+	}/* end k*/
+	
+	
+	
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*=== STEP 14: First-order flux correction ===================================*/

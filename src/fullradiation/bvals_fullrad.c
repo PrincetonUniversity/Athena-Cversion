@@ -47,6 +47,8 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG);
 static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG);
 static void Rotate180_ix2_fullrad(RadGridS *pRG);
 static void Rotate180_ox2_fullrad(RadGridS *pRG);
+static void Rotate90_ix2_fullrad(RadGridS *pRG);
+static void Rotate90_ox2_fullrad(RadGridS *pRG);
 
 static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG);
 static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG);
@@ -292,14 +294,27 @@ void bvals_fullrad(DomainS *pD)
 /*-------------------------------------------*/
 /* Check whether we need to rotate the angles or not */
 /* Only do this if Rotate_flag > 0 && the domain is near the J physical boundary */	  
+/* Only rotate the angles for the ghost zones */
+
+	/* Rotate_flag==1, rotate 90 degree */
+	/* Rotate_flag==2, rotate 180 degree */
+
 	get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
-	if((myM == 0) && (Rotate_flag == 1)){
-		Rotate180_ix2_fullrad(pRG);
+	if(myM == 0){
+		if(Rotate_flag == 1)
+			Rotate90_ix2_fullrad(pRG);
+		else if(Rotate_flag == 2)
+			Rotate180_ix2_fullrad(pRG);
 	}
 	  
-	if ((myM == ((pD->NGrid[1])-1)) && (Rotate_flag == 1)) {
-		Rotate180_ox2_fullrad(pRG);
+	if (myM == ((pD->NGrid[1])-1)) {
+		if(Rotate_flag == 1)
+			Rotate90_ox2_fullrad(pRG);
+		else if(Rotate_flag == 2)
+			Rotate180_ox2_fullrad(pRG);
 	}
+
+
 	  
 /*-------------------------------------------*/
 	  
@@ -576,7 +591,7 @@ void bvals_fullrad_init(MeshS *pM)
 	    pD->ix2_RBCFun = vacuum_ix2_fullrad;
 	    break;
 			  
-	  case 7:
+	  case 7: /* Rotate 90 degree */
 		pD->ix2_RBCFun = periodic_ix2_fullrad;
 	    Rotate_flag = 1;
 #ifdef MPI_PARALLEL
@@ -584,7 +599,15 @@ void bvals_fullrad_init(MeshS *pM)
 		  pRG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
 		}
 #endif /* MPI_PARALLEL */
-			  
+	  case 8: /* Rotate 180 degree */
+                pD->ix2_RBCFun = periodic_ix2_fullrad;
+            Rotate_flag = 2;
+#ifdef MPI_PARALLEL
+            if(pRG->lx2_id < 0 && pD->NGrid[1] > 1){
+                  pRG->lx2_id = pD->GData[myN][pD->NGrid[1]-1][myL].ID_Comm_Domain;
+                }
+#endif /* MPI_PARALLEL */
+		  
 	    break;
 	  default:
 	    ath_perr(-1,"[bvals_fullrad_init]:rbc_ix2=%d unknown\n",pM->RBCFlag_ix2);
@@ -625,7 +648,7 @@ void bvals_fullrad_init(MeshS *pM)
 	    pD->ox2_RBCFun = vacuum_ox2_fullrad;
 	    break;
 			  
-	  case 7:
+	  case 7:/* Rotate 90 degree */
 	    pD->ox2_RBCFun = periodic_ox2_fullrad;
 	    Rotate_flag = 1;
 			  
@@ -634,6 +657,16 @@ void bvals_fullrad_init(MeshS *pM)
 		  pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
 		}
 #endif /* MPI_PARALLEL */
+	  case 8: /* Rotate 180 degree */
+            pD->ox2_RBCFun = periodic_ox2_fullrad;
+            Rotate_flag = 2;
+
+#ifdef MPI_PARALLEL
+                if(pRG->rx2_id < 0 && pD->NGrid[1] > 1){
+                  pRG->rx2_id = pD->GData[myN][0][myL].ID_Comm_Domain;
+                }
+#endif /* MPI_PARALLEL */
+
 	  break;
 
 	  default:
@@ -726,6 +759,16 @@ void bvals_fullrad_init(MeshS *pM)
 	}
       }
     }
+
+#ifdef MPI_PARALLEL 
+    if(myID_Comm_world == 0){
+#endif
+        /* Print out the parameters for consistency check */
+       printf("Azimuthal boundary flag: Rotateflag:  %d\n",Rotate_flag);
+#ifdef MPI_PARALLEL 
+    }
+#endif
+
 
 /* Figure out largest size needed for send/receive buffers with MPI ----------*/
 #ifdef MPI_PARALLEL
@@ -1411,10 +1454,115 @@ for(ifr=0; ifr<nf; ifr++) {
 }
 
 
-
 /*----------------------------------------------------------------------------*/
 /* Rotate PERIODIC boundary conditions (cont), Inner x2 boundary (rbc_ix2=7) */
 /* Angles for specific intensities rotates for 90 degrees  */
+
+static void Rotate90_ix2_fullrad(RadGridS *pRG)
+{
+	int is = pRG->is, ie = pRG->ie;
+	int js = pRG->js;
+	int ks = pRG->ks, ke = pRG->ke;
+	int nang = pRG->nang;
+	int nf = pRG->nf;
+	int i, j, k, n, ifr;
+	Real swap;
+	
+	
+	for(ifr=0; ifr<nf; ifr++) {		
+		for(n=0; n<nang; n++){
+			for(k=ks; k<=ke; k++){
+				for(j=1; j<=Radghost; j++){
+					for(i=is-Radghost; i<=ie+Radghost; i++){
+						/* Swap l = 0 && l =1, l=2 and l=3 */
+						swap = pRG->imu[ifr][0][n][k][js-j][i];
+						pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][1][n][k][js-j][i];
+						pRG->imu[ifr][1][n][k][js-j][i] = swap;
+						
+						swap = pRG->imu[ifr][2][n][k][js-j][i];
+						pRG->imu[ifr][2][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
+						pRG->imu[ifr][3][n][k][js-j][i] = swap;
+						
+						/* If for 3D */ 
+						/* swap l ==4 && l==5, l==6 and l==7 */
+						if(pRG->noct > 4){
+							swap = pRG->imu[ifr][4][n][k][js-j][i];
+							pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][5][n][k][js-j][i];
+							pRG->imu[ifr][5][n][k][js-j][i] = swap;
+							
+							swap = pRG->imu[ifr][6][n][k][js-j][i];
+							pRG->imu[ifr][6][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
+							pRG->imu[ifr][7][n][k][js-j][i] = swap;
+						}
+						
+					}/* end i */
+				}/* end J */
+			} /* End k */
+		}/* end nang */ 
+	}/* end ifr */
+	
+	return;
+}
+
+/*----------------------------------------------------------------------------*/
+/* Rotate PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=7) */
+
+static void Rotate90_ox2_fullrad(RadGridS *pRG)
+{
+	
+	int is = pRG->is, ie = pRG->ie;
+	int je = pRG->je;
+	int ks = pRG->ks, ke = pRG->ke;
+	int nang = pRG->nang;
+	int nf = pRG->nf;
+	int i, j, k, n, ifr;
+	Real swap;
+	
+	
+	for(ifr=0; ifr<nf; ifr++) {		
+		for(n=0; n<nang; n++){
+			for(k=ks; k<=ke; k++){
+				for(j=1; j<=Radghost; j++){
+					for(i=is-Radghost; i<=ie+Radghost; i++){
+						/* Swap l = 0 && l =1 , l==2 and l ==3*/
+						swap = pRG->imu[ifr][0][n][k][je+j][i];
+						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][1][n][k][je+j][i];
+						pRG->imu[ifr][1][n][k][je+j][i] = swap;
+						
+						swap = pRG->imu[ifr][2][n][k][je+j][i];
+						pRG->imu[ifr][2][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
+						pRG->imu[ifr][3][n][k][je+j][i] = swap;
+						
+						/* swap l ==4 && l==5, l==6 and l==7 */
+						if(pRG->noct > 4){
+							swap = pRG->imu[ifr][4][n][k][je+j][i];
+							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][5][n][k][je+j][i];
+							pRG->imu[ifr][5][n][k][je+j][i] = swap;
+							
+							swap = pRG->imu[ifr][6][n][k][je+j][i];
+							pRG->imu[ifr][6][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
+							pRG->imu[ifr][7][n][k][je+j][i] = swap;
+							
+						}
+						
+					}/* end i */
+				}/* end J */
+			} /* End k */
+		}/* end nang */ 
+	}/* end ifr */
+	
+	
+	
+	return;
+}
+
+
+
+
+
+/*----------------------------------------------------------------------------*/
+/* Rotate PERIODIC boundary conditions (cont), Inner x2 boundary (rbc_ix2=8) */
+/* Angles for specific intensities rotates for 180 degrees  */
 
 static void Rotate180_ix2_fullrad(RadGridS *pRG)
 {
@@ -1432,16 +1580,25 @@ static void Rotate180_ix2_fullrad(RadGridS *pRG)
 				for(k=ks; k<=ke; k++){
 					for(j=1; j<=Radghost; j++){
 						for(i=is-Radghost; i<=ie+Radghost; i++){
-							/* Swap l = 0 && l =3 */
+							/* Swap l = 0 && l =2, l=1 and l=3 */
 							swap = pRG->imu[ifr][0][n][k][js-j][i];
-							pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
-							pRG->imu[ifr][3][n][k][js-j][i] = swap;
+							pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][2][n][k][js-j][i];
+							pRG->imu[ifr][2][n][k][js-j][i] = swap;
+
+							swap = pRG->imu[ifr][1][n][k][js-j][i];
+                                                        pRG->imu[ifr][1][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
+                                                        pRG->imu[ifr][3][n][k][js-j][i] = swap;
 							
 							/* If for 3D */ 
+							/* swap l ==4 && l==6, l==5 and l==7 */
 							if(pRG->noct > 4){
 								swap = pRG->imu[ifr][4][n][k][js-j][i];
-								pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
-								pRG->imu[ifr][7][n][k][js-j][i] = swap;
+								pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][6][n][k][js-j][i];
+								pRG->imu[ifr][6][n][k][js-j][i] = swap;
+
+								swap = pRG->imu[ifr][5][n][k][js-j][i];
+                                                                pRG->imu[ifr][5][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
+                                                                pRG->imu[ifr][7][n][k][js-j][i] = swap;
 							}
 							
 						}/* end i */
@@ -1454,7 +1611,7 @@ static void Rotate180_ix2_fullrad(RadGridS *pRG)
 }
 
 /*----------------------------------------------------------------------------*/
-/* Rotate PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=7) */
+/* Rotate PERIODIC boundary conditions (cont), Outer x2 boundary (rbc_ox2=8) */
 
 static void Rotate180_ox2_fullrad(RadGridS *pRG)
 {
@@ -1473,15 +1630,25 @@ static void Rotate180_ox2_fullrad(RadGridS *pRG)
 			for(k=ks; k<=ke; k++){
 				for(j=1; j<=Radghost; j++){
 					for(i=is-Radghost; i<=ie+Radghost; i++){
-						/* Swap l = 0 && l =3 */
+						/* Swap l = 0 && l =2 , l==1 and l ==3*/
 						swap = pRG->imu[ifr][0][n][k][je+j][i];
-						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
-						pRG->imu[ifr][3][n][k][je+j][i] = swap;
-						
+						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][2][n][k][je+j][i];
+						pRG->imu[ifr][2][n][k][je+j][i] = swap;
+
+						swap = pRG->imu[ifr][1][n][k][je+j][i];
+                                                pRG->imu[ifr][1][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
+                                                pRG->imu[ifr][3][n][k][je+j][i] = swap;
+
+						/* swap l ==4 && l==6, l==5 and l==7 */
 						if(pRG->noct > 4){
 							swap = pRG->imu[ifr][4][n][k][je+j][i];
-							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
-							pRG->imu[ifr][7][n][k][je+j][i] = swap;
+							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][6][n][k][je+j][i];
+							pRG->imu[ifr][6][n][k][je+j][i] = swap;
+
+							swap = pRG->imu[ifr][5][n][k][je+j][i];
+                                                        pRG->imu[ifr][5][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
+                                                        pRG->imu[ifr][7][n][k][je+j][i] = swap;
+
 						}
 						
 					}/* end i */

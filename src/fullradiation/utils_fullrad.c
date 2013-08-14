@@ -81,8 +81,11 @@ for(ifr=0; ifr<pRG->nf; ifr++){
   	for(n=0; n<pRG->nang; n++){
   		for(k=kl; k<=ku; k++){
      			for(j=jl; j<=ju; j++){	
-				for(i=il; i<=iu; i++){	  
-		
+				for(i=il; i<=iu; i++){
+
+					/* First, check specific intensity is not negative */	  
+					if(pRG->imu[ifr][l][n][k][j][i] < TINY_NUMBER)
+						pRG->imu[ifr][l][n][k][j][i] = TINY_NUMBER;
 
 					/* sum rays along different directions */
 					wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
@@ -639,41 +642,23 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 
 
 		/* Now the element [N-1][Nzl] */
-		tempup = Mc[0] * (Mb[0] - Mb[1]);
-		temp = Ma[0] * Mb[1];
-		for(i=2; i<=Nzl; i++){
-			tempup *= Ma[i];
-			temp *= Ma[i];
-		}
+		/* To avoid many Ma[i] especially when Ma[i] is huge */
+		/* Divide a common factor for up and down */
+		tempup = Mc[0] * (Mb[0] - Mb[1])/(Ma[0]*Ma[1]);
+		temp = Mb[1]/Ma[1];
 		tempup -= temp;
 
 		for(j=2; j<=Nzl; j++){
-			temp = Ma[0] * (Mb[1] - Mb[j]);
-			for(i=2; i<=Nzl; i++){
-				if(i != j)
-					temp *= Ma[i];
-				else
-					temp *= Mc[i];
-			}
+			temp = Mc[j] * (Mb[1] - Mb[j])/(Ma[1]*Ma[j]);
 			tempup -= temp;
 		}
 
-		tempdown = Mc[1] * (Mb[0] - Mb[1]);
-		temp = Ma[1] * Mb[0];
-		for(i=2; i<=Nzl; i++){
-			tempdown *= Ma[i];
-			temp *= Ma[i];
-		}
+		tempdown = Mc[1] * (Mb[0] - Mb[1])/(Ma[0]*Ma[1]);
+		temp = Mb[0]/Ma[0];
 		tempdown += temp;
 
 		for(j=2; j<=Nzl; j++){
-			temp = Ma[1] * (Mb[0] - Mb[j]);
-			for(i=2; i<=Nzl; i++){
-				if(i != j)
-					temp *= Ma[i];
-				else
-					temp *= Mc[i];
-			}
+			temp = Mc[j] * (Mb[0] - Mb[j])/(Ma[0]*Ma[j]);
 			tempdown += temp;
 		}
 
@@ -719,47 +704,25 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 		* now the line Nzl, there are only two elements in lines Nzl */
 		if(Nzl > 1){
 			UN[Nzl][Nzl] = -Mb[0];
-			for(i=1; i<=Nzl; i++)
-				UN[Nzl][Nzl] *= Ma[i];
 
 			for(j=1; j<=Nzl; j++){
-				temp = Mb[0] - Mb[j];
-				for(i=1; i<=Nzl; i++){
-					if(i == j)
-						temp *= Mc[i];
-					else
-						temp *= Ma[i];
-				}
+				temp = (Mb[0] - Mb[j]) * Mc[j] / Ma[j];
 				UN[Nzl][Nzl] -= temp;
 			}
 
-			temp = Mb[0] - Mb[1];
-			for(i=2; i<Nzl; i++)
-				temp *= Ma[i];
-
-			temp *= Mc[Nzl];
+			temp = (Mb[0] - Mb[1]) * Mc[Nzl] / (Ma[1] * Ma[Nzl]);
 			UN[Nzl][Nzl] /= temp;
 		
 
 		/* Now the element [Nzl][N-1] */
 			UN[Nzl][N-1] = Mb[N-1] * Mc[Nzl] - Mb[0] * Md[Nzl];
-			for(i=1; i<Nzl; i++)
-				UN[Nzl][N-1] *= Ma[i];
 		
 			for(j=1; j<Nzl; j++){
-				temp = Mc[Nzl] * Md[j] - Mc[j] * Md[Nzl];
-				for(i=1; i<Nzl; i++){
-					if(i == j)
-						temp *= (Mb[0] - Mb[i]);
-					else
-						temp *= Ma[i];
-				}
+				temp = (Mc[Nzl] * Md[j] - Mc[j] * Md[Nzl]) * (Mb[0] - Mb[j])/Ma[j];
 				UN[Nzl][N-1] += temp;
 			}
 
-			temp = (Mb[0] - Mb[1]) * Mc[Nzl];
-			for(i=2; i<Nzl; i++)
-				temp *= Ma[i];
+			temp = (Mb[0] - Mb[1]) * Mc[Nzl]/Ma[1];
 
 			UN[Nzl][N-1] /= temp;
 		}/* End Nzl > 1 */

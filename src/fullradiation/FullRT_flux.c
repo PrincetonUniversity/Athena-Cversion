@@ -83,13 +83,14 @@ void flux_PLM(Real r[3]  __attribute__((unused)), const int dir __attribute__((u
 
 #ifdef CYLINDRICAL
 	/* Take into account the curvature effect for time averaged interface state */
-	if(dir == 1){
+/*	if(dir == 1){
 		
 		if(distance < 0.0){
 			ath_error("[FullRT_flux plm]: CFL condition should be satisfied for volume centered distance %e\n",distance);
 
 		}
 	}
+*/
 #endif
 
 	/* The upwind flux */
