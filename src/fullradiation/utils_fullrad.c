@@ -19,177 +19,135 @@
 
 #ifdef FULL_RADIATION_TRANSFER
 
+/* This function is called to update the momentums in the ghost zones only */
+
+
 void UpdateRT(DomainS *pD){
-
-  RadGridS *pRG=(pD->RadGrid);
-  GridS *pG = (pD->Grid);
-  int i,j,k ,ifr, l, n, m;
-
-  int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
-  int jl = pRG->js, ju = pRG->je;
-  int kl = pRG->ks, ku = pRG->ke;
-  int kg, jg, ig;
-  int koff = 0, joff = 0, ioff = 0;
-  int nDim; 
-  Real vel[3], Fr0[3], VKr[3], VEr[3];;
-
-  nDim = 1;
-  for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
-
-  ioff = nghost - Radghost;
-
-/* Including the ghost zones */
-
-  if(nDim > 1){
-	jl -= Radghost;
-	ju += Radghost;
-
-	joff = nghost - Radghost;
-  }
- 
-  if(nDim > 2){
-	kl -= Radghost;
-	ku += Radghost;
-
-	koff = nghost - Radghost;
-  }
-
-  Real wimu;
-  Real mu[3]; /* cosins with respect to three axis */
-  Real mu2[6]; 	/* products of two angles, used for radiation pressure */
-
-
-for(ifr=0; ifr<pRG->nf; ifr++){
-	/* First, initialize to be zero */
-  for(k=kl; k<=ku; k++){
-     for(j=jl; j<=ju; j++){	
-	for(i=il; i<=iu; i++){	
-		pRG->R[ifr][k][j][i].J = 0.0;
-		for(m=0; m<3; m++)
-			pRG->R[ifr][k][j][i].H[m] = 0.0;
-
-		for(m=0; m<6; m++)
-			pRG->R[ifr][k][j][i].K[m] = 0.0;
-	}
-     }
-  }
-
-  /* now recalculate the momentums */
-
-
-  for(l=0; l<pRG->noct; l++){
-  	for(n=0; n<pRG->nang; n++){
-  		for(k=kl; k<=ku; k++){
-     			for(j=jl; j<=ju; j++){	
-				for(i=il; i<=iu; i++){
-
-					/* First, check specific intensity is not negative */	  
-					if(pRG->imu[ifr][l][n][k][j][i] < TINY_NUMBER)
-						pRG->imu[ifr][l][n][k][j][i] = TINY_NUMBER;
-
-					/* sum rays along different directions */
-					wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
-
-					/* For cylindrical coordinate, we nned to convert the angle */
-#ifdef CYLINDRICAL
-					for(m=0; m<3; m++)
-                                                mu[m] = pRG->Rphimu[l][n][k][j][i][m];
-#else
-					for(m=0; m<3; m++)
-                                                mu[m] = pRG->mu[l][n][k][j][i][m];
-#endif
-
-					/* for energy density */
-					pRG->R[ifr][k][j][i].J += wimu;
 	
-					/* for flux */		
-					for(m=0; m<3; m++)
-						pRG->R[ifr][k][j][i].H[m] += mu[m] * wimu;
-
-					/* for radiation pressure */
-					mu2[0] = mu[0] * mu[0];
-					mu2[1] = mu[0] * mu[1];
-					mu2[2] = mu[1] * mu[1];
-					mu2[3] = mu[0] * mu[2];
-					mu2[4] = mu[1] * mu[2];
-					mu2[5] = mu[2] * mu[2];
-
-					for(m=0; m<6; m++)
-						pRG->R[ifr][k][j][i].K[m] += mu2[m] * wimu;
-				}/* end i  */
-			}/* end j */
-		}/* end k */
-     	}/* end n */
-  }/* end l */
-} /* end frequency */
-
-	/*-----------------------------------------------------*/
-	/* Now calculate the frequency momentum source terms */
-	/* Initialize to be zero */
-
-	/* The momentum source term is set to be v(T^4-Er) in hydro_to_fullRT */
-	/* So hydro_to_fullRT must be called before this momentum source term is calculated */ 
-/*	for(k=kl; k<=ku; k++){
-		kg = k + koff;
-		for(j=jl; j<=ju; j++){
-		jg = j + joff;	
-			for(i=il; i<=iu; i++){
-			ig = i + ioff;
-				for(m=0; m<3; m++)
-					pG->Frsource[kg][jg][ig][m] = 0.0;
-				
-			}
-		}
-	}
-*/
-
-	/* Now sum over frequency */
-for(ifr=0; ifr<pRG->nf; ifr++){	
-	for(k=kl; k<=ku; k++){
-		kg = k + koff;
-		for(j=jl; j<=ju; j++){
-		jg = j + joff;	
-			for(i=il; i<=iu; i++){
-				ig = i + ioff;
-				vel[0] = pG->U[kg][jg][ig].M1 / pG->U[kg][jg][ig].d;
-				vel[1] = pG->U[kg][jg][ig].M2 / pG->U[kg][jg][ig].d;
-				vel[2] = pG->U[kg][jg][ig].M3 / pG->U[kg][jg][ig].d;
-				VKr[0] = vel[0] * pRG->R[ifr][k][j][i].K[0] + vel[1] * pRG->R[ifr][k][j][i].K[1]
-                                                + vel[2] * pRG->R[ifr][k][j][i].K[3];
-				VKr[1] = vel[0] * pRG->R[ifr][k][j][i].K[1] + vel[1] * pRG->R[ifr][k][j][i].K[2]
-                                                + vel[2] * pRG->R[ifr][k][j][i].K[4];
-				VKr[2] = vel[0] * pRG->R[ifr][k][j][i].K[3] + vel[1] * pRG->R[ifr][k][j][i].K[4]
-                                                + vel[2] * pRG->R[ifr][k][j][i].K[5]; 
-
+	RadGridS *pRG=(pD->RadGrid);
+	GridS *pG = (pD->Grid);
+	int ifr;
 	
-				for(m=0; m<3; m++){
-					Fr0[m] = 4.0 * PI * (pRG->R[ifr][k][j][i].H[m] - vel[m] * pRG->R[ifr][k][j][i].J/Crat 
-						- VKr[m]/Crat);
-
-					VEr[m] = 4.0 * PI * (- vel[m] * pRG->R[ifr][k][j][i].J/Crat
-                                                - VKr[m]/Crat);
- 
-					/* sigma_a Fr term is added in hydro_to_full when T^4-Er is calculated */
-					pG->Frsource[kg][jg][ig][m] += (Prat * pRG->wnu[ifr] * (pRG->R[ifr][k][j][i].Sigma[2] * Fr0[m] 
-									+ pRG->R[ifr][k][j][i].Sigma[1] * VEr[m]));
-				}
-
-				/* Also add the radiation work term to the energy source term */
-				/* The energy source term includes dt, but momentum source term does not */
-				pG->Radheat[kg][jg][ig] += (-pG->dt * Prat * (pRG->R[ifr][k][j][i].Sigma[1] - pRG->R[ifr][k][j][i].Sigma[2]) 
-							* (vel[0] * Fr0[0] + vel[1] * Fr0[1] + vel[2] * Fr0[2])); 	
-				
-			}/* end i */
-		}/* end j */
-	}/* end k */
-}/* End frequency */
-
-
-	/* No Need to update the boundary condition for the source terms, they are calculate in the ghost zones */
-
+	int i;
+	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
+	int jl = pRG->js, ju = pRG->je;
+	int kl = pRG->ks, ku = pRG->ke;
+	int koff = 0, joff = 0, ioff = 0;
+	int nDim; 
+	
+	
+	nDim = 1;
+	for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
+	
+	ioff = nghost - Radghost;
+	
+	/* Including the ghost zones */
+	
+	if(nDim > 1){
+		jl -= Radghost;
+		ju += Radghost;
+		
+		joff = nghost - Radghost;
+	}
+	
+	if(nDim > 2){
+		kl -= Radghost;
+		ku += Radghost;
+		
+		koff = nghost - Radghost;
+	}
+	
+	
+	for(ifr=0; ifr<pRG->nf; ifr++){
+		CalMoment(il, iu, jl, ju, kl, ku, ifr, pRG);
+		
+		/* ghost zones also need to be calculated for scattering opacity */
+		RadSsource(ifr, pRG, pG);
+	}
 
 	return;
 }
+
+
+/* Calculate the radiation moments for the specific index range:
+ * il to iu, jl to ju, kl to ku */
+
+
+void CalMoment(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, const int ifr, RadGridS *pRG)
+{
+	int i, j, k, l, n, m;
+	Real wimu;
+	Real mu[3]; /* cosins with respect to three axis */
+	Real mu2[6]; 	/* products of two angles, used for radiation pressure */
+	
+	
+	
+	/* First, initialize to be zero */
+	
+	for(k=kl; k<=ku; k++){
+		for(j=jl; j<=ju; j++){	
+			for(i=il; i<=iu; i++){	
+				pRG->R[ifr][k][j][i].J = 0.0;
+				for(m=0; m<3; m++)
+					pRG->R[ifr][k][j][i].H[m] = 0.0;
+				
+				for(m=0; m<6; m++)
+					pRG->R[ifr][k][j][i].K[m] = 0.0;
+			}/* end i*/
+		}/* end j */
+	}/* end k */
+	
+	
+	for(l=0; l<pRG->noct; l++){
+		for(n=0; n<pRG->nang; n++){
+			for(k=kl; k<=ku; k++){
+				for(j=jl; j<=ju; j++){	
+					for(i=il; i<=iu; i++){
+						
+						/* First, check specific intensity is not negative */	  
+						/*	if(pRG->imu[ifr][l][n][k][j][i] < TINY_NUMBER)
+						 pRG->imu[ifr][l][n][k][j][i] = TINY_NUMBER;
+						 */
+						/* sum rays along different directions */
+						wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
+						
+						/* For cylindrical coordinate, we nned to convert the angle */
+#ifdef CYLINDRICAL
+						for(m=0; m<3; m++)
+							mu[m] = pRG->Rphimu[l][n][k][j][i][m];
+#else
+						for(m=0; m<3; m++)
+							mu[m] = pRG->mu[l][n][k][j][i][m];
+#endif
+						
+						/* for energy density */
+						pRG->R[ifr][k][j][i].J += wimu;
+						
+						/* for flux */		
+						for(m=0; m<3; m++)
+							pRG->R[ifr][k][j][i].H[m] += mu[m] * wimu;
+						
+						/* for radiation pressure */
+						mu2[0] = mu[0] * mu[0];
+						mu2[1] = mu[0] * mu[1];
+						mu2[2] = mu[1] * mu[1];
+						mu2[3] = mu[0] * mu[2];
+						mu2[4] = mu[1] * mu[2];
+						mu2[5] = mu[2] * mu[2];
+						
+						for(m=0; m<6; m++)
+							pRG->R[ifr][k][j][i].K[m] += mu2[m] * wimu;
+					}/* end i  */
+				}/* end j */
+			}/* end k */
+		}/* end n */
+	}/* end l */
+	
+	
+	
+}
+
+
 
 
 /* use LU decomposition to solve a special matrix, 
@@ -497,12 +455,23 @@ void SpecialMatrix2(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real
  * Then we redefine Mc = Mc-Mb and Md = Mc - Mcn
  */
 
-void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **lN,  Real **UN, const int N)
+/* We only need three lines for lN: lN[0], lN[Nl], lN[N-1] */
+/* We also only need three lines for UN */
+/* lN1[] is lN[0][] *
+ * lN2[] is lN[Nl][] *
+ * lN3[] is lN[N-1][] */
+
+/* UN1[] is UN[1][]    *
+ * UN2[] is UN[Nl][]  *
+ * UN3[] is UN[N-1][]
+ */
+
+void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3)
 {
 
 	Real swap;
-	Real tempMc,temp,tempup, tempdown;
-    	int i, Nzl, j; 
+	Real tempMc,temp,tempup, tempdown, MCB0, MCB1, MCB2, BInv, CInv;
+	int i, Nzl, j; 
 	
 	/* First, subtract the last line from lines 1 to N-1 */
 	/* RHS is also changed during this process but Xi unchanged */
@@ -532,8 +501,9 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
         	i--;
 
    	Nzl = i;
+	
        
-        if(Nzl < 0){
+	if(Nzl < 0){
      		/* First, Multiple L^-1 and RHS */
 		for(i=0; i<N-1; i++){
 			RHS[N-1] -= Mb[i] * RHS[i]/Ma[i];
@@ -561,17 +531,24 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 
 		/* calculate L^-1 RHS */
 
-		lN[0][0] = (Ma[0] + Mc[0])/Mb[0];
+	/*	lN[0][0] = (Ma[0] + Mc[0])/Mb[0];
+	*/
+		MCB0 = (Ma[0] + Mc[0])/Mb[0];
+		lN1[0] = MCB0;
+/*
 		for(i=1; i<N-1; i++)
 			lN[0][i] = (Mc[0] - Mb[i] * (Ma[0] + Mc[0])/Mb[0])/Ma[i];
+*/
+		for(i=1; i<N-1; i++)
+			lN1[i] = (Mc[0] - Mb[i] * MCB0)/Ma[i];
 
 		for(i=0; i<N-1; i++)
-			RHS[N-1] -= lN[0][i] * RHS[i];
+			RHS[N-1] -= lN1[i] * RHS[i];
 
 		/* calculate U^-1 RHS */
-		temp = -Ma[N-1] + Mc[0] - Mb[N-1] * (Ma[0] + Mc[0]) / Mb[0];
+		temp = -Ma[N-1] + Mc[0] - Mb[N-1] * MCB0;
 		for(i=1; i<N-1; i++)
-			temp += Ma[N-1] * (Mc[0] - Mb[i] * (Ma[0] + Mc[0])/Mb[0])/Ma[i];
+			temp += Ma[N-1] * (Mc[0] - Mb[i] * MCB0)/Ma[i];
 
 		RHS[N-1] /= temp;
 
@@ -625,18 +602,24 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 		 * The second element (starting from line 2 ) is Mc[Nzl-i+1]/Mc[Nzl]
 		*/
 		/* Now the line Nzl */
+		MCB0 = (Ma[0] + Mc[0])/Mb[0];
+		MCB1 = Ma[1]/(Mb[0] - Mb[1]);
+		MCB2 = Ma[0]/(Mb[0] - Mb[1]);
 		
-		lN[Nzl][0] = Mc[1]/Mb[0];
+	/*	lN[Nzl][0] = Mc[1]/Mb[0];
 		lN[N-1][0] = (Ma[0] + Mc[0])/Mb[0];
+	*/
+		lN2[0] = Mc[1]/Mb[0];
+		lN3[0] = MCB0;
 		/* The second element */
 		if(Nzl > 1){
-			lN[Nzl][1] = (Ma[1] * Mb[0] + (Mb[0] - Mb[1]) * Mc[1])/((Mb[0] - Mb[1]) * Mc[Nzl]);
-			lN[N-1][1] = -(Ma[0] * Mb[1] + Mc[0] * (Mb[1] - Mb[0]))/((Mb[0] - Mb[1]) * Mc[Nzl]);
+			lN2[1] = (Ma[1] * Mb[0] + (Mb[0] - Mb[1]) * Mc[1])/((Mb[0] - Mb[1]) * Mc[Nzl]);
+			lN3[1] = -(Ma[0] * Mb[1] + Mc[0] * (Mb[1] - Mb[0]))/((Mb[0] - Mb[1]) * Mc[Nzl]);
 		}
 
 		for(i=2; i<Nzl; i++){
-			lN[Nzl][i] = Ma[1] * (Mb[i] - Mb[0])/(Ma[i] * (Mb[0] - Mb[1]));
-			lN[N-1][i] = Ma[0] * (Mb[1] - Mb[i])/(Ma[i] * (Mb[0] - Mb[1]));
+			lN2[i] = MCB1 * (Mb[i] - Mb[0])/Ma[i];
+			lN3[i] = MCB2 * (Mb[1] - Mb[i])/Ma[i];
 		}
 			
 
@@ -663,98 +646,105 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 		}
 
 
-		lN[N-1][Nzl] = tempup/tempdown;
+		lN3[Nzl] = tempup/tempdown;
 		
 		/*-----------------------------------------*/
 
 		/* Now calculate L^-1 RHS */
 		/* The first element is unchanged */
 		/* The second element */
-		RHS[1] -= (Mc[Nzl] * RHS[0] / Mb[0]);
+		BInv = 1.0/Mb[0];
+		CInv = 1.0/Mc[Nzl];
+		
+		RHS[1] -= (Mc[Nzl] * RHS[0] * BInv);
 		for(j=2; j<Nzl; j++){
-			RHS[j] -= (Mc[j] * RHS[0]/Mb[0]);
-			RHS[j] -= (Mc[j] * RHS[1]/Mc[Nzl]);
+			RHS[j] -= (Mc[j] * RHS[0] * BInv);
+			RHS[j] -= (Mc[j] * RHS[1] * CInv);
 		}
 		/* The line Nzl */
 		if(Nzl > 1){
 			for(i=0; i<Nzl; i++)
-				RHS[Nzl] -= (lN[Nzl][i] * RHS[i]);
+				RHS[Nzl] -= (lN2[i] * RHS[i]);
 		}
 
 		/* The line N-1 */
 		for(i=0; i<=Nzl; i++)
-			RHS[N-1] -= (lN[N-1][i] * RHS[i]);
+			RHS[N-1] -= (lN3[i] * RHS[i]);
 
 		/*-----------------------------------------------*/
 		/* Now construct the U matrix */
+		/* UN1[] is UN[1][]    *
+		 * UN2[] is UN[Nzl][]  *
+		 * UN3[] is UN[N-1][]
+		 */
 		
 
 		/* For line 1 */
 
 	
 		for(i=1; i<=Nzl; i++)
-			UN[1][i] = (Mb[0] - Mb[i]) * Mc[Nzl]/Mb[0];
+			UN1[i] = (Mb[0] - Mb[i]) * Mc[Nzl] * BInv;
 
-		UN[1][Nzl] += Ma[Nzl];
+		UN1[Nzl] += Ma[Nzl];
 		
-		UN[1][N-1] = Md[Nzl] - Mb[N-1] * Mc[Nzl]/Mb[0];
+		UN1[N-1] = Md[Nzl] - Mb[N-1] * Mc[Nzl] * BInv;
 
 		/* For the lines 2 to Nzl-1, the elements are a[i], ... -a[Nzl]*c[i]/c[Nzl];
 
 		* now the line Nzl, there are only two elements in lines Nzl */
 		if(Nzl > 1){
-			UN[Nzl][Nzl] = -Mb[0];
+			UN2[Nzl] = -Mb[0];
 
 			for(j=1; j<=Nzl; j++){
 				temp = (Mb[0] - Mb[j]) * Mc[j] / Ma[j];
-				UN[Nzl][Nzl] -= temp;
+				UN2[Nzl] -= temp;
 			}
 
 			temp = (Mb[0] - Mb[1]) * Mc[Nzl] / (Ma[1] * Ma[Nzl]);
-			UN[Nzl][Nzl] /= temp;
+			UN2[Nzl] /= temp;
 		
 
 		/* Now the element [Nzl][N-1] */
-			UN[Nzl][N-1] = Mb[N-1] * Mc[Nzl] - Mb[0] * Md[Nzl];
+			UN2[N-1] = Mb[N-1] * Mc[Nzl] - Mb[0] * Md[Nzl];
 		
 			for(j=1; j<Nzl; j++){
 				temp = (Mc[Nzl] * Md[j] - Mc[j] * Md[Nzl]) * (Mb[0] - Mb[j])/Ma[j];
-				UN[Nzl][N-1] += temp;
+				UN2[N-1] += temp;
 			}
 
 			temp = (Mb[0] - Mb[1]) * Mc[Nzl]/Ma[1];
 
-			UN[Nzl][N-1] /= temp;
+			UN2[N-1] /= temp;
 		}/* End Nzl > 1 */
 
 		/* now the last element UN[N-1][N-1] */
 		/* sum LN[N-1][i] * UN[i][N-1] = Mb */
-		UN[N-1][N-1] = Md[0] - lN[N-1][0] * Mb[N-1] - lN[N-1][1] * UN[1][N-1];
+		UN3[N-1] = Md[0] - lN3[0] * Mb[N-1] - lN3[1] * UN1[N-1];
 		for(i=2; i<Nzl; i++)
-			UN[N-1][N-1] -= (lN[N-1][i] * (Md[i] - Mc[i] * Md[Nzl]/Mc[Nzl]));
+			UN3[N-1] -= (lN3[i] * (Md[i] - Mc[i] * Md[Nzl] * CInv));
 
 		if(Nzl > 1){
-			UN[N-1][N-1] -= (lN[N-1][Nzl] * UN[Nzl][N-1]);
+			UN3[N-1] -= (lN3[Nzl] * UN2[N-1]);
 		}
 		
 		/* Now calculate U^-1 RHS */
-		RHS[N-1] /= UN[N-1][N-1];
+		RHS[N-1] /= UN3[N-1];
 	
-		RHS[Nzl] -= (UN[Nzl][N-1] * RHS[N-1]);
-		RHS[Nzl] /= UN[Nzl][Nzl]; 
+		RHS[Nzl] -= (UN2[N-1] * RHS[N-1]);
+		RHS[Nzl] /= UN2[Nzl]; 
 
 		for(i=Nzl-1; i>1; i--){
-			RHS[i] -= (Md[i] - Mc[i] * Md[Nzl]/Mc[Nzl]) * RHS[N-1]; 
-			RHS[i] += (Ma[Nzl] * Mc[i]/Mc[Nzl]) * RHS[Nzl];
+			RHS[i] -= (Md[i] - Mc[i] * Md[Nzl] * CInv) * RHS[N-1]; 
+			RHS[i] += (Ma[Nzl] * Mc[i] * CInv) * RHS[Nzl];
 			RHS[i] /= Ma[i];
 		}
 		
 		if(Nzl > 1){	
 			for(i=2; i<=Nzl; i++)
-				RHS[1] -= (UN[1][i] * RHS[i]);
+				RHS[1] -= (UN1[i] * RHS[i]);
 
-			RHS[1] -= (UN[1][N-1] * RHS[N-1]);
-			RHS[1] /= UN[1][1];
+			RHS[1] -= (UN1[N-1] * RHS[N-1]);
+			RHS[1] /= UN1[1];
 		}
 			
 		for(i=1; i<=Nzl; i++)
@@ -774,17 +764,146 @@ void SpecialMatrix3(Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real **l
 
 }
 
+
+
+/* use LU decomposition to invert a special matrix, 
+ * resulting from the all the terms, especially 
+ * the velocity dependent terms related with absorption opacity
+ * The matrix form is 
+ * Ma1+Mb1  Mb2     Mb3  ... ... Mbn   Md1		*
+ * Mb1     Ma2+Mb2  Mb3  ... ... Mbn   Md2		*
+ * Mb1     Mb2    Ma3+Mb3        Mbn   Md3		*
+ * ...   ...     ...							*
+ * Mb1     Mb2     Mb3 ...  ... Man+Mbn Mdn		*
+ * Mc1		Mc2		Mc3	... ...  Mcn	Mdn+1	*
+ 
+ * We can do the LU decomposition by hand 
+ * for this special matrix
+ * To solve this matrix, we first subtract the n line from each line *
+ * Then we redefine Md = Md-Mdn
+ */
+
+
+
+
+void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS)
+{
+	
+	/* N always larger than 2 */
+	/* The total line s of the matrix is N+1 */
+	/* Lines 1 to N are for weight * I */
+	/* Lines N+1 is for gas temperature */
+	
+	Real CoefN[2], CoefN1[2], tempRHS[2], temp;
+	Real MaInv;
+	int i; 
+	
+	/* Now the matrix becomes the form */
+	/* Ma1 0    0   0  ... ...	 -Man Md1 *
+	 * 0   Ma2  0   0  ... ...   -Man Md2 *
+	 * 0   0    Ma3 0  ... ...   -Man Md3 *
+	 * ... ...  ...	...
+	 * ... ... ... ...
+	 * Mb1 Mb2  Mb3 Mb4...  ...  Man+Mbn Mdn *
+	 * Mc1 Mc2 Mc3  Mc4 ... ...  Mcn  Mdn+1 *
+	 */
+		
+	/* All the variables 1 to N-1 can be expressed in terms of variable N and N+1 */
+	CoefN[0] = Ma[N-1] + Mb[N-1];
+	CoefN[1] = Md[N-1];
+	
+	CoefN1[0] = Mc[N-1];
+	CoefN1[1] = Md[N];
+	
+	tempRHS[0] = RHS[N-1];
+	tempRHS[1] = RHS[N];
+	
+	for(i=0; i<N-1; i++){
+		MaInv = 1.0/Ma[i];
+		/* line N */
+		tempRHS[0] += (-Mb[i] * MaInv * RHS[i]);
+		CoefN[0] += (Mb[i] * MaInv * Ma[N-1]);
+		CoefN[1] += (-Mb[i] * MaInv * Md[i]);
+		
+		/* line N+1 */
+		tempRHS[1] += (-Mc[i] * MaInv * RHS[i]);
+		CoefN1[0] += (Mc[i] * MaInv * Ma[N-1]);
+		CoefN1[1] += (-Mc[i] * MaInv * Md[i]);		
+		
+	}
+	
+	/* Now solve the 2*2 Matrix */
+	/* CoefN[0] is always non zero */
+	/* CoefN[0] * xN + CoefN[1] * xN1 = tempRHS[0]
+	 * CoefN1[0] * xN + CoefN1[1] * xN1 = tempRHS[1]
+	 */
+	
+	temp = CoefN[1] * CoefN1[0]/CoefN[0] - CoefN1[1];
+	RHS[N] = (tempRHS[0] * CoefN1[0]/CoefN[0] - tempRHS[1])/temp;
+	RHS[N-1] = (tempRHS[0] - CoefN[1] * RHS[N])/CoefN[0];
+	
+	/* Now set the solution */
+	for(i=0; i<N-1; i++){
+		RHS[i] = (RHS[i] - (-Ma[N-1] * RHS[N-1] + Md[i] * RHS[N]))/Ma[i];		
+	}
+	
+	/* Now the new solutions are stored in RHS[] */
+}
+
 void ReduceVelocity(const Real sigma, const Real ds, Real *alpha)
 {
 
-	Real tau;
+	Real tau, y, y2, y3, y4, expression;
 	tau = 10.0 * ds * sigma;
 	tau = tau * tau;
+
+	/* As this function is called many times, we approximate the function */
+	/* (1-exp(-tau))/tau with different functions at different range to */
+	/* speed up the calculation */
+/*
 
 	if(tau > 0.001)
 		*alpha = sqrt((1.0 - exp(- tau)) / tau);
 	else
 		*alpha = sqrt(1.0 - 0.5 * tau);
+*/
+	if(tau < 0.574374765791614){
+		y2 = tau * tau;
+		y3 = y2 * tau;
+		y4 = y3 * tau;
+		expression = 1.0 - 0.5* tau + 0.16666666666666666 * y2 - 0.041666666666666664 * y3 + 0.008333333333333333 * y4;
+	}else if(tau < 1.5){
+		y = 1.0 - tau;
+		y2 = y * y;
+		y3 = y2 * y;
+		y4 = y3 * y;
+		expression = (0.6321205588285577 + 0.36787944117144233 * y - 0.18393972058572117 * y2 + 0.061313240195240384 * y3 - 0.015328310048810096 * y4)/tau;
+	}else if(tau < 2.5){
+		y = 1.0/tau - 0.5;
+		y2 = y * y;
+		y3 = y2 * y;
+		y4 = y3 * y;
+		expression = 0.43233235838169365 + 0.5939941502901619 * y - 0.5413411329464508 * y2 + 0.36089408863096717 * y3;
+
+	}else if(tau < 5.268707747422607){
+		y = 1.0/tau - 0.2857142857142857;
+		y2 = y * y;
+		y3 = y2 * y;
+		y4 = y3 * y;
+		expression = 0.27708646187933755 + 0.8641117745995668 * y -  0.6473564071159528 * y2 - 0.3776245708176391 * y3 + 2.4781612459907563 * y4;
+
+	}else if(tau < 11.411075605604893){
+		y=1.0/tau - 0.125;
+		y2 = y * y;
+		y3 = y2 * y;
+		y4 = y3 * y;
+		expression = 0.12495806717151219 + 0.9969808363488774 * y - 0.08587843274304303 * y2 - 1.1450457699072405 * y3 - 5.496219695554754 * y4;
+
+	}else{
+		expression = 1.0/tau;
+	}
+	
+	*alpha = sqrt(expression);
 
 	return;
 

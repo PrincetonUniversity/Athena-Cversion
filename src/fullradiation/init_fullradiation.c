@@ -568,10 +568,7 @@ VDFun_t init_fullradiation(MeshS *pM)
 	if (pRG->imu == NULL) goto on_error15;
 /* The heating and cooling rate for each I */
 
-        pRG->heatcool = (Real ******)calloc_6d_array(pRG->nf,noct,nang,n3z,n2z,n1z,sizeof(Real));
-	if (pRG->heatcool == NULL) goto on_error17;
-
-
+    
 /* Allocate memory for frequency and quadrature arrays */ 
       pRG->nu = (Real *)calloc_1d_array(pRG->nf,sizeof(Real));
       if (pRG->nu == NULL) goto on_error21;
@@ -668,8 +665,6 @@ VDFun_t init_fullradiation(MeshS *pM)
   free_1d_array(pRG->wnu);  
  on_error21:
   free_1d_array(pRG->nu);
- on_error17:
-  free_6d_array(pRG->heatcool);
  on_error15:
   free_6d_array(pRG->imu);
  on_error14:
@@ -753,7 +748,6 @@ void radgrid_destruct(RadGridS *pRG)
   if (pRG->wnu != NULL) free_1d_array(pRG->wnu);
   if (pRG->nu != NULL) free_1d_array(pRG->nu);
   if (pRG->imu != NULL) free_6d_array(pRG->imu);
-  if (pRG->heatcool != NULL) free_6d_array(pRG->heatcool);
 
   return;
 }

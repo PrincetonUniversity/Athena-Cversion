@@ -42,8 +42,20 @@ static Real ****Mb = NULL; /* The common elements for each angle */
 static Real ****Ma = NULL; /* The special diagonal elements for each angle (each line) */
 static Real ****Mc = NULL; /* Matrix elements for the second special matrix */
 static Real *Md = NULL;
-static Real **lN = NULL;
-static Real **UN = NULL; /* Upper triangle matrix in LU decomposition */
+static Real ****Mdcoef = NULL;
+static Real ****inisol = NULL;
+static Real ****sol = NULL;
+static Real ***Tcoef = NULL;
+static Real ***T4coef = NULL;
+static Real *****Coefn = NULL;
+static Real *****Coefnn = NULL;
+static Real ****CoefW = NULL;
+static Real *lN1 = NULL; /* lN[0][] */
+static Real *lN2 = NULL;/* lN[Nzl][] */
+static Real *lN3 = NULL; /* lN[N-1][] */
+static Real *UN1 = NULL; /* UN[1][] Upper triangle matrix in LU decomposition */
+static Real *UN2 = NULL;/* UN[Nzl][] */
+static Real *UN3 = NULL;/* UN[N-1][] */
 
 
 
@@ -77,7 +89,7 @@ void fullRT_3d(DomainS *pD)
 #endif
 	Real *Radr;
 	int dir;
-
+	int nelements = pRG->nang * pRG->noct;
 	Real dt = pG->dt;
 	int i, is, ie;
 	int j, js, je;
@@ -99,7 +111,7 @@ void fullRT_3d(DomainS *pD)
 	dx2 = pRG->dx2;
 	dx3 = pRG->dx3;
 	
-	Real sigmas, sigmaa, AngleV, AngleV2, vx, vy, vz, miux, miuy, miuz;
+	Real sigmas, sigmaaI, sigmaa, AngleV, AngleV2, vx, vy, vz, vel2, miux, miuy, miuz;
 	
 	Real rsf, lsf;
 	rsf = 1.0;
@@ -130,9 +142,15 @@ void fullRT_3d(DomainS *pD)
 							miuz = pRG->mu[l][n][k][j][i][2];	
 #endif								
 							
+							/*
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+							*/
+							
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
 							
 							FullAngleV[ifr][l][n][k][j][i] = miux * vx + miuy * vy + miuz * vz;
 							FullAngleV2[ifr][l][n][k][j][i] = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1] 
@@ -176,9 +194,15 @@ void fullRT_3d(DomainS *pD)
 #endif								
 							
 							
-							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
+						/*	vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+						*/
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+							
+													
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 														
 							if((sigmas + sigmaa) > TINY_NUMBER){
@@ -253,17 +277,25 @@ void fullRT_3d(DomainS *pD)
 							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
 #ifdef CYLINDRICAL						
 							miux = pRG->Rphimu[l][n][k][j][i][0];
-                                                        miuy = pRG->Rphimu[l][n][k][j][i][1];
-                                                        miuz = pRG->Rphimu[l][n][k][j][i][2];
+							miuy = pRG->Rphimu[l][n][k][j][i][1];
+							miuz = pRG->Rphimu[l][n][k][j][i][2];
 #else
 							miux = pRG->mu[l][n][k][j][i][0];
-                                                        miuy = pRG->mu[l][n][k][j][i][1];
-                                                        miuz = pRG->mu[l][n][k][j][i][2];	
+							miuy = pRG->mu[l][n][k][j][i][1];
+							miuz = pRG->mu[l][n][k][j][i][2];	
 #endif						
 							
-							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
+						/*	vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+						*/
+							
+							
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+							
+							
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 							
 							
@@ -337,9 +369,18 @@ void fullRT_3d(DomainS *pD)
 							miuz = pRG->mu[l][n][k][j][i][2];	
 #endif	
 							
+							/*
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+							*/
+							
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+							
+							
+							
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 							
 							
@@ -390,18 +431,158 @@ void fullRT_3d(DomainS *pD)
 		}/* end l */
 	}/* end ifr */
 
+	
+	/****************************************************************/
+	
 	/* Now we have flux, now add the source terms due to absorption and scattering opacity seperately */ 
 	
+	/* First, Update the specific intensity with the absorption opacity related terms */
+	/* solve the (T^4 - J) and velocity dependent terms together */
+	/* This requires using Newton-Raphson to solve a set of non-linear systems */
+	
+	
+	/* first set the gas energy and momentum source terms to be zero, this should be frequency averaged in principle */
+	/* Including the ghost zone */
+	/* ghost zones for absorption opacity source terms are set with boundary condition function */
+	for(k=ks-Radghost; k<=ke+Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				pG->Radheat[k+offset][j+offset][i+offset] = 0.0;
+				for(l=0; l<3; l++)
+					pG->Frsource[k+offset][j+offset][i+offset][l] = 0.0;
+			}
+		}
+	}
+	/* first setup the commonly used coefficients */
+	for(ifr=0; ifr<pRG->nf; ifr++){
+		/* First, set the coefficient for gas temperature */
+		/* This coefficients are needed for both RHS and Jacobi coefficient */
+		/* We need Planck mean absorption opacity here */
+		for(k=ks; k<=ke; k++){
+			for(j=js; j<=je; j++){
+				for(i=is; i<=ie; i++){
+					/*
+					 vx = pG->U[0][j+offset][i+offset].M1 / pG->U[0][j+offset][i+offset].d;
+					 vy = pG->U[0][j+offset][i+offset].M2 / pG->U[0][j+offset][i+offset].d;
+					 vz = pG->U[0][j+offset][i+offset].M3 / pG->U[0][j+offset][i+offset].d;
+					 */
+					vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+					vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+					vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+				
+					vel2 = vx * vx + vy * vy  + vz * vz;
+				
+					Tcoef[k][j][i] = pG->U[k+offset][j+offset][i+offset].d * R_ideal/Gamma_1;
+					T4coef[k][j][i] = dt * Prat * (Crat-vel2/Crat) * pRG->R[ifr][k][j][i].Sigma[0];	
+					/* save the current gas temperature */
+					inisol[k][j][i][nelements] = pG->tgas[k+offset][j+offset][i+offset];
+				
+					/* Also set the first guess solution */
+					/* set the solution to be the one from last time step */
+					sol[k][j][i][nelements] = inisol[k][j][i][nelements];
+				
+				
+				}/* end i */
+			}/* End j */
+		}/* end k */
+		
+		
+		
+		for(l=0; l<pRG->noct; l++){
+			for(n=0; n<pRG->nang; n++){
+				for(k=ks; k<=ke; k++){
+					for(j=js; j<=je; j++){
+						for(i=is; i<=ie; i++){
+							/* Do not include the gas temperature in the Matrix coefficient so that it can be updated */
+							Mi = l*(pRG->nang)+n;
+							/* We need energy mean absorption opacity here */
+							sigmaa = pRG->R[ifr][k][j][i].Sigma[0];
+							sigmaaI = pRG->R[ifr][k][j][i].Sigma[1];
+							AngleV = FullAngleV[ifr][l][n][k][j][i];
+							AngleV2 = MatrixAngleV2[ifr][l][n][k][j][i];
+						
+							/*
+							 vx = pG->U[0][j+offset][i+offset].M1 / pG->U[0][j+offset][i+offset].d;
+							 vy = pG->U[0][j+offset][i+offset].M2 / pG->U[0][j+offset][i+offset].d;
+							 vz = pG->U[0][j+offset][i+offset].M3 / pG->U[0][j+offset][i+offset].d;
+							 */
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+						
+							vel2 = vx * vx + vy * vy  + vz * vz;
+						
+							/* We solve specific intensity directly, do not include the weight in the variable */
+						
+							Ma[k][j][i][Mi] = (1.0 + dt * sigmaaI * (Crat - AngleV));
+							Mb[k][j][i][Mi] = dt * sigmaaI * (vel2 + AngleV2) * pRG->wmu[n][k][j][i]/Crat;
+							Mc[k][j][i][Mi] = -4.0 * PI * Prat * dt * sigmaaI * (Crat - vel2/Crat - 2.0 * AngleV) * pRG->wmu[n][k][j][i] - Prat * 4.0 * PI * 2.0 * Mb[k][j][i][Mi];
+							/* The Mdcoef is for the original equations, not for the Jacobi matrix */
+							/* subtract line nelement from each line so that it becomes diagonal matrix */
+							if(Mi < nelements-1)
+								Mdcoef[k][j][i][Mi] = -dt * sigmaa * 3.0 * (AngleV - FullAngleV[ifr][pRG->noct-1][pRG->nang-1][k][j][i]) * 0.25 / PI;
+							else {
+								Mdcoef[k][j][i][Mi] = -dt * sigmaa * (Crat + 3.0 * AngleV) * 0.25 / PI;
+							}
+						
+						
+						
+							/* set the initial condition */
+							inisol[k][j][i][Mi] = pRG->imu[ifr][l][n][k][j][i];
+						
+							/* The absorption part is I itself, no weight */
+							sol[k][j][i][Mi] = inisol[k][j][i][Mi];
+						
+						
+						}/* end i */
+					}/* end j */
+				}/* end k */
+			}/* end n */
+		}/* end l */
+		
+		/* Solve the absorption opacity related terms */
+		/* Borrow the memory RHS */
+		/* The energy and momentum source terms are already initialized */
+		Absorption3D(nelements, pRG, sol, inisol, Ma, Mb, Mc, Mdcoef, Tcoef, T4coef, Md, RHS[ks][js][is]);
+		
+		
+		/* Because the absorption opacity related terms are updated implicitly, 
+		 * use the update quantities to calculate the energy and momentum source terms 
+		 * for the gas 
+		 * The solution is in sol, no weight 
+		 */
+		/* first, borrow the space of inisol to get the weighted sol */
+		for(k=ks; k<=ke; k++){
+			for(j=js; j<=je; j++){
+				for(i=is; i<=ie; i++){
+				
+					for(n=0; n<nelements; n++)
+						inisol[k][j][i][n] = CoefW[k][j][i][n] * sol[k][j][i][n];
+				
+					/* The last elements is gas temperature */
+				
+					inisol[k][j][i][nelements] = sol[k][j][i][nelements];
+				}/* end i */
+			}/* end j */
+		}/* end k */
+		
+		/* Now call the solution to add the energy and momentum source term */
+		/* the flag 1 is sigma[1], for absorption opacity */
+		RadAsource3D(ifr, nelements, pRG, pG, Tcoef, Coefn, Coefnn, inisol);
+
+		
+		
+		
+		/*====================================================================*/
 	
 	/*--------------------------------------------------------------------*/
-	/* The energy change due to T^4/4pi - I and T^4/4pi - J term is already calculated in pRG->heatcool */
+	/* Now add the source terms with scattering opacity */
 	/* All the other terms in the transfer equations are solved together
 	 * The independent variable for the matrix solver is actually weight * I
 	 * Ma[n] is the diagonal part for each I
 	 * Mc[n] is the for the part ndot v (sigma_a+sigma_s)* 3J 
 	 * Mb[n] is for the other momentums terms *
 	 */
-	for(ifr=0; ifr<pRG->nf; ifr++){
 		for(l=0; l<pRG->noct; l++){
 			for(n=0; n<pRG->nang; n++){
 				for(k=ks; k<=ke; k++){
@@ -410,32 +591,24 @@ void fullRT_3d(DomainS *pD)
 							/* first construct the Right hand side */
 							/* We need an array for different angles for each cell. The index order of RHS is different */
 							Mi = l*(pRG->nang)+n;
-							RHS[k][j][i][Mi] = pRG->imu[ifr][l][n][k][j][i]- Divi[ifr][l][n][k][j][i] 
-											+ pRG->heatcool[ifr][l][n][k][j][i];
+							RHS[k][j][i][Mi] = sol[k][j][i][Mi]- Divi[ifr][l][n][k][j][i];
 							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
-							/* The absorption opacity in front of I */
-							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
-							
-#ifdef CYLINDRICAL						
-							miux = pRG->Rphimu[l][n][k][j][i][0];
-                                                        miuy = pRG->Rphimu[l][n][k][j][i][1];
-                                                        miuz = pRG->Rphimu[l][n][k][j][i][2];
-#else
-							miux = pRG->mu[l][n][k][j][i][0];
-                                                        miuy = pRG->mu[l][n][k][j][i][1];
-                                                        miuz = pRG->mu[l][n][k][j][i][2];	
-#endif	
-
+							/*
 							vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
 							vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
 							vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
+							 */
+							vx = pG->Velguess[k+offset][j+offset][i+offset][0];
+							vy = pG->Velguess[k+offset][j+offset][i+offset][1];
+							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
+														
+							
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 							AngleV2 = MatrixAngleV2[ifr][l][n][k][j][i];
 							
-							Ma[k][j][i][Mi] = (1.0 + dt * (sigmas * Crat - (sigmaa + sigmas) * AngleV))/pRG->wmu[n][k][j][i];
-							Mc[k][j][i][Mi] = -dt * (sigmas * Crat + 3.0 * AngleV * (sigmas + sigmaa));
-							Mb[k][j][i][Mi] = dt * 2.0 * sigmas * AngleV 
-											+ dt * (sigmaa - sigmas) * (vx * vx + vy * vy + vz * vz + AngleV2)/Crat; 
+							Ma[k][j][i][Mi] = (1.0 + dt * sigmas * (Crat - AngleV))/pRG->wmu[n][k][j][i];
+							Mc[k][j][i][Mi] = -dt * sigmas * (Crat + 3.0 * AngleV);
+							Mb[k][j][i][Mi] = dt * sigmas * (2.0 * AngleV - (vx * vx + vy * vy + vz * vz + AngleV2)/Crat); 
 						
 						}/* end i */
 					}/* end j */
@@ -448,7 +621,7 @@ void fullRT_3d(DomainS *pD)
 		for(k=ks; k<=ke; k++)
 			for(j=js; j<=je; j++)
 				for(i=is; i<=ie; i++){
-					SpecialMatrix3(Ma[k][j][i], Mb[k][j][i], Mc[k][j][i], Md, RHS[k][j][i], lN, UN,  pRG->nang*pRG->noct);
+					SpecialMatrix3(nelements,Ma[k][j][i], Mb[k][j][i], Mc[k][j][i], Md, RHS[k][j][i], lN1, lN2, lN3, UN1, UN2, UN3);
 			}
 		
 		/* Set the right hand side of the second matrix with the partially updated solution */
@@ -488,7 +661,6 @@ void fullRT_3d_destruct(void)
 	if(FullAngleV2 != NULL) free_6d_array(FullAngleV2);
 	if(MatrixAngleV2 != NULL) free_6d_array(MatrixAngleV2);	
 	if(FullVsource3 != NULL) free_6d_array(FullVsource3);
-	
 	if(flux != NULL) free_1d_array(flux);
 	if(fluxsource3 != NULL) free_1d_array(fluxsource3);
 	if(tempV3V != NULL) free_1d_array(tempV3V);
@@ -504,9 +676,22 @@ void fullRT_3d_destruct(void)
 	if(Ma != NULL) free_4d_array(Ma);
 	if(Mb != NULL) free_4d_array(Mb);
 	if(Mc != NULL) free_4d_array(Mc);
-	if(Md != NULL) free_1d_array(Md);	
-	if(lN != NULL) free_2d_array(lN);
-	if(UN != NULL) free_2d_array(UN);
+	if(Md != NULL) free_1d_array(Md);
+	if(Coefn != NULL) free_5d_array(Coefn);
+	if(Coefnn != NULL) free_5d_array(Coefnn);
+	if(CoefW != NULL) free_4d_array(CoefW);
+	if(Mdcoef != NULL) free_4d_array(Mdcoef);
+	if(sol != NULL) free_4d_array(sol);
+	if(inisol != NULL) free_4d_array(inisol);
+	if(Tcoef != NULL) free_3d_array(Tcoef);
+	if(T4coef != NULL) free_3d_array(T4coef);	
+	if(lN1 != NULL) free_1d_array(lN1);
+	if(lN2 != NULL) free_1d_array(lN2);
+	if(lN3 != NULL) free_1d_array(lN3);
+	if(UN1 != NULL) free_1d_array(UN1);
+	if(UN2 != NULL) free_1d_array(UN2);
+	if(UN3 != NULL) free_1d_array(UN3);
+	
   return;
 }
 
@@ -571,26 +756,62 @@ void fullRT_3d_init(RadGridS *pRG)
 	if ((tempAdv = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((RHS = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang, sizeof(Real))) == NULL)
+	if ((RHS = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((Ma = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang, sizeof(Real))) == NULL)
+	if ((Ma = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((Mb = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang, sizeof(Real))) == NULL)
+	if ((Mb = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((Mc = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang, sizeof(Real))) == NULL)
-		goto on_error;
-	
-	if ((Md = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+	if ((Mc = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
 		goto on_error;
 	
 	
-	if ((lN = (Real **)calloc_2d_array(noct*nang, noct*nang, sizeof(Real))) == NULL)
+	if ((Md = (Real *)calloc_1d_array(noct*nang+1, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((UN = (Real **)calloc_2d_array(noct*nang, noct*nang, sizeof(Real))) == NULL)
+	if ((Mdcoef = (Real ****)calloc_4d_array(nx3+2*Radghost, nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	
+	if ((Coefn = (Real *****)calloc_5d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, 3, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((Coefnn = (Real *****)calloc_5d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, 6, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((CoefW = (Real ****)calloc_4d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	
+	if ((Tcoef = (Real ***)calloc_3d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((T4coef = (Real ***)calloc_3d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((sol = (Real ****)calloc_4d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((inisol = (Real ****)calloc_4d_array(nx3+2*Radghost,nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	
+	
+	if ((lN1 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((lN2 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((lN3 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+		goto on_error;
+	
+	if ((UN1 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((UN2 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
+		goto on_error;
+	if ((UN3 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
 		goto on_error;
 	
 

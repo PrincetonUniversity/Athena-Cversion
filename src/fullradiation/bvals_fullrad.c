@@ -26,6 +26,12 @@
 
 static int nDim;
 static int Rotate_flag;
+
+/* the offset needed for each direction */
+static int ioff;
+static int joff;
+static int koff;
+
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
@@ -457,6 +463,10 @@ void bvals_fullrad_init(MeshS *pM)
 	/* Default, no rotation for the angles */
 	/* this flag only works for j boundary flag > 6 */
 	Rotate_flag = 0;
+	
+	ioff = 0;
+	joff = 0;
+	koff = 0;
 
 /* Cycle through all the Domains that have active RadGrids on this proc */
 
@@ -476,6 +486,7 @@ void bvals_fullrad_init(MeshS *pM)
 
     if(pRG->Nx[0] > 1) {
       nDim = 1;
+	  ioff = nghost - Radghost;
 /*---- ix1 boundary ----------------------------------------------------------*/
       
       if(pD->ix1_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
@@ -559,6 +570,7 @@ void bvals_fullrad_init(MeshS *pM)
     if(pRG->Nx[1] > 1) {
 
       nDim = 2;
+	  joff = nghost - Radghost;
 /*---- ix2 boundary ----------------------------------------------------------*/
 
       if(pD->ix2_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
@@ -680,6 +692,7 @@ void bvals_fullrad_init(MeshS *pM)
     if(pRG->Nx[2] > 1) {
 
       nDim = 3;
+	  koff = nghost - Radghost;
 /*---- ix3 boundary ----------------------------------------------------------*/
 
       if(pD->ix3_RBCFun == NULL) {    /* RBCFun ptr was not set in prob gen */
@@ -793,10 +806,11 @@ void bvals_fullrad_init(MeshS *pM)
 	  }
 
 	  /* need to set each array along each direction */
-	  /* space for J H, K and Sigma */
-	  xcnt = Radghost * nx2t * nx3t * nf * (1 + 3 + 6 + 4);
+	 /* Need to set the boundary condition for source terms due to absorption opacity */	
+	 /* No need to transfer moments and opacity, they are updated locally */
 
-	  xcnt += Radghost * nx2t * nx3t * noct * nang * nf;
+	  xcnt = Radghost * nx2t * nx3t * noct * nang * nf;
+	  xcnt += Radghost * nx2t * nx3t * (1 + 3);
 
 	  if(xcnt > x1cnt) x1cnt = xcnt;
 	}
@@ -811,11 +825,11 @@ void bvals_fullrad_init(MeshS *pM)
 	  }
 
 	   /* space for J H, K and Sigma */
-	  xcnt = Radghost * nx1t * nx3t * nf * (1 + 3 + 6 + 4);
 
-	  xcnt += Radghost * nx1t * nx3t * noct * nang * nf;
+	  xcnt = Radghost * nx1t * nx3t * noct * nang * nf;
+	  xcnt += Radghost * nx2t * nx3t * (1 + 3);	
 
-          if(xcnt > x2cnt) x2cnt = xcnt;
+	  if(xcnt > x2cnt) x2cnt = xcnt;
 	}
 
 /* x3cnt is the number of Reals passed for x3 faces */
@@ -825,9 +839,9 @@ void bvals_fullrad_init(MeshS *pM)
 
 
 	   /* space for J H, K and Sigma */
-	  xcnt = Radghost * nx1t * nx2t * nf * (1 + 3 + 6 + 4);
 
-	  xcnt += Radghost * nx1t * nx2t * noct * nang * nf;
+	  xcnt = Radghost * nx1t * nx2t * noct * nang * nf;
+	  xcnt += Radghost * nx2t * nx3t * (1 + 3);	
 
           if(xcnt > x3cnt) x3cnt = xcnt;
 	}
@@ -935,34 +949,45 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
+	
   int nang = pRG->nang;
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][is+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
+  
 
-  /* set the angle independent values */
 
 for(ifr=0; ifr<nf; ifr++) {
 
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
-	}
-     }
-  }
-  
     for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
         for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
-	      for(i=1; i<=Radghost; i++){
+		   for(j=js; j<=je; j++){
+	          for(i=1; i<=Radghost; i++){
 	
-			pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];			
-			pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
-
-	      }/* end i */
-       	    }/* end J */
+				  pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];			
+			
+			  }/* end i */
+		  }/* end J */
          } /* End k */
        }  /* end nang */
      }/* end noctant */
@@ -986,18 +1011,28 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][ie+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
+	
 
-  /* set the angle independent values */
 
 for(ifr=0; ifr<nf; ifr++) {
-
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][ie+i] = pRG->R[ifr][k][j][ie];
-	}
-     }
-  }
   
     for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
@@ -1006,7 +1041,6 @@ for(ifr=0; ifr<nf; ifr++) {
 	      for(i=1; i<=Radghost; i++){
 	
 			pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];			
-			pRG->heatcool[ifr][l][n][k][j][ie+i] = pRG->heatcool[ifr][l][n][k][j][ie];
 
 	      }/* end i */
        	    }/* end J */
@@ -1031,31 +1065,39 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][js+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 
-for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			/* set the angle independent values */
-			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
-     	   }/* end i */
-       }/* end J */
-    } /* End k */
-
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
+  for(ifr=0; ifr<nf; ifr++) {
+     for(l=0; l<noct; l++){
+       for(n=0; n<nang; n++){
+	      for(k=ks; k<=ke; k++){
        	    for(j=1; j<=Radghost; j++){
-	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];			
-			pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i]; 
-	   	}/* end i */
-       	     }/* end J */
+	          for(i=is-Radghost; i<=ie+Radghost; i++){	
+				  pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];			
+			  }/* end i */
+			}/* end J */
      	 } /* End k */
        }/* end nang */
     }/* end noctant */  
-}/* end ifr */
+  }/* end ifr */
 
   return;
 }
@@ -1071,17 +1113,27 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][je+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][je+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
+	
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			/* set the angle independent values */
-			pRG->R[ifr][k][je+j][i] = pRG->R[ifr][k][je][i];
-     	   }/* end i */
-       }/* end J */
-    } /* End k */
 
    for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
@@ -1089,7 +1141,6 @@ for(ifr=0; ifr<nf; ifr++) {
        	    for(j=1; j<=Radghost; j++){
 	       for(i=is-Radghost; i<=ie+Radghost; i++){	
 			pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][je][i];			
-			pRG->heatcool[ifr][l][n][k][je+j][i] = pRG->heatcool[ifr][l][n][k][je][i]; 
 	   	}/* end i */
        	     }/* end J */
      	 } /* End k */
@@ -1111,25 +1162,33 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-
+	
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
+	
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=1; k<=Radghost; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][ks-k][j][i] = pRG->R[ifr][ks][j][i];
-	   }/* end i */
-       }/* end J */
-    } /* End k */
- 
     for(l=0; l<noct; l++){
 	for(n=0; n<nang; n++){
 	   for(k=1; k<=Radghost; k++){
        	      for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
 			pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ks][j][i];			
-			pRG->heatcool[ifr][l][n][ks-k][j][i] = pRG->heatcool[ifr][l][n][ks][j][i];
 		 }/* end i */
        	      }/* end J */
     	   } /* End k */
@@ -1152,17 +1211,26 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ke+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
+	
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=1; k<=Radghost; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][ke+k][j][i] = pRG->R[ifr][ke][j][i];
-	   }/* end i */
-       }/* end J */
-    } /* End k */
  
     for(l=0; l<noct; l++){
 	for(n=0; n<nang; n++){
@@ -1170,7 +1238,6 @@ for(ifr=0; ifr<nf; ifr++) {
        	      for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
 			pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ke][j][i];			
-			pRG->heatcool[ifr][l][n][ke+k][j][i] = pRG->heatcool[ifr][l][n][ke][j][i];
 		 }/* end i */
        	      }/* end J */
     	   } /* End k */
@@ -1200,17 +1267,27 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int i, j, k, l, n, ifr;
 
   /* set the angle independent values */
+	
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][ie-(i-1)+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][ie-(i-1)+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+
 
 for(ifr=0; ifr<nf; ifr++) {
-
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][ie-(i-1)];
-	}
-     }
-  }
-  
     for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
         for(k=ks; k<=ke; k++){
@@ -1218,7 +1295,6 @@ for(ifr=0; ifr<nf; ifr++) {
 	      for(i=1; i<=Radghost; i++){
 	
 			pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][ie-(i-1)];			
-			pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][ie-(i-1)];
 
 	      }/* end i */
        	    }/* end J */
@@ -1246,19 +1322,28 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][is+(i-1)+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][is+(i-1)+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
 
+	
 
-  
 
 for(ifr=0; ifr<nf; ifr++) {
 
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][ie+i] = pRG->R[ifr][k][j][is+(i-1)];
-	}
-     }
-  }
   
     for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
@@ -1267,7 +1352,6 @@ for(ifr=0; ifr<nf; ifr++) {
 	      for(i=1; i<=Radghost; i++){
 	
 			pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][is+(i-1)];			
-			pRG->heatcool[ifr][l][n][k][j][ie+i] = pRG->heatcool[ifr][l][n][k][j][is+(i-1)];
 
 	      }/* end i */
        	    }/* end J */
@@ -1292,17 +1376,27 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][je-(j-1)+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][je-(j-1)+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			/* set the angle independent values */
-			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][je-(j-1)][i];
-     	   }/* end i */
-       }/* end J */
-    } /* End k */
 
    for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
@@ -1310,7 +1404,6 @@ for(ifr=0; ifr<nf; ifr++) {
        	    for(j=1; j<=Radghost; j++){
 	       for(i=is-Radghost; i<=ie+Radghost; i++){	
 			pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][je-(j-1)][i];			
-			pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][je-(j-1)][i]; 
 	   	}/* end i */
        	     }/* end J */
      	 } /* End k */
@@ -1334,24 +1427,32 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][js+(j-1)+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][js+(j-1)+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			/* set the angle independent values */
-			pRG->R[ifr][k][je+j][i] = pRG->R[ifr][k][js+(j-1)][i];
-     	   }/* end i */
-       }/* end J */
-    } /* End k */
-
    for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
 	 for(k=ks; k<=ke; k++){
        	    for(j=1; j<=Radghost; j++){
 	       for(i=is-Radghost; i<=ie+Radghost; i++){	
 			pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][js+(j-1)][i];			
-			pRG->heatcool[ifr][l][n][k][je+j][i] = pRG->heatcool[ifr][l][n][k][js+(j-1)][i]; 
 	   	}/* end i */
        	     }/* end J */
      	 } /* End k */
@@ -1377,28 +1478,37 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ke-(k-1)+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ke-(k-1)+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=1; k<=Radghost; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][ks-k][j][i] = pRG->R[ifr][ke-(k-1)][j][i];
-	   }/* end i */
-       }/* end J */
-    } /* End k */
- 
+	
     for(l=0; l<noct; l++){
 	for(n=0; n<nang; n++){
 	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
+		 for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ke-(k-1)][j][i];			
-			pRG->heatcool[ifr][l][n][ks-k][j][i] = pRG->heatcool[ifr][l][n][ke-(k-1)][j][i];
-		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
+				 pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ke-(k-1)][j][i];			
+			}/* end i */
+			}/* end J */
+		} /* End k */
     }/* end nang */
   }/* end noctant */
 }/* end ifr */
@@ -1421,25 +1531,33 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ks+(k-1)+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+(k-1)+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 
 for(ifr=0; ifr<nf; ifr++) {
-    for(k=1; k<=Radghost; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][ke+k][j][i] = pRG->R[ifr][ks+(k-1)][j][i];
-	   }/* end i */
-       }/* end J */
-    } /* End k */
- 
     for(l=0; l<noct; l++){
 	for(n=0; n<nang; n++){
 	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
+		 for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ks+(k-1)][j][i];			
-			pRG->heatcool[ifr][l][n][ke+k][j][i] = pRG->heatcool[ifr][l][n][ks+(k-1)][j][i];
+				 pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ks+(k-1)][j][i];			
 		 }/* end i */
        	      }/* end J */
     	   } /* End k */
@@ -1681,9 +1799,27 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 #ifdef CYLINDRICAL
   Real  miux, miuy;
 #endif
+	
+	
+	/* In principle, the source terms should be recalculated */
+	/* here just copy from last active zones for safety */
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][is+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
 
-  /* set the angle independent values */
-
+	
 for(ifr=0; ifr<nf; ifr++) {
 
 
@@ -1720,19 +1856,7 @@ for(ifr=0; ifr<nf; ifr++) {
          } /* End k */
        }  /* end nang */
      }/* end noctant */
-
-/*
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
-	}
-     }
-  }
-* This needs to be re-calculated 
-*/
-  
-   
+	
    }/* end ifr */
 	  
 
@@ -1755,7 +1879,23 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	Real miux, miuy;
 #endif	
 
-  /* set the angle independent values */
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=1; i<=Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][ie+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+
 
 for(ifr=0; ifr<nf; ifr++) {
 
@@ -1793,16 +1933,7 @@ for(ifr=0; ifr<nf; ifr++) {
        }  /* end nang */
      }/* end noctant */
 
-/*
-  for(k=ks; k<=ke; k++){
-     for(j=js; j<=je; j++){
-	for(i=1; i<=Radghost; i++){
-	    pRG->R[ifr][k][j][is-i] = pRG->R[ifr][k][j][is];
-	}
-     }
-  }
-* This needs to be re-calculated 
-*/
+
   
    
    }/* end ifr */
@@ -1822,18 +1953,27 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][js+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
 
 
 for(ifr=0; ifr<nf; ifr++) {
-   /* for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			
-			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
-     	   }
-       }
-    } 
-*/
+
    for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
 	 for(k=ks; k<=ke; k++){
@@ -1845,8 +1985,7 @@ for(ifr=0; ifr<nf; ifr++) {
 			else{
 				pRG->imu[ifr][l][n][k][js-j][i] = 0.0;
 			}			
-		/*	pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i];
-		*/ 
+ 
 	   	}/* end i */
        	     }/* end J */
      	 } /* End k */
@@ -1869,18 +2008,25 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][je+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][je+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
 
 for(ifr=0; ifr<nf; ifr++) {
-   /* for(k=ks; k<=ke; k++){
-       for(j=1; j<=Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){	      
-			
-			pRG->R[ifr][k][js-j][i] = pRG->R[ifr][k][js][i];
-     	   }
-       }
-    } 
-*/
+
    for(l=0; l<noct; l++){
       for(n=0; n<nang; n++){
 	 for(k=ks; k<=ke; k++){
@@ -1892,8 +2038,7 @@ for(ifr=0; ifr<nf; ifr++) {
 			else{
 				pRG->imu[ifr][l][n][k][je+j][i] = 0.0;
 			}			
-		/*	pRG->heatcool[ifr][l][n][k][js-j][i] = pRG->heatcool[ifr][l][n][k][js][i];
-		*/ 
+ 
 	   	}/* end i */
        	     }/* end J */
      	 } /* End k */
@@ -1916,6 +2061,24 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+	
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 
 for(ifr=0; ifr<nf; ifr++) {
@@ -1956,7 +2119,24 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-
+	
+	
+	for(k=1; k<=Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	
+				
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];		
+				
+				for(l=0; l<3; l++){
+					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ke+koff][j+joff][i+ioff][l];
+					
+				}
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */
+	
+	
 
 for(ifr=0; ifr<nf; ifr++) {
     
@@ -2081,41 +2261,29 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=is; i<=is+(Radghost-1); i++){
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=js; j<=je; j++){
-	   for(i=is; i<=is+(Radghost-1); i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
+	
 
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
+  for(ifr=0; ifr<nf; ifr++) {			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
        	      for(j=js; j<=je; j++){
 	   	 for(i=is; i<=is+(Radghost-1); i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
+		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];		
 
 	      }/* end i */
        	   }/* end J */
@@ -2147,43 +2315,28 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
+	
 
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=ie-(Radghost-1); i<=ie; i++){
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=js; j<=je; j++){
-	   for(i=ie-(Radghost-1); i<=ie; i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
-
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
        	      for(j=js; j<=je; j++){
 	   	 for(i=ie-(Radghost-1); i<=ie; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
-
 	      }/* end i */
        	   }/* end J */
     	} /* End k */		
@@ -2212,44 +2365,29 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
-
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=js+(Radghost-1); j++){
+	        for(i=is-Radghost; i<=ie+Radghost; i++){
+				
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=js; j<=js+(Radghost-1); j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
-
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
-    for(l=0; l<noct; l++){
+	  for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
        	     for(j=js; j<=js+(Radghost-1); j++){
 	        for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
-
 	      }/* end i */
        	   }/* end J */
     	} /* End k */		
@@ -2277,46 +2415,33 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=je-(Radghost-1); j<=je; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
 
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=je-(Radghost-1); j<=je; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
-
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
-       	      for(j=je-(Radghost-1); j<=je; j++){
+		 for(j=je-(Radghost-1); j<=je; j++){
 	   	 for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
-
-	      }/* end i */
-       	   }/* end J */
+		  }/* end i */
+	   }/* end J */
     	} /* End k */		
 
        }/* end nang */
@@ -2344,43 +2469,29 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
-
-
+	
+	
+	for(k=ks; k<=ks+(Radghost-1); k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ks+(Radghost-1); k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
-
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ks+(Radghost-1); k++){
               for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */
@@ -2410,45 +2521,29 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
-
-
+	
+	for(k=ke-(Radghost-1); k<=ke; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				
+				for(l=0; l<3; l++)
+					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ke-(Radghost-1); k<=ke; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-			/* set the angle independent values */
-			*(pSnd++) = pRG->R[ifr][k][j][i].J;
-
-			/* flux */
-			for(m=0; m<3; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].H[m];
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].K[m];
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				*(pSnd++) = pRG->R[ifr][k][j][i].Sigma[m];
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ke-(Radghost-1); k<=ke; k++){
               for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
 		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
-
 	      }/* end i */
        	   }/* end J */
     	} /* End k */		
@@ -2477,45 +2572,31 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
-
-
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=is-Radghost; i<=is-1; i++){
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=js; j<=je; j++){
-	   for(i=is-Radghost; i<=is-1; i++){
-	     
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
-    for(l=0; l<noct; l++){
+	for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
-       	      for(j=js; j<=je; j++){
-	         for(i=is-Radghost; i<=is-1; i++){
+		 for(j=js; j<=je; j++){
+		   for(i=is-Radghost; i<=is-1; i++){
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
-
-	      }/* end i */
+		
+		 }/* end i */
        	   }/* end J */
     	} /* End k */		
 
@@ -2543,43 +2624,30 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
-
-
+	
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js; j<=je; j++){
+			for(i=ie+1; i<=ie+Radghost; i++){
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-    for(k=ks; k<=ke; k++){
-       for(j=js; j<=je; j++){
-	   for(i=ie+1; i<=ie+Radghost; i++){
-	     
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
               for(j=js; j<=je; j++){
 	         for(i=ie+1; i<=ie+Radghost; i++){
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */
@@ -2607,44 +2675,28 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
-
-
+	
+	for(k=ks; k<=ke; k++){
+		for(j=js-Radghost; j<=js-1; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){	  
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-     for(k=ks; k<=ke; k++){
-        for(j=js-Radghost; j<=js-1; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-	     
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ks; k<=ke; k++){
 	      for(j=js-Radghost; j<=js-1; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){	       
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */
@@ -2675,46 +2727,27 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
 
-
-
-
-
+	for(k=ks; k<=ke; k++){
+		for(j=je+1; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){ 	  
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-     for(k=ks; k<=ke; k++){
-       for(j=je+1; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-	     
-	     
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	  for(k=ks; k<=ke; k++){
              for(j=je+1; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){       
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */
@@ -2744,41 +2777,30 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
-
+	
+	for(k=ks-Radghost; k<=ks-1; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+	        for(i=is-Radghost; i<=ie+Radghost; i++){    	  
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
+	
+	
 
   for(ifr=0; ifr<nf; ifr++) {
-     for(k=ks-Radghost; k<=ks-1; k++){
-       for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	  for(k=ks-Radghost; k<=ks-1; k++){
              for(j=js-Radghost; j<=je+Radghost; j++){
 	        for(i=is-Radghost; i<=ie+Radghost; i++){      
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */
@@ -2786,7 +2808,7 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
 
        }/* end nang */
     }/* end noctant */
-}/* end ifr */
+  }/* end ifr */
 	
 
   return;
@@ -2807,43 +2829,31 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
-
+	
+	
+	for(k=ke+1; k<=ke+Radghost; k++){
+		for(j=js-Radghost; j<=je+Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){          	  
+				
+				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				
+				for(l=0; l<3; l++)
+					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
+				
+			}/* end i */
+		}/* end J */
+	} /* End k */	
+	
 
 
 
   for(ifr=0; ifr<nf; ifr++) {
-     for(k=ke+1; k<=ke+Radghost; k++){
-         for(j=js-Radghost; j<=je+Radghost; j++){
-	   for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* set the angle independent values */
-			pRG->R[ifr][k][j][i].J = *(pRcv++);
-
-			/* flux */
-			for(m=0; m<3; m++)
-				pRG->R[ifr][k][j][i].H[m] = *(pRcv++);
-
-			/* rad pressure */
-			for(m=0; m<6; m++)
-				pRG->R[ifr][k][j][i].K[m] = *(pRcv++);
-
-			/* Opacity */
-			for(m=0; m<4; m++)
-				pRG->R[ifr][k][j][i].Sigma[m] = *(pRcv++);
-
-	   }/* end i */
-        }/* end J */
-     } /* End k */	
-
-			
     for(l=0; l<noct; l++){
        for(n=0; n<nang; n++){
 	   for(k=ke+1; k<=ke+Radghost; k++){
               for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){      
 		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		/*	*(pSnd++) = pRG->Scat[k][j][i][ifr][l][n];
-			*(pSnd++) = pRG->heatcool[k][j][i][ifr][l][n];
-		*/	
 
 	      }/* end i */
        	   }/* end J */

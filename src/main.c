@@ -473,9 +473,12 @@ int main(int argc, char *argv[])
 
 #ifdef FULL_RADIATION_TRANSFER
 	bvals_fullrad(&(Mesh.Domain[nl][nd]));
-	/* Update the momentums */
-	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
+	/* Update the moments in the ghost zones */
 	UpdateRT(&(Mesh.Domain[nl][nd]));
+		  
+	/* Update the opacity for the whole grid */
+	UpdateOpacity(&(Mesh.Domain[nl][nd]));
+	
 #endif
       }
     }
@@ -691,20 +694,22 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){ 
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {		
-		/* update specific intensity */
+		/* Get the gas temperature */
         	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
-		FullRT(&(Mesh.Domain[nl][nd]));		
+			/* get the estimate velocity at half time step */
+			GetVelguess(&(Mesh.Domain[nl][nd]));
+			
+			FullRT(&(Mesh.Domain[nl][nd]));		
 
-		/* update boundary condition */
-		bvals_fullrad(&(Mesh.Domain[nl][nd]));
+			/* update boundary condition */
+			bvals_fullrad(&(Mesh.Domain[nl][nd]));
 
 		/* Update the moments with the new specific intensities */
-		/* Including the ghost zones */
-		/* momentum source terms are also updated in this function */
-		UpdateRT(&(Mesh.Domain[nl][nd]));
+		/* Only in the ghost zones */
+			UpdateRT(&(Mesh.Domain[nl][nd]));
 
 
-	}/* end if grid is not null */
+	  }/* end if grid is not null */
       }/* end Domain nd */
     }/* END level nl */
 #endif
@@ -870,6 +875,12 @@ int main(int argc, char *argv[])
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
 	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+			
+			
+			/* update the opacity after the gas quantities are updated, including the ghost zones */
+#ifdef FULL_RADIATION_TRANSFER
+			UpdateOpacity(&(Mesh.Domain[nl][nd]));		
 #endif
 	 
 

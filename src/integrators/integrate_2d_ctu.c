@@ -366,9 +366,9 @@ void integrate_2d_ctu(DomainS *pD)
 	  
 	for (i=il+1; i<=iu; i++) {
 	   Wl[i].P += 0.5*RadPsource[j][i-1];
-	   Wl[i].Vx += 0.5 * pG->dt * pG->Frsource[ks][j][i-1][0]/Wl[i].d;	
+	   Wl[i].Vx += 0.5 * pG->Frsource[ks][j][i-1][0]/Wl[i].d;	
 	   Wr[i].P += 0.5*RadPsource[j][i];
-	   Wr[i].Vx += 0.5 * pG->dt * pG->Frsource[ks][j][i][0]/Wr[i].d;
+	   Wr[i].Vx += 0.5 * pG->Frsource[ks][j][i][0]/Wr[i].d;
     }
 	  
 #endif /* FULL_RADIATION_TRANSFER */	  
@@ -661,9 +661,9 @@ void integrate_2d_ctu(DomainS *pD)
 	  
 	  for (j=jl+1; j<=ju; j++) {
 		  Wl[j].P += 0.5*RadPsource[j-1][i];
-		  Wl[j].Vy += 0.5 * pG->dt * pG->Frsource[ks][j-1][i][1]/Wl[j].d;	
+		  Wl[j].Vy += 0.5 * pG->Frsource[ks][j-1][i][1]/Wl[j].d;	
 		  Wr[j].P += 0.5*RadPsource[j][i];
-		  Wr[j].Vy += 0.5 * pG->dt * pG->Frsource[ks][j][i][1]/Wr[j].d;
+		  Wr[j].Vy += 0.5 * pG->Frsource[ks][j][i][1]/Wr[j].d;
 	  }
 	  
 #endif /* FULL_RADIATION_TRANSFER */	  
@@ -1858,8 +1858,8 @@ void integrate_2d_ctu(DomainS *pD)
 #ifdef FULL_RADIATION_TRANSFER
 	for (j=js; j<=je; j++) {
 		for (i=is; i<=ie; i++) {
-			pG->U[ks][j][i].M1 += pG->dt * pG->Frsource[ks][j][i][0];
-			pG->U[ks][j][i].M2 += pG->dt * pG->Frsource[ks][j][i][1];
+			pG->U[ks][j][i].M1 += pG->Frsource[ks][j][i][0];
+			pG->U[ks][j][i].M2 += pG->Frsource[ks][j][i][1];
 			pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
 		}/* end i */
 	}/* end j */

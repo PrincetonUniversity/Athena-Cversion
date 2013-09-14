@@ -364,8 +364,6 @@ typedef struct RadGrid_s {
 
 #else
   Real ******imu;     /* specific intensity  for frequency nf, for octant, and for angle, for cell k, j, i,*/ 
-  Real ******heatcool; /* Estimated energy source term due to scattering */
-
 #endif
 
 
@@ -512,9 +510,14 @@ MPI_Comm Comm_Domain;
 
 #if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
   Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
-  Real ***Radheat; /* Total heating and cooling rate due to absorption opacity, or the energy source term */
-  Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */
 #endif
+	
+#ifdef FULL_RADIATION_TRANSFER
+  Real ***Radheat; /* Total heating and cooling rate due to absorption opacity, or the energy source term */
+  Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */	
+  Real ****Velguess;  /* The estimated velocity to reduce momentum error */
+#endif
+	
 
 #ifdef STATIC_MESH_REFINEMENT
   int NCGrid;        /*!< # of child  Grids that overlap this Grid */

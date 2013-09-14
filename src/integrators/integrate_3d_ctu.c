@@ -252,14 +252,14 @@ void integrate_3d_ctu(DomainS *pD)
 					Wtemp.d = dfloor;
 					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
 				}
-				
+#ifndef ISOTHERMAL				
 				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
 					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
 					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
 					
 					
 				} /* End if wtemp negative */
-								
+#endif								
 			}/* end i */
 		}/* end j*/
 	}/* end k*/
@@ -348,7 +348,7 @@ void integrate_3d_ctu(DomainS *pD)
 #else
         geom_src[k][j][i] += W[i].P;
 #endif
-        geom_src[k][j][i] /= x1vc(pG,i);
+        geom_src[k][j][i] /= r[i];
 #endif /* CYLINDRICAL */
      }
 
@@ -449,12 +449,12 @@ void integrate_3d_ctu(DomainS *pD)
         for (i=il+1; i<=iu; i++) {
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef CYLINDRICAL
-          gl = (*x1GravAcc)(x1vc(pG,i-1),x2,x3);
-          gr = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          gl = (*x1GravAcc)(r[i-1],x2,x3);
+          gr = (*x1GravAcc)(r[i],x2,x3);
 #ifdef FARGO
           /* Correct for force in the rotating frame */
-          gl = gl - x1vc(pG,i-1)*SQR((*OrbitalProfile)(x1vc(pG,i-1)));
-          gr = gr - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          gl = gl - r[i-1]*SQR((*OrbitalProfile)(r[i-1]));
+          gr = gr - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
           /* APPLY GRAV. SOURCE TERMS TO VELOCITY USING ACCELERATION
           * FOR (dt/2) */
@@ -506,9 +506,9 @@ void integrate_3d_ctu(DomainS *pD)
 		
 	 for (i=il+1; i<=iu; i++) {
 		 Wl[i].P += 0.5*RadPsource[k][j][i-1];
-		 Wl[i].Vx += 0.5 * pG->dt * pG->Frsource[k][j][i-1][0]/Wl[i].d;	
+		 Wl[i].Vx += 0.5 * pG->Frsource[k][j][i-1][0]/Wl[i].d;	
 		 Wr[i].P += 0.5*RadPsource[k][j][i];
-		 Wr[i].Vx += 0.5 * pG->dt * pG->Frsource[k][j][i][0]/Wr[i].d;
+		 Wr[i].Vx += 0.5 * pG->Frsource[k][j][i][0]/Wr[i].d;
 	}
 		
 #endif /* FULL_RADIATION_TRANSFER */	  
@@ -596,7 +596,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=is-1; i<=ie+2; i++) {
 
         /* left state geometric source term (uses W[i-1]) */
-        rinv = 1.0/x1vc(pG,i-1);
+        rinv = 1.0/r[i-1];
         geom_src_d  = -W[i-1].d*W[i-1].Vx*rinv;
         geom_src_Vx =  SQR(W[i-1].Vy);
         geom_src_Vy = -W[i-1].Vx*W[i-1].Vy;
@@ -625,7 +625,7 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
 
         /* right state geometric source term (uses W[i]) */
-        rinv = 1.0/x1vc(pG,i);
+        rinv = 1.0/r[i];
         geom_src_d  = -W[i].d*W[i].Vx*rinv;
         geom_src_Vx =  SQR(W[i].Vy);
         geom_src_Vy = -W[i].Vx*W[i].Vy;
@@ -667,6 +667,53 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B1_x1Face[k][j][i];
 #endif
+/*
+  	    #ifndef ISOTHERMAL
+		   
+	    cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		Velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+		Vx = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+		   
+		if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (Velocity> Vmax) || (Vx > Vmax) || (fabs(x3) > Zmax)){
+		   
+#ifdef MHD
+		   B1_x1Face[k][j][i] = pG->B1i[k][j][i];
+		   Bx = B1_x1Face[k][j][i];
+#endif
+		   Wl[i].P = pG->U[k][j][i-1].E - 0.5 * (pG->U[k][j][i-1].M1 * pG->U[k][j][i-1].M1 + pG->U[k][j][i-1].M2 * pG->U[k][j][i-1].M2 + pG->U[k][j][i-1].M3 * pG->U[k][j][i-1].M3) / pG->U[k][j][i-1].d;
+#ifdef MHD
+		   Wl[i].P -= 0.5 * (pG->U[k][j][i-1].B1c * pG->U[k][j][i-1].B1c + pG->U[k][j][i-1].B2c * pG->U[k][j][i-1].B2c + pG->U[k][j][i-1].B3c * pG->U[k][j][i-1].B3c);
+#endif
+		   
+		   Wl[i].P *= (Gamma - 1.0);
+		   
+		   Wl[i].d = pG->U[k][j][i-1].d;
+		   Wl[i].Vx = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
+		   Wl[i].Vy = pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d;
+		   Wl[i].Vz = pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d;
+		   
+		   Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+		   
+		   
+		   Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef MHD
+		   Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+		   
+		   Wr[i].P *= (Gamma - 1.0);
+		   
+		   Wr[i].d = pG->U[k][j][i].d;
+		   Wr[i].Vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+		   Wr[i].Vy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+		   Wr[i].Vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+		   
+		   Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+		   
+		   
+		}
+#endif
+*/
+		  
         fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx,
           &x1Flux[k][j][i]);
       }
@@ -849,9 +896,9 @@ void integrate_3d_ctu(DomainS *pD)
 		
 	for (j=jl+1; j<=ju; j++) {
 		Wl[j].P += 0.5*RadPsource[k][j-1][i];
-		Wl[j].Vy += 0.5 * pG->dt * pG->Frsource[k][j-1][i][1]/Wl[j].d;	
+		Wl[j].Vy += 0.5 * pG->Frsource[k][j-1][i][1]/Wl[j].d;	
 		Wr[j].P += 0.5*RadPsource[k][j][i];
-		Wr[j].Vy += 0.5 * pG->dt * pG->Frsource[k][j][i][1]/Wr[j].d;
+		Wr[j].Vy += 0.5 * pG->Frsource[k][j][i][1]/Wr[j].d;
 	}
 		
 #endif /* FULL_RADIATION_TRANSFER */	 		
@@ -893,6 +940,58 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B2_x2Face[k][j][i];
 #endif
+		  
+/*
+#ifndef ISOTHERMAL
+		cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		Velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+		Vx = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+		   
+		   
+		if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (Velocity > Vmax) || (Vx > Vmax) || (fabs(x3) > Zmax)){
+		   
+#ifdef MHD			
+		   B2_x2Face[k][j][i] = pG->B2i[k][j][i];
+		   Bx = B2_x2Face[k][j][i];
+#endif	
+		   Wl[i].P = pG->U[k][j-1][i].E - 0.5 * (pG->U[k][j-1][i].M1 * pG->U[k][j-1][i].M1 + pG->U[k][j-1][i].M2 * pG->U[k][j-1][i].M2 + pG->U[k][j-1][i].M3 * pG->U[k][j-1][i].M3) / pG->U[k][j-1][i].d;
+#ifdef MHD
+		   Wl[i].P -= 0.5 * (pG->U[k][j-1][i].B1c * pG->U[k][j-1][i].B1c + pG->U[k][j-1][i].B2c * pG->U[k][j-1][i].B2c + pG->U[k][j-1][i].B3c * pG->U[k][j-1][i].B3c);
+#endif
+		   
+		   Wl[i].P *= (Gamma - 1.0);
+		   
+		   Wl[i].d = pG->U[k][j-1][i].d;
+		   Wl[i].Vx = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
+		   Wl[i].Vy = pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d;
+		   Wl[i].Vz = pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d;
+		   
+		   Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+		   
+		   Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef MHD
+		   Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+		   
+		   Wr[i].P *= (Gamma - 1.0);
+		   
+		   Wr[i].d = pG->U[k][j][i].d;
+		   Wr[i].Vx = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+		   Wr[i].Vy = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+		   Wr[i].Vz = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+		   
+		   Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+		   
+		   
+		}
+		   
+		   
+#endif 
+ */
+		  
+/* ifndef isothermal */		  
+		  
+		  
         fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,
           &x2Flux[k][j][i]);
       }
@@ -1070,9 +1169,9 @@ void integrate_3d_ctu(DomainS *pD)
 		
 		for (k=kl+1; k<=ku; k++) {
 			Wl[k].P += 0.5*RadPsource[k-1][j][i];
-			Wl[k].Vz += 0.5 * pG->dt * pG->Frsource[k-1][j][i][2]/Wl[k].d;	
+			Wl[k].Vz += 0.5 * pG->Frsource[k-1][j][i][2]/Wl[k].d;	
 			Wr[k].P += 0.5*RadPsource[k][j][i];
-			Wr[k].Vz += 0.5 * pG->dt * pG->Frsource[k][j][i][2]/Wr[k].d;
+			Wr[k].Vz += 0.5 * pG->Frsource[k][j][i][2]/Wr[k].d;
 		}
 		
 #endif /* FULL_RADIATION_TRANSFER */			
@@ -1112,6 +1211,57 @@ void integrate_3d_ctu(DomainS *pD)
 #ifdef MHD
         Bx = B3_x3Face[k][j][i];
 #endif
+		  
+		  
+		  
+/*
+#ifndef ISOTHERMAL
+		   cc_pos(pG,i,j,k,&x1,&x2,&x3);
+		   Velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+		   Vx = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+		   if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (Velocity > Vmax) || (Vx > Vmax) || (fabs(x3) > Zmax)){
+		   
+#ifdef MHD		
+		   B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+		   Bx = B3_x3Face[k][j][i];
+#endif
+		   Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
+#ifdef MHD
+		   Wl[i].P -= 0.5 * (pG->U[k-1][j][i].B1c * pG->U[k-1][j][i].B1c + pG->U[k-1][j][i].B2c * pG->U[k-1][j][i].B2c + pG->U[k-1][j][i].B3c * pG->U[k-1][j][i].B3c);
+#endif
+		   
+		   Wl[i].P *= (Gamma - 1.0);
+		   
+		   Wl[i].d  = pG->U[k-1][j][i].d;
+		   Wl[i].Vx = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
+		   Wl[i].Vy = pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d;
+		   Wl[i].Vz = pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d;
+		   
+		   Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+		   
+		   
+		   Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef MHD
+		   Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+		   
+		   Wr[i].P *= (Gamma - 1.0);
+		   
+		   Wr[i].d = pG->U[k][j][i].d;
+		   Wr[i].Vx = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+		   Wr[i].Vy = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+		   Wr[i].Vz = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+		   
+		   Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+		   
+		   }
+		   
+#endif
+		   
+*/
+ /* end ifndef isothermal */		  
+		  
+		  
         fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,
           &x3Flux[k][j][i]);
       }
@@ -1216,6 +1366,7 @@ void integrate_3d_ctu(DomainS *pD)
           ((emf1[k  ][j+1][i-1] - emf1[k  ][j][i-1]) +
            (emf1[k+1][j+1][i-1] - emf1[k+1][j][i-1]));
 #endif
+		  
 
 #ifdef CYLINDRICAL
         q2 = hdt/(r[i]*pG->dx2);
@@ -1697,9 +1848,9 @@ void integrate_3d_ctu(DomainS *pD)
 
 /* correct right states; x1 and x3 gradients */
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+        g = (*x1GravAcc)(r[i],x2,x3);
 #ifdef FARGO
-        g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
         Ur_x2Face[k][j][i].Mz -= hdt*pG->U[k][j][i].d*g;
@@ -1707,8 +1858,13 @@ void integrate_3d_ctu(DomainS *pD)
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif
 #ifndef BAROTROPIC
-        Ur_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
+#ifdef CYLINDRICAL
+		  Ur_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j  ][i  ].d
+											 + rsf*x1Flux[k][j  ][i+1].d);
+#else
+		  Ur_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
+									  + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
+#endif /* CYLINDRICAL */
 #endif
 
         phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
@@ -1726,9 +1882,9 @@ void integrate_3d_ctu(DomainS *pD)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),(x2-pG->dx2),x3);
+        g = (*x1GravAcc)(r[i],(x2-pG->dx2),x3);
 #ifdef FARGO
-        g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
 
         Ul_x2Face[k][j][i].Mz -= hdt*pG->U[k][j-1][i].d*g;
@@ -1736,8 +1892,13 @@ void integrate_3d_ctu(DomainS *pD)
         Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 #endif
 #ifndef BAROTROPIC
-        Ul_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
+#ifdef CYLINDRICAL
+		  Ul_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j-1][i  ].d
+											 + rsf*x1Flux[k][j-1][i+1].d);
+#else
+		  Ul_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
+									  + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
+#endif /* CYLINDRICAL */
 #endif
         phir = (*StaticGravPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
         phil = (*StaticGravPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
@@ -2113,9 +2274,9 @@ void integrate_3d_ctu(DomainS *pD)
 
 /* correct right states; x1 and x2 gradients */
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+        g = (*x1GravAcc)(r[i],x2,x3);
 #ifdef FARGO
-        g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
         q2 = hdt/(r[i]*pG->dx2);
@@ -2124,8 +2285,13 @@ void integrate_3d_ctu(DomainS *pD)
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif
 #ifndef BAROTROPIC
-        Ur_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
+#ifdef CYLINDRICAL
+		  Ur_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k  ][j][i  ].d
+											 + rsf*x1Flux[k  ][j][i+1].d);
+#else
+		  Ur_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
+									  + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
+#endif /* CYLINDRICAL */
 #endif
 
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
@@ -2143,17 +2309,22 @@ void integrate_3d_ctu(DomainS *pD)
         phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
 
 #ifdef CYLINDRICAL
-        g = (*x1GravAcc)(x1vc(pG,i),x2,(x3-pG->dx3));
+        g = (*x1GravAcc)(r[i],x2,(x3-pG->dx3));
 #ifdef FARGO
-        g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
         Ul_x3Face[k][j][i].My -= hdt*pG->U[k-1][j][i].d*g;
 #else
         Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 #endif
 #ifndef BAROTROPIC
-        Ul_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
+#ifdef CYLINDRICAL
+		  Ul_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k-1][j][i  ].d
+											 + rsf*x1Flux[k-1][j][i+1].d);
+#else
+		  Ul_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
+									  + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
+#endif /* CYLINDRICAL */
 #endif
 
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
@@ -2440,9 +2611,9 @@ void integrate_3d_ctu(DomainS *pD)
         if (StaticGravPot != NULL){
           cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef CYLINDRICAL
-          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(r[i],x2,x3);
 #ifdef FARGO
-          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif
           M1h -= hdt*pG->U[k][j][i].d*g;
 #else
@@ -2462,9 +2633,9 @@ void integrate_3d_ctu(DomainS *pD)
 		  
 		/* Add radiation source term */
 #ifdef FULL_RADIATION_TRANSFER
-		M1h += (0.5 * pG->dt * pG->Frsource[k][j][i][0]);  
-		M2h += (0.5 * pG->dt * pG->Frsource[k][j][i][1]); 
-		M3h += (0.5 * pG->dt * pG->Frsource[k][j][i][2]);   
+		M1h += (0.5 * pG->Frsource[k][j][i][0]);  
+		M2h += (0.5 * pG->Frsource[k][j][i][1]); 
+		M3h += (0.5 * pG->Frsource[k][j][i][2]);   
 		  
 #endif
 
@@ -3021,7 +3192,7 @@ void integrate_3d_ctu(DomainS *pD)
       for (i=is; i<=ie; i++) {
         rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
         q2 = hdt/(r[i]*pG->dx2);
-	dtodx2 = pG->dt/(r[i]*pG->dx2);
+	
 
         /* calculate d at time n+1/2 */
         dhalf[k][j][i] = pG->U[k][j][i].d 
@@ -3036,6 +3207,7 @@ void integrate_3d_ctu(DomainS *pD)
           - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
 
 #ifdef FARGO
+		dtodx2 = pG->dt/(r[i]*pG->dx2);
         /* Save current R/phi momenta */
         Mrn = pG->U[k][j][i].M1;
         Mpn = pG->U[k][j][i].M2;
@@ -3045,13 +3217,13 @@ void integrate_3d_ctu(DomainS *pD)
 
 
         if (x1GravAcc != NULL){
-         	g = (*x1GravAcc)(x1vc(pG,i),x2,x3)
+         	g = (*x1GravAcc)(r[i],x2,x3)
         }
 	else{
 		g = 0.0;
 	}
 
-        g -= x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        g -= r[i]*SQR((*OrbitalProfile)(r[i]));
 
         /* Use forward euler to approximate R/phi momenta at t^{n+1} */
         Mre = Mrn
@@ -3075,6 +3247,7 @@ void integrate_3d_ctu(DomainS *pD)
 
         /* Add source term for fixed gravitational potential for 0.5*dt */
         if (StaticGravPot != NULL){
+		  cc_pos(pG,i,j,k,&x1,&x2,&x3);
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
@@ -3098,7 +3271,7 @@ void integrate_3d_ctu(DomainS *pD)
         Pavgh = 0.5*(lsf*x1Flux[k][j][i  ].Pflux + rsf*x1Flux[k][j][i+1].Pflux);
         geom_src[k][j][i] += Pavgh;
 #endif
-        geom_src[k][j][i] /= x1vc(pG,i);
+        geom_src[k][j][i] /= r[i];
 
 #ifdef FARGO
         /* Use average values to apply source terms for full time-step */
@@ -3221,9 +3394,9 @@ void integrate_3d_ctu(DomainS *pD)
 
 
 #ifdef CYLINDRICAL
-          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(r[i],x2,x3);
 #ifdef FARGO
-          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - r[i]*SQR((*OrbitalProfile)(r[i]));
 #endif 
           rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
           dtodx2 = pG->dt/(r[i]*pG->dx2);
@@ -3232,8 +3405,13 @@ void integrate_3d_ctu(DomainS *pD)
           pG->U[k][j][i].M1 -= dtodx1*(phir-phil)*dhalf[k][j][i];
 #endif
 #ifndef BAROTROPIC
-          pG->U[k][j][i].E -= dtodx1*(lsf*x1Flux[k][j][i  ].d*(phic - phil) +
-                                      rsf*x1Flux[k][j][i+1].d*(phir - phic));
+#ifdef CYLINDRICAL
+			pG->U[k][j][i].E -= hdt*g*(lsf*x1Flux[k][j][i  ].d +
+									   rsf*x1Flux[k][j][i+1].d);
+#else
+			pG->U[k][j][i].E -= dtodx1*(lsf*x1Flux[k][j][i  ].d*(phic - phil) +
+										rsf*x1Flux[k][j][i+1].d*(phir - phic));
+#endif /* CYLINDRICAL */
 #endif  
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -3441,9 +3619,9 @@ void integrate_3d_ctu(DomainS *pD)
 	for (k=ks; k<=ke; k++) {
 		for (j=js; j<=je; j++) {
 			for (i=is; i<=ie; i++) {
-				pG->U[k][j][i].M1 += pG->dt * pG->Frsource[k][j][i][0];
-				pG->U[k][j][i].M2 += pG->dt * pG->Frsource[k][j][i][1];
-				pG->U[k][j][i].M3 += pG->dt * pG->Frsource[k][j][i][2];
+				pG->U[k][j][i].M1 += pG->Frsource[k][j][i][0];
+				pG->U[k][j][i].M2 += pG->Frsource[k][j][i][1];
+				pG->U[k][j][i].M3 += pG->Frsource[k][j][i][2];
 				pG->U[k][j][i].E += pG->Radheat[k][j][i];
 			}/* end i */
 		}/* end j */
@@ -3632,14 +3810,14 @@ for(k=ks; k<=ke; k++){
 					Wtemp.d = dfloor;
 					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
 				}
-				
+#ifndef ISOTHERMAL				
 				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
 					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
 					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
 					
 					
 				} /* End if wtemp negative */
-				
+#endif				
 			}/* end i */
 		}/* end j*/
 	}/* end k*/

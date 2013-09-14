@@ -30,7 +30,7 @@ dt      = 1.                 # time increment between outputs
 
 <time>
 
-cour_no         = 0.04       # The Courant, Friedrichs, & Lewy (CFL) Number
+cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000    # cycle limit
 tlim            = 10.0  # time limit
 
@@ -50,8 +50,8 @@ x2min           = 0.0       # minimum value of Y
 x2max           = 1.0       # maximum value of Y
 bc_ix2          = 4         # boundary condition flag for inner-J (X2)
 bc_ox2          = 4         # boundary condition flag for outer-J (X2)
-rbc_ix2         = 3         # rad boundary condition flag for inner-J (X2)
-rbc_ox2         = 2         # rad boundary condition flag for outer-J (X2)
+rbc_ix2         = 4         # rad boundary condition flag for inner-J (X2)
+rbc_ox2         = 4         # rad boundary condition flag for outer-J (X2)
 NGrid_x2        = 2         # with MPI, number of Grids in X2 coordinate
 
 
@@ -66,8 +66,8 @@ NGrid_x3        = 1         # with MPI, number of Grids in X3 coordinate
 
 <fullradiation>
 nf		= 1	     # number of frequencies
-nmu		= 10	     # number of polar angles 
-Angleflag	= 1
+nmu		= 2	     # number of polar angles 
+Angleflag	= 0
 
 <problem>
 iso_csound      = 0.00408    # Isothermal sound speed squared

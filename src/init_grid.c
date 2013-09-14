@@ -321,11 +321,18 @@ void init_grid(MeshS *pM)
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
       pG->tgas = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->tgas == NULL) goto on_error17;
-      pG->Radheat = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Radheat == NULL) goto on_error21;
-      pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
-      if (pG->Frsource == NULL) goto on_error28;
 #endif /* RADIATION_TRANSFER */
+		
+		
+#ifdef FULL_RADIATION_TRANSFER		
+	  pG->Radheat = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+	  if (pG->Radheat == NULL) goto on_error21;
+	  pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
+	  if (pG->Frsource == NULL) goto on_error28;
+	  pG->Velguess = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
+	  if (pG->Velguess == NULL) goto on_error29;	
+		
+#endif
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
@@ -1515,11 +1522,18 @@ G3.ijkl[2],G3.ijkr[2]);
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
  on_error28:
     free_4d_array(pG->Frsource);
+
+#endif
+	
+#ifdef FULL_RADIATION_TRANSFER
+ on_error29:	
+    free_4d_array(pG->Velguess); 	
  on_error21:
     free_3d_array(pG->Radheat);
  on_error17:
     free_3d_array(pG->tgas);
 #endif
+	
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
    on_error16:
     free_3d_array(pG->Tguess);

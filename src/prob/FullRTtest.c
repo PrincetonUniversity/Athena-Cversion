@@ -96,8 +96,8 @@ void problem(DomainS *pDomain)
 		rho = rho0 * exp(fabs(x2-ytop));
 		rho = 1.0;
 		pG->U[k][j][i].d = rho;
-		pG->U[k][j][i].M1 = 0.0;
-		pG->U[k][j][i].M2 = 1.0;
+		pG->U[k][j][i].M1 = 1.0;
+		pG->U[k][j][i].M2 = 0.0;
 		pG->U[k][j][i].M3 = 0.0;
 		if(sqrt(SQR(x1-0.5)+SQR(x2-0.5)+SQR(x3-0.5))<0.2)
 			T = 1.0;
@@ -106,7 +106,9 @@ void problem(DomainS *pDomain)
 
 		pG->U[k][j][i].E = rho*T/(Gamma-1.0)  + 0.5*(SQR(pG->U[k][j][i].M1) + SQR(pG->U[k][j][i].M2) 
              + SQR(pG->U[k][j][i].M3))/rho;
-       }
+		   
+		   
+	       }
     }
    }
 
@@ -130,38 +132,46 @@ for(ifr=0; ifr<nf; ifr++){
 				Er = exp(-40.0*0.5*0.5);
 				Fr = 0.0;
 			}
+			   
+			   
+			Er = 1.0;
+			Fr = 0.0;
 
 			Jr = Er/(4.0*PI);
-			Hr = Fr/(4.0*PI*cos2);
-
-			weight = pRG->wmu[n][k][j][i];
-
-			if(l == 0 || l == 1){
-				pRG->imu[ifr][l][n][k][j][i] = (Jr + 0.0 * Hr)/(4.0 * weight);
-			}
-			else{
-				pRG->imu[ifr][l][n][k][j][i] = (Jr - 0.0 * Hr)/(4.0 * weight);
-			}
-			
-
+			Hr = Fr/(4.0*PI);
+				
+			   
+			pRG->imu[ifr][l][n][k][j][i] = Jr;
 		
+			   			
+
+			if(ker > ksr){
+				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k-Radghost+nghost, &(pRG->R[ifr][k][j][i].Sigma[0]));
+			}
+			else {
+				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k, &(pRG->R[ifr][k][j][i].Sigma[0]));
+			}
+
 			
 		}
 	     }
 	  }
        }
     }
-   }
+
+
+	/* with specific intensity, 
+	 * Now we need to update the moments of the radiation field */
+	
+		CalMoment(isr, ier, jsr, jer, ksr, ker, ifr, pRG);
+	
+
+
+  }/* end ifr */
 
 	get_full_opacity = const_opacity;
 
-	/* set the momentums of the specific intensitites */
-	UpdateRT(pDomain);
-
-	/* set boundary condition */
-/*	bvals_fullrad_trans_fun(pDomain, left_x2, TwoBeam_ix2);
-*/
-
+	
 	/* Enroll the user defined function to dump history of specific intensity */
 	Intensity_history_enroll(0, 0, 0, "<I_l0_n0>");
 

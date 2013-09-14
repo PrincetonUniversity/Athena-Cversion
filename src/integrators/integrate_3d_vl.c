@@ -505,6 +505,7 @@ void integrate_3d_vl(DomainS *pD)
           Uhalf[k][j][i].s[n] -= 
             q1*(rsf*x1Flux[k][j][i+1].s[n] - lsf*x1Flux[k][j][i  ].s[n]);
 #endif
+		  
       }
     }
   }
@@ -557,6 +558,33 @@ void integrate_3d_vl(DomainS *pD)
       }
     }
   }
+	
+	
+	/* Check negative pressure */
+	/* This is particular for the ghost zones */
+	
+	for (k=kl; k<=ku; k++){
+		for (j=jl; j<=ju; j++) {
+			for (i=il; i<=iu; i++) {
+				
+				Wtemp = Cons_to_Prim(&(Uhalf[k][j][i]));
+				if(Wtemp.d < dfloor){
+					Wtemp.d = dfloor;
+					Uhalf[k][j][i] = Prim_to_Cons(&(Wtemp));
+				}
+				
+				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+					Uhalf[k][j][i] = Prim_to_Cons(&(Wtemp));
+					
+					
+				} /* End if wtemp negative */
+				
+			}/* end i */
+		}/* end j*/
+	}/* end k*/
+	
+	
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /*--- Step 5d ------------------------------------------------------------------
@@ -859,9 +887,9 @@ void integrate_3d_vl(DomainS *pD)
     for (k=kl; k<=ku; k++) {
      for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        Uhalf[k][j][i].M1 += (0.5 * pG->dt * pG->Frsource[k][j][i][0]);
-        Uhalf[k][j][i].M2 += (0.5 * pG->dt * pG->Frsource[k][j][i][1]);
-	Uhalf[k][j][i].M3 += (0.5 * pG->dt * pG->Frsource[k][j][i][2]);
+        Uhalf[k][j][i].M1 += (0.5 * pG->Frsource[k][j][i][0]);
+        Uhalf[k][j][i].M2 += (0.5 * pG->Frsource[k][j][i][1]);
+		Uhalf[k][j][i].M3 += (0.5 * pG->Frsource[k][j][i][2]);
         Uhalf[k][j][i].E += (0.5 * pG->Radheat[k][j][i]);
       }
     }
@@ -1877,9 +1905,9 @@ void integrate_3d_vl(DomainS *pD)
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-	pG->U[k][j][i].M1 += pG->dt * pG->Frsource[k][j][i][0];
-	pG->U[k][j][i].M2 += pG->dt * pG->Frsource[k][j][i][1];
-	pG->U[k][j][i].M3 += pG->dt * pG->Frsource[k][j][i][2];
+	pG->U[k][j][i].M1 += pG->Frsource[k][j][i][0];
+	pG->U[k][j][i].M2 += pG->Frsource[k][j][i][1];
+	pG->U[k][j][i].M3 += pG->Frsource[k][j][i][2];
 	pG->U[k][j][i].E += pG->Radheat[k][j][i];
     }/* end i */
   }/* end j */
