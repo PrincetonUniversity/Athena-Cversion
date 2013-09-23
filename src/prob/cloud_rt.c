@@ -494,6 +494,7 @@ void radMHD_Mat_inflowis(MatrixS *pMat)
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -534,7 +535,7 @@ void Userwork_in_formal_solution(DomainS *pD)
   return;
 }
 
-void Userwork_after_first_formal_solution(DomainS *pD)
+void Userwork_after_formal_solution(DomainS *pD)
 {
 
   return;

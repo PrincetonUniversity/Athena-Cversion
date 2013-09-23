@@ -25,11 +25,12 @@
 #ifdef RADIATION_TRANSFER
 #ifdef GAUSSEID
 
+/* Working arrays used in formal solution */
 static Real *****psiint = NULL;
 static Real ****lamstr = NULL;
 static Real ******imuo = NULL;
 static int *face = NULL;
-static Real **muinv = NULL, **coeff = NULL, ***mu2 = NULL;
+static Real **coeff = NULL;
 static Real dSrmx;
 
 /*==============================================================================
@@ -47,6 +48,12 @@ static void sweep_3d_forward(RadGridS *pRG, int ifr);
 static void sweep_3d_backward(RadGridS *pRG, int ifr);
 static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, int i, int l);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
+ *  \brief formal solution for single freq. in 3D using Gauss-Seidel method
+ *  with linear interpolation of intensities */
 void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, j, k, l, m;
@@ -56,10 +63,39 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
   int nf = pRG->nf;
   int ismx, jsmx, ksmx;
   Real dSr, dJ, dJmax;
+  Real lx, ly, lz, lmin;
+  Real dx, dy, dz;
+  Real am, bm;
+
 
 #ifdef QUADRATIC_INTENSITY
   ath_error("[gausseid_3d.c]: quadratic intensity not supported with Gauss-Seidel.\n");
 #endif
+
+  if (radt_mode == 2) {
+/* Initialize face and coeff arrays on each call to formal soution when
+   both passive and feedback based radiation transfer schemes are enabled */
+    for(i=0; i<pRG->nang; i++) {
+      lx = dx / pRG->mu[0][i][0];
+      ly = dy / pRG->mu[0][i][1];
+      lz = dz / pRG->mu[0][i][2];
+      lmin = MIN(MIN(lx,ly),lz);
+      if (lz == lmin) {
+	face[i]=2;
+	am = lmin/lx; bm = lmin/ly;
+      } else if (ly == lmin) {
+	face[i]=1;
+	am = lmin/lx; bm = lmin/lz;
+      } else {
+	face[i]=0;
+	am = lmin/ly; bm = lmin/lz;
+      }
+      coeff[i][0] = (1.0 - am)*(1.0 - bm);
+      coeff[i][1] = (1.0 - am)*       bm;
+      coeff[i][2] =        am *       bm;
+      coeff[i][3] =        am *(1.0 - bm);
+    }
+  }
 
 /* Initialize dSrmx */
   dSrmx = 0.0;
@@ -95,6 +131,110 @@ void formal_solution_3d(RadGridS *pRG, Real *dSrmax, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_3d_destruct(void)
+ *  \brief free temporary working arrays */
+void formal_solution_3d_destruct(void)
+{
+
+  if (psiint != NULL) free_5d_array(psiint);
+  if (lamstr != NULL) free_4d_array(lamstr);
+  if (imuo   != NULL) free_6d_array(imuo);
+  if (face   != NULL) free_1d_array(face);
+  if (coeff  != NULL) free_2d_array(coeff);
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_3d_init(DomainS *pD)
+ *  \brief Allocate memory for working arrays */
+void formal_solution_3d_init(DomainS *pD)
+{
+  
+  RadGridS *pRG, *pROG;
+  int nx1, nx2, nx3;
+  Real dx, dy, dz;
+  int nf, nang;
+  int i;
+  Real am, bm, lx, ly, lz, lmin;
+
+  if (radt_mode == 0) { /* integration only */
+    pRG = pD->RadGrid;
+    nx1 = pRG->Nx[0]; nx2 = pRG->Nx[1]; nx3 = pRG->Nx[2];
+    dx = pRG->dx1; dy = pRG->dx2; dz = pRG->dx3;
+    nf = pRG->nf; 
+    nang = pRG->nang;
+  } else if (radt_mode == 1) { /* output only */
+    pROG = pD->RadOutGrid;
+    nx1 = pROG->Nx[0]; nx2 = pROG->Nx[1]; nx3 = pROG->Nx[2];
+    dx = pROG->dx1; dy = pROG->dx2; dz = pROG->dx3;
+    nf = pROG->nf;
+    nang = pROG->nang;
+  } else if (radt_mode == 2) { /* integration and output */
+    pRG = pD->RadGrid;
+    pROG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0]; nx2 = pRG->Nx[1]; nx3 = pRG->Nx[2];
+    dx = pRG->dx1; dy = pRG->dx2; dz = pRG->dx3;
+    nf = MAX(pRG->nf,pROG->nf);
+    nang = MAX(pRG->nang,pROG->nang);
+  }
+
+  if ((lamstr = (Real ****)calloc_4d_array(nf,nx3+2,nx2+2,nx1+2,sizeof(Real))) == NULL) 
+   goto on_error;
+
+  if ((psiint = (Real *****)calloc_5d_array(nf,nx3+2,nx2+2,nx1+2,13,sizeof(Real))) == NULL) 
+    goto on_error;
+
+  if ((imuo = (Real ******)calloc_6d_array(nf,nx2+2,nx1+2,8,nang,2,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((face = (int *)calloc_1d_array(nang,sizeof(int))) == NULL)
+    goto on_error;
+
+  if ((coeff = (Real **)calloc_2d_array(nang,4,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ( (radt_mode == 0) ||  (radt_mode == 1) ) {
+/* Initialize face and coeff arrays only once if radiation transfer is only
+   for output or integration but not both */
+
+    for(i=0; i<nang; i++) {
+      lx = dx / pRG->mu[0][i][0];
+      ly = dy / pRG->mu[0][i][1];
+      lz = dz / pRG->mu[0][i][2];
+      lmin = MIN(MIN(lx,ly),lz);
+      if (lz == lmin) {
+	face[i]=2;
+	am = lmin/lx; bm = lmin/ly;
+      } else if (ly == lmin) {
+	face[i]=1;
+	am = lmin/lx; bm = lmin/lz;
+      } else {
+	face[i]=0;
+	am = lmin/ly; bm = lmin/lz;
+      }
+      coeff[i][0] = (1.0 - am)*(1.0 - bm);
+      coeff[i][1] = (1.0 - am)*       bm;
+      coeff[i][2] =        am *       bm;
+      coeff[i][3] =        am *(1.0 - bm);
+    }
+  }
+  
+  return;
+
+  on_error:
+  formal_solution_3d_destruct();
+  ath_error("[formal_solution__3d_init]: Error allocating memory\n");
+  return;
+
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_3d_forward(RadGridS *pRG, int ifr)
+ *  \brief Perform Gauss-Seidel sweep from lower left to upper right */
 static void sweep_3d_forward(RadGridS *pRG, int ifr)
 {
   int i, j, k, l, m;
@@ -221,6 +361,9 @@ static void sweep_3d_forward(RadGridS *pRG, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_3d_backward(RadGridS *pRG, int ifr)
+ *  \brief Perform Gauss-Seidel sweep from upper right to lower left*/
 static void sweep_3d_backward(RadGridS *pRG, int ifr)
 {
   int i, j, k, l, m;
@@ -347,6 +490,10 @@ static void sweep_3d_backward(RadGridS *pRG, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, 
+ *                              int j, int i, int l)
+ *  \brief Update radiation variables in a single cell */
 static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, int i, int l)
 {
 
@@ -430,8 +577,8 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
  
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dx * muinv[m][0]; 
-      dtaup *= dx * muinv[m][0]; 
+      dtaum *= dx / pRG->mu[0][m][0];
+      dtaup *= dx / pRG->mu[0][m][0];
     } else if(face[m] == 1) {
       /* interpolation in x1-x3 plane */
       S0    = coeff[m][0] * pRG->R[ifr][k ][jm][i ].S;
@@ -459,8 +606,8 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
 
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dy * muinv[m][1]; 
-      dtaup *= dy * muinv[m][1]; 
+      dtaum *= dy / pRG->mu[0][m][1];
+      dtaup *= dy / pRG->mu[0][m][1];
     } else  {
       /* interpolation in x1-x2 plane */
       S0    = coeff[m][0] * pRG->R[ifr][km][j ][i ].S;
@@ -488,8 +635,8 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
 
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dz * muinv[m][2]; 
-      dtaup *= dz * muinv[m][2];
+      dtaum *= dz / pRG->mu[0][m][2];
+      dtaup *= dz / pRG->mu[0][m][2];
     }
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
     interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
@@ -592,12 +739,12 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
     pRG->R[ifr][k][j][i].H[0] += pRG->mu[l][m][0] * wimu;
     pRG->R[ifr][k][j][i].H[1] += pRG->mu[l][m][1] * wimu;
     pRG->R[ifr][k][j][i].H[2] += pRG->mu[l][m][2] * wimu;
-    pRG->R[ifr][k][j][i].K[0] += mu2[l][m][0] * wimu;
-    pRG->R[ifr][k][j][i].K[1] += mu2[l][m][1] * wimu;
-    pRG->R[ifr][k][j][i].K[2] += mu2[l][m][2] * wimu;
-    pRG->R[ifr][k][j][i].K[3] += mu2[l][m][3] * wimu;
-    pRG->R[ifr][k][j][i].K[4] += mu2[l][m][4] * wimu;
-    pRG->R[ifr][k][j][i].K[5] += mu2[l][m][5] * wimu;
+    pRG->R[ifr][k][j][i].K[0] += pRG->mu[l][m][0] * pRG->mu[l][m][0] * wimu;
+    pRG->R[ifr][k][j][i].K[1] += pRG->mu[l][m][0] * pRG->mu[l][m][1] * wimu;
+    pRG->R[ifr][k][j][i].K[2] += pRG->mu[l][m][1] * pRG->mu[l][m][1] * wimu;
+    pRG->R[ifr][k][j][i].K[3] += pRG->mu[l][m][0] * pRG->mu[l][m][2] * wimu;
+    pRG->R[ifr][k][j][i].K[4] += pRG->mu[l][m][1] * pRG->mu[l][m][2] * wimu;
+    pRG->R[ifr][k][j][i].K[5] += pRG->mu[l][m][2] * pRG->mu[l][m][2] * wimu;
 /* Update intensity workspace */
     imuo[ifr][j][i][l][m][1] = imuo[ifr][j][i][l][m][0];
     imuo[ifr][j][i][l][m][0] = imu;
@@ -632,6 +779,9 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_sfunc(RadS *R, Real *dS, Real lamstr)
+ *  \brief Gauss-Siedel update of source function with new mean intensity */
 static void update_sfunc(RadS *R, Real *dS, Real lamstr)
 {
   Real Snew, dSr;
@@ -642,100 +792,6 @@ static void update_sfunc(RadS *R, Real *dS, Real lamstr)
   R->S += (*dS);
   if (dSr > dSrmx) dSrmx = dSr; 
   return;
-}
-
-void formal_solution_3d_destruct(void)
-{
-
-  if (psiint != NULL) free_5d_array(psiint);
-  if (lamstr != NULL) free_4d_array(lamstr);
-  if (imuo   != NULL) free_6d_array(imuo);
-  if (muinv  != NULL) free_2d_array(muinv);
-  if (face   != NULL) free_1d_array(face);
-  if (coeff  != NULL) free_2d_array(coeff);
-  if (mu2    != NULL) free_3d_array(mu2);
-
-  return;
-}
-
-void formal_solution_3d_init(RadGridS *pRG)
-{
-  int nx1 = pRG->Nx[0], nx2 = pRG->Nx[1], nx3 = pRG->Nx[2];
-  int nf = pRG->nf, nang = pRG->nang;
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks; 
-  Real dx = pRG->dx1, dy = pRG->dx2, dz = pRG->dx3;;
-  int ifr, i, j, l, m;
-  int sy, sx;
-  Real chi0, chi1, chi2, dtaum, dtaup;
-  Real edtau, a0, a1, a2;
-  Real am, bm;
-  Real lx, ly, lz, lmin;
-
-  if ((lamstr = (Real ****)calloc_4d_array(nf,nx3+2,nx2+2,nx1+2,sizeof(Real))) == NULL) 
-   goto on_error;
-
-  if ((psiint = (Real *****)calloc_5d_array(nf,nx3+2,nx2+2,nx1+2,13,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if ((imuo = (Real ******)calloc_6d_array(nf,nx2+2,nx1+2,8,nang,2,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((muinv = (Real **)calloc_2d_array(nang,3,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((face = (int *)calloc_1d_array(nang,sizeof(int))) == NULL)
-    goto on_error;
-
-  if ((coeff = (Real **)calloc_2d_array(nang,4,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((mu2 = (Real ***)calloc_3d_array(8,nang,6,sizeof(Real))) == NULL)
-    goto on_error;
-
-  for(i=0; i<nang; i++)  
-    for(j=0; j<3; j++) 
-      muinv[i][j] = fabs(1.0 / pRG->mu[0][i][j]);
-
-  for(i=0; i<nang; i++) {
-    lx = muinv[i][0] * dx;
-    ly = muinv[i][1] * dy;
-    lz = muinv[i][2] * dz;
-    lmin = MIN(MIN(lx,ly),lz);
-    if (lz == lmin) {
-      face[i]=2;
-      am = lmin/lx; bm = lmin/ly;
-    } else if (ly == lmin) {
-      face[i]=1;
-      am = lmin/lx; bm = lmin/lz;
-    } else {
-      face[i]=0;
-      am = lmin/ly; bm = lmin/lz;
-    }
-    coeff[i][0] = (1.0 - am)*(1.0 - bm);
-    coeff[i][1] = (1.0 - am)*       bm;
-    coeff[i][2] =        am *       bm;
-    coeff[i][3] =        am *(1.0 - bm);
-  }
-
-  for(i=0; i<8; i++) 
-    for(j=0; j<nang; j++)  {
-      mu2[i][j][0] = pRG->mu[i][j][0] * pRG->mu[i][j][0];
-      mu2[i][j][1] = pRG->mu[i][j][0] * pRG->mu[i][j][1];
-      mu2[i][j][2] = pRG->mu[i][j][1] * pRG->mu[i][j][1];
-      mu2[i][j][3] = pRG->mu[i][j][0] * pRG->mu[i][j][2];
-      mu2[i][j][4] = pRG->mu[i][j][1] * pRG->mu[i][j][2];
-      mu2[i][j][5] = pRG->mu[i][j][2] * pRG->mu[i][j][2];
-    }
-
-  return;
-
-  on_error:
-  formal_solution_3d_destruct();
-  ath_error("[formal_solution__3d_init]: Error allocating memory\n");
-  return;
-
 }
 
 #endif /* GAUSSEID */

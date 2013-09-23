@@ -23,8 +23,8 @@
 #ifdef RADIATION_TRANSFER
 #if defined(JACOBI)
 
+/* Working arrays used in formal solution */
 static Real **lamstr = NULL;
-static Real *muinv = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
 static Real **Jold = NULL;
 
@@ -37,7 +37,10 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr);
 static void update_sfunc(RadS *R, Real *dSr, Real lamstr);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
+
 /*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
+ *  \brief formal solution for single freq. in 1D using jacobi method */
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, m;
@@ -106,102 +109,48 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
   return;
 }
 
-static void sweep_1d(RadGridS *pRG, int sx, int ifr)
-{
-  int it0, i, l, m;
-  int js = pRG->js, ks = pRG->ks;
-  int is = pRG->is, ie = pRG->ie;
-  int nang = pRG->nang;
-  Real imu, wimu, S0, S2;
-  Real chio, chim, chip;
-  Real dtaum, dtaup, dx = pRG->dx1;
-  Real edtau, a0, a1, a2, a3;
-
-  if (sx == 1) l = 0; else l = 1;
-
-  for(it0=is; it0<=ie; it0++) {
-     if (sx == 1) 
-       i = it0;
-     else
-       i = ie + is - it0;
-
-     S0 = pRG->R[ifr][ks][js][i-sx].S;
-     S2 = pRG->R[ifr][ks][js][i+sx].S;
-     chio = pRG->R[ifr][ks][js][i].chi;
-     chim = pRG->R[ifr][ks][js][i-sx].chi;
-     chip = pRG->R[ifr][ks][js][i+sx].chi;
-     /*dtaum = 0.5 * (chim + chio);
-       dtaup = 0.5 * (chip + chio);*/
-     interp_quad_chi(chim,chio,chip,&dtaum);
-     interp_quad_chi(chip,chio,chim,&dtaup);
-     dtaum *= dx; 
-     dtaup *= dx;     
-     for(m=0; m<nang; m++) {
-       /*interp_quad_source(dtaum*muinv[m],dtaup*muinv[m], &edtau, &a0, 
-	   &a1, &a2,S0, pRG->R[ifr][ks][js][i].S, S2);*/
-       interp_quad_source_slope_lim(dtaum*muinv[m],dtaup*muinv[m], &edtau, 
-	 &a0, &a1, &a2,S0, pRG->R[ifr][ks][js][i].S, S2);
-       imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
-       imu += edtau * imuo[ifr][l][m];
-       lamstr[ifr][i] += pRG->wmu[m] * a1;
-       
-/* Add to mean intensity and save for next iteration */
-       wimu = pRG->wmu[m] * imu;
-       pRG->R[ifr][ks][js][i].J += wimu;
-       pRG->R[ifr][ks][js][i].H[0] += pRG->mu[l][m][0] * wimu;
-       pRG->R[ifr][ks][js][i].K[0] += mu2[m] * wimu;
-       imuo[ifr][l][m] = imu;
-     }
-  }
-  return;
-}
-
-static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
-{
-  Real Snew, deltaS;
-  
-  Snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
-  deltaS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lamstr);
-  if (R->S > 0.0) (*dSr) = fabs(deltaS/R->S);
-  R->S += deltaS;
-  return;
-}
-
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d_destruct(void)
+ *  \brief free temporary working arrays */
 void formal_solution_1d_destruct(void)
 {
 
-  int i;
-
   if (lamstr != NULL) free_2d_array(lamstr);
   if (imuo != NULL) free_3d_array(imuo);
-  if (muinv != NULL) free(muinv);
-  if (mu2 != NULL) free(mu2);
   if (Jold != NULL) free_2d_array(Jold);
 
   return;
 }
 
-void formal_solution_1d_init(RadGridS *pRG)
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d_init(DomainS *pD)
+ *  \brief Allocate memory for working arrays */
+void formal_solution_1d_init(DomainS *pD)
 {
-  int nx1 = pRG->Nx[0];
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, ks = pRG->ks;
-  int nf = pRG->nf, nang = pRG->nang;
-  int ifr, i, l, m;
+  RadGridS *pRG, *pROG;
+  int nx1;
+  int nf, nang;
+
+  if (radt_mode == 0) { /* integration only */
+    pRG = pD->RadGrid;
+    nx1 = pRG->Nx[0];
+    nf = pRG->nf; 
+    nang = pRG->nang;
+  } else if (radt_mode == 1) { /* output only */
+    pRG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0];
+    nf = pRG->nf; 
+    nang = pRG->nang;
+  } else if (radt_mode == 2) { /* integration and output */
+    pRG = pD->RadGrid;
+    pROG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0];
+    nf = MAX(pRG->nf,pROG->nf); 
+    nang = MAX(pRG->nang,pROG->nang);
+  }
 
   if ((imuo = (Real ***)calloc_3d_array(nf,2,nang,sizeof(Real))) == NULL) 
     goto on_error;
-
-  if ((muinv = (Real *)calloc(nang,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((mu2 = (Real *)calloc(nang,sizeof(Real))) == NULL)
-    goto on_error;
-
-  for(m=0; m<nang; m++) {
-    muinv[m] = fabs(1.0 / pRG->mu[0][m][0]);
-    mu2[m] = pRG->mu[0][m][0] * pRG->mu[0][m][0];
-  }
 
   if ((lamstr = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
     goto on_error;
@@ -218,6 +167,73 @@ void formal_solution_1d_init(RadGridS *pRG)
   return;
 
 }
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_1d(RadGridS *pRG, int sx, int ifr)
+ *  \brief Perform Jacobi sweep in one direction */
+static void sweep_1d(RadGridS *pRG, int sx, int ifr)
+{
+  int it0, i, l, m;
+  int js = pRG->js, ks = pRG->ks;
+  int is = pRG->is, ie = pRG->ie;
+  int nang = pRG->nang;
+  Real imu, wimu, S0, S2;
+  Real chio, chim, chip;
+  Real dtaum, dtaup, dx = pRG->dx1;
+  Real dtaum0, dtaup0;
+  Real edtau, a0, a1, a2, a3;
+
+  if (sx == 1) l = 0; else l = 1;
+
+  for(it0=is; it0<=ie; it0++) {
+     if (sx == 1) 
+       i = it0;
+     else
+       i = ie + is - it0;
+
+     S0 = pRG->R[ifr][ks][js][i-sx].S;
+     S2 = pRG->R[ifr][ks][js][i+sx].S;
+     chio = pRG->R[ifr][ks][js][i].chi;
+     chim = pRG->R[ifr][ks][js][i-sx].chi;
+     chip = pRG->R[ifr][ks][js][i+sx].chi;
+     interp_quad_chi(chim,chio,chip,&dtaum0);
+     interp_quad_chi(chip,chio,chim,&dtaup0);
+     for(m=0; m<nang; m++) {
+       dtaum = dtaum0 * dx / pRG->mu[0][m][0]; 
+       dtaup = dtaup0 * dx / pRG->mu[0][m][0];  
+/* ---------  compute intensity at grid center and add to mean intensity ------- */
+       interp_quad_source_slope_lim(dtaum,dtaup, &edtau, 
+	 &a0, &a1, &a2,S0, pRG->R[ifr][ks][js][i].S, S2);
+       imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
+       imu += edtau * imuo[ifr][l][m];
+       lamstr[ifr][i] += pRG->wmu[m] * a1;
+/* Add to mean intensity and save for next iteration */
+       wimu = pRG->wmu[m] * imu;
+       pRG->R[ifr][ks][js][i].J += wimu;
+       pRG->R[ifr][ks][js][i].H[0] += pRG->mu[l][m][0] * wimu;
+       pRG->R[ifr][ks][js][i].K[0] += pRG->mu[l][m][0] * pRG->mu[l][m][0] * wimu;
+       imuo[ifr][l][m] = imu;
+     }
+  }
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
+ *  \brief Jacobi update of source function with new mean intensity */
+static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
+{
+  Real Snew, deltaS;
+  
+  Snew = (1.0 - R->eps) * R->J + R->eps * R->B + R->Snt;
+  deltaS = (Snew - R->S) / (1.0 - (1.0 - R->eps) * lamstr);
+  if (R->S > 0.0) (*dSr) = fabs(deltaS/R->S);
+  R->S += deltaS;
+  return;
+}
+
 
 #endif /* JACOBI */
 #endif /* RADIATION_TRANSFER */

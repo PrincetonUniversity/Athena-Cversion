@@ -1,11 +1,14 @@
 #include "copyright.h"
 /*==============================================================================
- * FILE: linear_wave_rad3d.c
+ * FILE: linear_wave_rad1d.c
  *
- * PURPOSE: Problem generator for plane-parallel, non grid-aligned linear wave
- *   tests with the radiative transfer module in 3D. 
+ * PURPOSE: Problem generator for plane-parallel, grid-aligned linear wave
+ *   tests with the radiative transfer module.  If wavevector is in x2 (x3) direction, 
+ *   then the grid must be 2D (3D). Only works for wavevector parallel to grid.  
+ *   Tests in 2D and 3D with wavevector at an angle to the grid are initialized with 
+ *   different  functions (linear_wave2d/3d).
  *
- *   Configure --with-problem=linear_wave_rad3d --enable-radiation-transfer --with-gas=hydro
+ *   Configure --with-problem=linear_wave_rad1d --enable-radiation-transfer --with-gas=hydro
  *
  *   Can be used for either standing (problem/vflow=1.0) or travelling
  *   (problem/vflow=0.0) waves.
@@ -17,17 +20,14 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <complex.h>
 #include "defs.h"
 #include "athena.h"
 #include "globals.h"
 #include "prototypes.h"
-#include <complex.h>
 
 Real kappa, B0, E0, T0, vph, rdamp, Bo, tau, amp, vflow, V0R, V0I, E0R, E0I;
-static Real ang_2, ang_3; /* Rotation angles about the y and z' axis */
-static Real sin_a2, cos_a2, sin_a3, cos_a3;
-static Real lambda, k_par; /* Wavelength, 2*PI/wavelength */
-
+int wave_dir;
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * const_B()
@@ -54,16 +54,15 @@ void problem(DomainS *pDomain)
   RadGridS *pRG=(pDomain->RadGrid);
   ConsS ***Soln;
   int i=0,j=0,k=0,ifr;
-  int is,ie,js,je,ks,ke,n,m,nx1,nx2,nx3;
+  int is,ie,js,je,ks,ke,n,m;
   Real d0,p0,u0,v0,w0;
-  Real x,x1,x2,x3,r;
+  Real x1,x2,x3,r;
   int nang = pRG->nang, nf=pRG->nf, noct= pRG->noct;
   int il = pRG->is, iu = pRG->ie;
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   FILE *fp;
   char *fname;
-  Real angle,x1size,x2size,x3size;
 
   is = pGrid->is; ie = pGrid->ie;
   js = pGrid->js; je = pGrid->je;
@@ -75,7 +74,7 @@ void problem(DomainS *pDomain)
   if (pGrid->Nx[1] > 1) {
     js -= nghost;
     je += nghost;
-  } 
+  }
   if (pGrid->Nx[2] > 1) {
     ks -= nghost;
     ke += nghost;
@@ -87,30 +86,8 @@ void problem(DomainS *pDomain)
   vflow = par_getd("problem","vflow");
   Bo = par_getd("problem","Bo");
   tau = par_getd("problem","tau");
+  wave_dir = par_getd("problem","wave_dir");
 
-  x1size = pDomain->RootMaxX[0] - pDomain->RootMinX[0];
-  x2size = pDomain->RootMaxX[1] - pDomain->RootMinX[1];
-  x3size = pDomain->RootMaxX[2] - pDomain->RootMinX[2];
-
-  ang_3 = atan(x1size/x2size);
-  sin_a3 = sin(ang_3);
-  cos_a3 = cos(ang_3);
-
-  ang_2 = atan(0.5*(x1size*cos_a3 + x2size*sin_a3)/x3size);
-  sin_a2 = sin(ang_2);
-  cos_a2 = cos(ang_2);
-
-  x1 = x1size*cos_a2*cos_a3;
-  x2 = x2size*cos_a2*sin_a3;
-  x3 = x3size*sin_a2;
-
-/* For lambda choose the smaller of the 3 */
-  lambda = x1;
-  lambda = MIN(lambda,x2);
-  lambda = MIN(lambda,x3);
-
-/* Initialize k_parallel */
-  k_par = 2.0*PI/lambda;
 
 /* Get eigenmatrix, where the quantities u0 and bx0 are parallel to the
  * wavevector, and v0,w0 are perpendicular. */
@@ -124,7 +101,7 @@ void problem(DomainS *pDomain)
 
 /* get initial conditions for damped radiating wave */
   acoustic_wave_rad(Bo,tau,1.0,d0,&vph,&rdamp,&V0R,&V0I,&E0R,&E0I);
-  printf("E, V: %g %g %g %g\n",E0R,E0I,V0R,V0I);
+
 
 /* Now initialize 1D solution vector  */
   for (k=ks; k<=ke; k++) {
@@ -134,26 +111,67 @@ void problem(DomainS *pDomain)
 /* Set background state */
 
     cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-
-    x = cos_a2*(x1*cos_a3 + x2*sin_a3) + x3*sin_a2;
-    r = x/lambda;
-
     pGrid->U[k][j][i].d = d0;
     pGrid->U[k][j][i].E = p0/Gamma_1 + 0.5*d0*u0*u0;
 
+/* Select appropriate solution based on direction of wavevector */
+    switch(wave_dir){
 
-    pGrid->U[k][j][i].d += amp*sin(2.0*PI*r);
-    pGrid->U[k][j][i].E += amp*(sin(2.0*PI*r)*E0R - cos(2.0*PI*r)*E0I);
-    pGrid->U[k][j][i].M1 = vflow*cos_a2*cos_a3;
-    pGrid->U[k][j][i].M2 = vflow*cos_a2*sin_a3;
-    pGrid->U[k][j][i].M3 = vflow*sin_a2;
-    pGrid->U[k][j][i].M1 += cos_a2*cos_a3*amp*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
-    pGrid->U[k][j][i].M2 += cos_a2*sin_a3*amp*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
-    pGrid->U[k][j][i].M3 += sin_a2*       amp*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
+/* wave in x1-direction */
+
+    case 1:
+      pGrid->U[k][j][i].d += amp*sin(2.0*PI*x1);
+      pGrid->U[k][j][i].E += amp*(sin(2.0*PI*x1)*E0R - cos(2.0*PI*x1)*E0I);
+      pGrid->U[k][j][i].M1 = d0*vflow;
+      pGrid->U[k][j][i].M2 = 0.0;
+      pGrid->U[k][j][i].M3 = 0.0;
+      pGrid->U[k][j][i].M1 += amp*(sin(2.0*PI*x1)*V0R - cos(2.0*PI*x1)*V0I);/* c_s=1 */
 #if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++)
-      pGrid->U[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*r));
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x1));
 #endif
+    break;
+
+/* Wave in x2-direction */
+
+    case 2:
+      pGrid->U[k][j][i].d += amp*sin(2.0*PI*x2);
+      pGrid->U[k][j][i].E += amp*(sin(2.0*PI*x2)*E0R - cos(2.0*PI*x2)*E0I);
+      pGrid->U[k][j][i].M1 = 0.0;
+      pGrid->U[k][j][i].M2 = d0*vflow;
+      pGrid->U[k][j][i].M3 = 0.0;
+      pGrid->U[k][j][i].M2 += amp*(sin(2.0*PI*x2)*V0R - cos(2.0*PI*x2)*V0I);/* c_s=1 */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x2));
+#endif
+    break;
+
+/* Wave in x3-direction */
+
+   case 3:
+      pGrid->U[k][j][i].d += amp*sin(2.0*PI*x3);
+      pGrid->U[k][j][i].E += amp*(sin(2.0*PI*x3)*E0R - cos(2.0*PI*x3)*E0I);
+      pGrid->U[k][j][i].M1 = 0.0;
+      pGrid->U[k][j][i].M2 = 0.0;
+      pGrid->U[k][j][i].M3 = d0*vflow;
+      pGrid->U[k][j][i].M3 += amp*(sin(2.0*PI*x3)*V0R - cos(2.0*PI*x3)*V0I);/* c_s=1 */
+#if (NSCALARS > 0)
+      for (n=0; n<NSCALARS; n++)
+        pGrid->U[k][j][i].s[n] = amp*(1.0 + sin(2.0*PI*x3));
+#endif
+    break;
+
+    default:
+      ath_error("[linear_wave_rad1d]: wave direction %d not allowed\n",wave_dir);
+
+    }
+#ifdef MHD
+      pGrid->U[k][j][i].B1c = 0;
+      pGrid->U[k][j][i].B2c = 0;
+      pGrid->U[k][j][i].B3c = 0;
+#endif /* MHD */
+
 
   }}}
 
@@ -173,59 +191,77 @@ void problem(DomainS *pDomain)
   if (pRG->Nx[1] > 1) { jl -= 1; ju += 1; }
   if (pRG->Nx[2] > 1) { kl -= 1; ku += 1; }
 
+
   for(ifr=0; ifr<nf; ifr++) {
 
     for(k=kl; k<=ku; k++) {
       for(j=jl; j<=ju; j++) {
 	for(m=0; m<nang; m++) {
 	  pRG->Ghstl1i[ifr][k][j][0][m] = B0;
-	  pRG->Ghstl1i[ifr][k][j][2][m] = B0;
-	  pRG->Ghstl1i[ifr][k][j][4][m] = B0;
-	  pRG->Ghstl1i[ifr][k][j][6][m] = B0;
+	  if(noct > 2) {
+	    pRG->Ghstl1i[ifr][k][j][2][m] = B0;
+	    if (noct == 8) {
+	      pRG->Ghstl1i[ifr][k][j][4][m] = B0;
+	      pRG->Ghstl1i[ifr][k][j][6][m] = B0;
+	    }
+	  }
 	  pRG->Ghstr1i[ifr][k][j][1][m] = B0;
-	  pRG->Ghstr1i[ifr][k][j][3][m] = B0;
-	  pRG->Ghstr1i[ifr][k][j][5][m] = B0;
-	  pRG->Ghstr1i[ifr][k][j][7][m] = B0;
+	  if (noct > 2) {
+	    pRG->Ghstr1i[ifr][k][j][3][m] = B0;
+	    if (noct == 8) {
+	      pRG->Ghstr1i[ifr][k][j][5][m] = B0;
+	      pRG->Ghstr1i[ifr][k][j][7][m] = B0;
+	    }
+	  }
 	}}}
 
-    for(k=kl; k<=ku; k++) {
-      for(i=il; i<=iu; i++) {
-	for(m=0; m<nang; m++) {
-	  pRG->Ghstl2i[ifr][k][i][0][m] = B0;
-	  pRG->Ghstl2i[ifr][k][i][1][m] = B0;
-	  pRG->Ghstl2i[ifr][k][i][4][m] = B0;
-	  pRG->Ghstl2i[ifr][k][i][5][m] = B0;
-	  pRG->Ghstr2i[ifr][k][i][2][m] = B0;
-	  pRG->Ghstr2i[ifr][k][i][3][m] = B0;
-	  pRG->Ghstr2i[ifr][k][i][6][m] = B0;
-	  pRG->Ghstr2i[ifr][k][i][7][m] = B0;	  
-	}}}   
+    if (noct > 2) {
 
-    for(j=jl; j<=ju; j++) {
-      for(i=il; i<=iu; i++) {
-	for(m=0; m<nang; m++) {
-	  pRG->Ghstl3i[ifr][j][i][0][m] = B0;
-	  pRG->Ghstl3i[ifr][j][i][1][m] = B0;
-	  pRG->Ghstl3i[ifr][j][i][2][m] = B0;
-	  pRG->Ghstl3i[ifr][j][i][3][m] = B0;
-	  pRG->Ghstr3i[ifr][j][i][4][m] = B0;
-	  pRG->Ghstr3i[ifr][j][i][5][m] = B0;
-	  pRG->Ghstr3i[ifr][j][i][6][m] = B0;
-	  pRG->Ghstr3i[ifr][j][i][7][m] = B0;
-	}}}
+      for(k=kl; k<=ku; k++) {
+	for(i=il; i<=iu; i++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl2i[ifr][k][i][0][m] = B0;
+	    pRG->Ghstl2i[ifr][k][i][1][m] = B0;
+	    if (noct == 8) {
+	      pRG->Ghstl2i[ifr][k][i][4][m] = B0;
+	      pRG->Ghstl2i[ifr][k][i][5][m] = B0;
+	    }	  
+	    pRG->Ghstr2i[ifr][k][i][2][m] = B0;
+	    pRG->Ghstr2i[ifr][k][i][3][m] = B0;
+	    if (noct == 8) {
+	      pRG->Ghstr2i[ifr][k][i][6][m] = B0;
+	      pRG->Ghstr2i[ifr][k][i][7][m] = B0;
+	    }
+	  }}}
+    }
+
+    if (noct == 8) {
+      for(j=jl; j<=ju; j++) {
+	for(i=il; i<=iu; i++) {
+	  for(m=0; m<nang; m++) {
+	    pRG->Ghstl3i[ifr][j][i][0][m] = B0;
+	    pRG->Ghstl3i[ifr][j][i][1][m] = B0;
+	    pRG->Ghstl3i[ifr][j][i][2][m] = B0;
+	    pRG->Ghstl3i[ifr][j][i][3][m] = B0;
+	    pRG->Ghstr3i[ifr][j][i][4][m] = B0;
+	    pRG->Ghstr3i[ifr][j][i][5][m] = B0;
+	    pRG->Ghstr3i[ifr][j][i][6][m] = B0;
+	    pRG->Ghstr3i[ifr][j][i][7][m] = B0;
+	  }}}
+    }
   }
 
 
-  /* enroll radiation specification functions */
-get_thermal_source = grey_B;
-get_thermal_fraction = const_eps;
-get_total_opacity = const_chi;
+/* enroll radiation specification functions */
+  get_thermal_source = grey_B;
+  get_thermal_fraction = const_eps;
+  get_total_opacity = const_chi;
 
 /* --------------computed formal solution ---------------------------- */
 /* Called to intitialze radiation variables for first set of outputs,  */
 /* not needed for evolution. */
-  hydro_to_rad(pDomain);
-  formal_solution(pDomain);
+  // hydro_to_rad(pDomain,1);
+  // formal_solution(pDomain);
 
   return;
 }
@@ -250,14 +286,30 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
-#ifdef SELF_GRAVITY
-  Real d0 = 1.0;
-  four_pi_G = par_getd("problem","four_pi_G");
-  grav_mean_rho = d0;
-#endif /* SELF_GRAVITY */
-#ifdef NAVIER_STOKES
-  nu_V = par_getd("problem","nu");
-#endif
+
+  Real d0=1.0;
+
+  amp = par_getd("problem","amp");
+  vflow = par_getd("problem","vflow");
+  Bo = par_getd("problem","Bo");
+  tau = par_getd("problem","tau");
+  wave_dir = par_getd("problem","wave_dir");
+
+/* get initial conditions for damped radiating wave */
+  acoustic_wave_rad(Bo,tau,1.0,d0,&vph,&rdamp,&V0R,&V0I,&E0R,&E0I);
+
+  R_ideal = 1.0;
+  E0 = 1.0 / (Gamma*Gamma_1);
+  T0 = E0 * Gamma_1 / (d0 * R_ideal);
+  kappa = tau * 2.0 * PI;
+  B0 = Gamma * E0 / (Bo*PI);
+
+/* enroll radiation specification functions */
+  get_thermal_source = grey_B;
+  get_thermal_fraction = const_eps;
+  get_total_opacity = const_chi;
+
+
   return;
 }
 
@@ -308,7 +360,7 @@ void Userwork_after_loop(MeshS *pM)
   int Nx1, Nx2, Nx3, count;
   Real time, amp_t;
   Real d0,p0,u0,v0,w0;
-  Real x,x1,x2,x3,r;
+  Real x1,x2,x3;
   int nx1,nx2,nx3;
 
   total_error.d = 0.0;
@@ -330,7 +382,7 @@ void Userwork_after_loop(MeshS *pM)
   p0 = d0/Gamma;  /*  c_s=1 */
   u0 = vflow*sqrt(Gamma*p0/d0);
   amp_t = amp * exp(-time*rdamp);
-  printf("%14.10g %14.10g\n",rdamp,vph);
+  //printf("%14.10g %14.10g\n",rdamp,vph);
 
 /* compute L1 error in each variable, and rms total error */
 
@@ -358,35 +410,65 @@ void Userwork_after_loop(MeshS *pM)
 
 
       cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-      //x1 -= vph*time;
-      //x2 -= vph*time;
-
-      x = cos_a2*(x1*cos_a3 + x2*sin_a3) + x3*sin_a2;
-      r = x/lambda;
-
       Soln[k][j][i].d = d0;
       Soln[k][j][i].E = p0/Gamma_1 + 0.5*d0*u0*u0;
       
 /* Select appropriate solution based on direction of wavevector */
+      switch(wave_dir){
 
-      //amp_t=amp;
-      r -= vph*time;
-      //printf("v amp: %g %g\n",vph*time,amp_t);
-      Soln[k][j][i].d += amp_t*sin(2.0*PI*r);
-      Soln[k][j][i].E += amp_t*(sin(2.0*PI*r)*E0R - cos(2.0*PI*r)*E0I);
-      Soln[k][j][i].M1 = vflow*cos_a2*cos_a3;
-      Soln[k][j][i].M2 = vflow*cos_a2*sin_a3;
-      Soln[k][j][i].M3 = vflow*sin_a2;
-      Soln[k][j][i].M1 += cos_a2*cos_a3*amp_t*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
-      Soln[k][j][i].M2 += cos_a2*sin_a3*amp_t*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
-      Soln[k][j][i].M3 += sin_a2*       amp_t*(sin(2.0*PI*r)*V0R - cos(2.0*PI*r)*V0I);
+/* wave in x1-direction */
 
+      case 1:
+	x1 -= vph*time;
+	Soln[k][j][i].d += amp_t*sin(2.0*PI*x1);
+	Soln[k][j][i].E += amp_t*(sin(2.0*PI*x1)*E0R - cos(2.0*PI*x1)*E0I);
+	Soln[k][j][i].M1 = d0*vflow;
+	Soln[k][j][i].M2 = 0.0;
+	Soln[k][j][i].M3 = 0.0;
+	Soln[k][j][i].M1 += amp_t*(sin(2.0*PI*x1)*V0R - cos(2.0*PI*x1)*V0I);
 #if (NSCALARS > 0)
-      for (n=0; n<NSCALARS; n++)
-	Soln[k][j][i].s[n] = amp_t*(1.0 + sin(2.0*PI*r));
+	for (n=0; n<NSCALARS; n++)
+	  Soln[k][j][i].s[n] = amp_t*(1.0 + sin(2.0*PI*x1));
 #endif
+	break;
+
+/* Wave in x2-direction */
+
+      case 2:
+
+	x2 -= vph*time;
+	Soln[k][j][i].d += amp_t*sin(2.0*PI*x2);
+	Soln[k][j][i].E += amp_t*(sin(2.0*PI*x2)*E0R - cos(2.0*PI*x2)*E0I);
+	Soln[k][j][i].M1 = 0.0;
+	Soln[k][j][i].M2 = d0*vflow;
+	Soln[k][j][i].M3 = 0.0;
+	Soln[k][j][i].M2 += amp_t*(sin(2.0*PI*x2)*V0R - cos(2.0*PI*x2)*V0I);/* c_s=1 */
+#if (NSCALARS > 0)
+	for (n=0; n<NSCALARS; n++)
+	  Soln[k][j][i].s[n] = amp_t*(1.0 + sin(2.0*PI*x2));
+#endif
+	break;
+
+/* Wave in x3-direction */
+
+      case 3:
+	x3 -= vph*time;
+	Soln[k][j][i].d += amp_t*sin(2.0*PI*x3);
+	Soln[k][j][i].E += amp_t*(sin(2.0*PI*x3)*E0R - cos(2.0*PI*x3)*E0I);
+	Soln[k][j][i].M1 = 0.0;
+	Soln[k][j][i].M2 = 0.0;
+	Soln[k][j][i].M3 = d0*vflow;
+	Soln[k][j][i].M3 += amp_t*(sin(2.0*PI*x3)*V0R - cos(2.0*PI*x3)*V0I);/* c_s=1 */
+#if (NSCALARS > 0)
+	for (n=0; n<NSCALARS; n++)
+	  Soln[k][j][i].s[n] = amp_t*(1.0 + sin(2.0*PI*x3));
+#endif
+	break;
+      }
 
       error.d   += fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d );
+      //printf("%d %d %d %g %14.8g %14.8g\n",k,j,i,fabs(pGrid->U[k][j][i].d   - Soln[k][j][i].d),
+      //	     pGrid->U[k][j][i].d,Soln[k][j][i].d);
       error.M1  += fabs(pGrid->U[k][j][i].M1  - Soln[k][j][i].M1);
       error.M2  += fabs(pGrid->U[k][j][i].M2  - Soln[k][j][i].M2);
       error.M3  += fabs(pGrid->U[k][j][i].M3  - Soln[k][j][i].M3); 

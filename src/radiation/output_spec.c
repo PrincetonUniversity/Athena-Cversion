@@ -8,7 +8,7 @@
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   output_spec() - opens file and writes frequency grid and angular grid
- *   in ascii 
+ *                   in ascii 
  *============================================================================*/
 
 #include <stdio.h>
@@ -21,7 +21,13 @@
 
 #ifdef RADIATION_TRANSFER
 
-void output_spec(MeshS *pM)
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/* \fn void output_rad_mesh(MeshS *pM)
+ *  Writes ascii table with information about the the frequency and angular
+ *  grids and corresponding quadratures.  Called by data_output(). */
+void output_rad_mesh(MeshS *pM)
 {
 
   RadGridS *pRG;

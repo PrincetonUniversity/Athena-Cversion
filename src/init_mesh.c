@@ -644,7 +644,10 @@ void init_mesh(MeshS *pM)
     ath_error("[init_mesh]:total # of Grids != total # of MPI procs\n");
 
 /*--- Step 7: Allocate a Grid for each Domain on this processor --------------*/
-
+#ifdef RADIATION_TRANSFER
+/* Set radiation mode */
+  radt_mode = par_geti_def("radiation","mode",0);
+#endif
   for (nl=0; nl<=maxlevel; nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
@@ -652,7 +655,10 @@ void init_mesh(MeshS *pM)
       pD->Grid = NULL;
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
       pD->RadGrid = NULL;
-#endif /* RADIATION_TRANSFER */
+#endif
+#ifdef RADIATION_TRANSFER
+      pD->RadOutGrid = NULL;
+#endif
 
 /* Loop over GData array, and if there is a Grid assigned to this proc, 
  * allocate it */
@@ -663,9 +669,19 @@ void init_mesh(MeshS *pM)
         if (pD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
-#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
-          if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
-            ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+#ifdef FULL_RADIATION_TRANSFER
+	  if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+	    ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+#endif
+#ifdef RADIATION_TRANSFER
+	  if ( (radt_mode == 0) || (radt_mode == 2) ) {
+	    if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+	      ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+	  }
+	  if ( (radt_mode == 1) || (radt_mode == 2) ) {
+	    if ((pD->RadOutGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+	      ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+	  }
 #endif 
         }
       }}}

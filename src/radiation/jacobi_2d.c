@@ -5,6 +5,8 @@
  * PURPOSE: Solves a single iteration of the formal solution of radiative
  *          transfer on a 2D grid using jacobi's method.  The basic algorithm
  *          is described in Trujillo Bueno and Fabiani Benedicho, ApJ, 455, 646.
+ *          Uses quadratic interpolation to compute intensities at edges.  This
+ *          requires dividing the sweeps for x-aligned and y-aligned rays.
  *
  * CONTAINS PUBLIC FUNCTIONS: 
  *   formal_solution_2d.c()
@@ -24,29 +26,37 @@
 #ifdef RADIATION_TRANSFER
 #if defined(JACOBI) && defined(QUADRATIC_INTENSITY)
 
+/* Working arrays used in formal solution */
 static Real ***lamstr = NULL;
 static Real *****imuo = NULL;
-static Real **muinv = NULL, *am0 = NULL, ***mu2 = NULL;
 static Real ***Jold = NULL;
+static Real *am0;
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- *   sweep_2d()     - computes a single sweep in one direction (right or left)
+ *   update_cell_x() - update grid cell variables for x-aligned rays
+ *   update_cell_y() - update grid cell variables for y-aligned rays
  *   update_sfunc() - updates source function after compute of mean intensity
- *   set_bvals_imu_y()      - set imu array at vertical boundary
- *   set_bvals_imu_y_j()    - set imu array at horizontal boundary
- *   update_bvals_imu_y()   - update outgoing radiation at vertical boundary
- *   update_bvals_imu_y_j() - update outgoing radiation at horizontal boundary
+ *   sweep_2d_forward_x() - sweep x aligned rays from lower left to upper right
+ *   sweep_2d_backward_x() - sweep x aligned rays from upper right to lower left
+ *   sweep_2d_forward_y() - sweep y aligned rays from lower left to upper right
+ *   sweep_2d_backward_y() - sweep y aligned rays from upper right to lower left
  *============================================================================*/
 
+static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l);
+static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l);
 static void update_sfunc(RadS *R, Real *dSr, Real lamstr);
 static void sweep_2d_forward_y(RadGridS *pRG, int ifr);
 static void sweep_2d_backward_y(RadGridS *pRG, int ifr);
 static void sweep_2d_forward_x(RadGridS *pRG, int ifr);
 static void sweep_2d_backward_x(RadGridS *pRG, int ifr);
-static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l);
-static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
+ *  \brief formal solution for single freq. in 2D using Jacobi method
+ *  with quadratic interpolation of intensities */
 void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, j, l, m;
@@ -56,6 +66,14 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   int nf = pRG->nf;
   int ismx, jsmx;
   Real dSr, dJ, dJmax;
+
+  if (radt_mode == 2) {
+/* Initialize am0 on each call to formal soution when
+   both passive and feedback based radiation transfer schemes are enabled */
+    for(i=0; i<pRG->nang; i++) {
+      am0[i] = fabs(pRG->dx2 * pRG->mu[0][i][0] / (pRG->dx1 * pRG->mu[0][i][1]) );
+    }
+  }
 
 /* if LTE then store J values from previous iteration */
   if(lte != 0) {
@@ -117,6 +135,84 @@ void formal_solution_2d(RadGridS *pRG, Real *dSrmax, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_2d_destruct(void)
+ *  \brief free temporary working arrays */
+void formal_solution_2d_destruct(void)
+{
+  if (lamstr != NULL) free_3d_array(lamstr);
+  if (imuo   != NULL) free_5d_array(imuo);
+  if (Jold   != NULL) free_3d_array(Jold);
+  if (am0    != NULL) free_1d_array(am0);
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_2d_init(DomainS *pD)
+ *  \brief Allocate memory for working arrays */
+void formal_solution_2d_init(DomainS *pD)
+{
+  
+  RadGridS *pRG, *pROG;
+  int nx1, nx2, nmx;
+  int i, nf, nang;
+
+  if (radt_mode == 0) { /* integration only */
+    pRG = pD->RadGrid;
+    nx1 = pRG->Nx[0]; nx2 = pRG->Nx[1];
+    nf = pRG->nf; 
+    nang = pRG->nang;
+  } else if (radt_mode == 1) { /* output only */
+    pRG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0]; nx2 = pRG->Nx[1];
+    nf = pRG->nf;
+    nang = pRG->nang;
+  } else if (radt_mode == 2) { /* integration and output */
+    pRG = pD->RadGrid;
+    pROG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0]; nx2 = pRG->Nx[1];
+    nf = MAX(pRG->nf,pROG->nf); 
+    nang = MAX(pRG->nang,pROG->nang);
+  }
+
+  nmx = MAX(nx1,nx2);
+  if ((imuo = (Real *****)calloc_5d_array(nf,nmx+2,4,nang,2,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((am0 = (Real *)calloc_1d_array(nang,sizeof(Real))) == NULL)
+    goto on_error;
+
+  if ((lamstr = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL) 
+    goto on_error;
+
+  if (lte != 0) 
+    if ((Jold = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL)
+      goto on_error;
+
+  if ( (radt_mode == 0) ||  (radt_mode == 1) ) {
+/* Initialize am0 array only once if radiation transfer is only
+   used for output or integration but not both */
+    for(i=0; i<pRG->nang; i++) {
+      am0[i] = fabs(pRG->dx2 * pRG->mu[0][i][0] / (pRG->dx1 * pRG->mu[0][i][1]) );
+    }
+  }
+
+  return;
+
+  on_error:
+  formal_solution_2d_destruct();
+  ath_error("[formal_solution__2d_init]: Error allocating memory\n");
+  return;
+
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_2d_forward_y(RadGridS *pRG, int ifr)
+ *  \brief Perform Jacobi sweep from lower left to upper right
+ *  for x-aligned rays */
 static void sweep_2d_forward_y(RadGridS *pRG, int ifr)
 {
   int i, j, l, m;
@@ -124,6 +220,7 @@ static void sweep_2d_forward_y(RadGridS *pRG, int ifr)
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks;   
   int nf = pRG->nf, nang = pRG->nang;
+  Real am;
 
 /* Account for ix2 boundary intensities */
   for(i=is-1; i<=ie+1; i++) {
@@ -207,7 +304,10 @@ static void sweep_2d_forward_y(RadGridS *pRG, int ifr)
   return;
 }
 
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_2d_backward_y(RadGridS *pRG, int ifr)
+ *  \brief Perform Jacobi sweep from upper right to lower left
+ *   for y-aligned rays*/
 static void sweep_2d_backward_y(RadGridS *pRG, int ifr)
 {
   int i, j, l, m;
@@ -299,7 +399,10 @@ static void sweep_2d_backward_y(RadGridS *pRG, int ifr)
   return;
 }
 
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_2d_forward_x(RadGridS *pRG, int ifr)
+ *  \brief Perform Jacobi sweep from lower left to upper right 
+ *   for x-aligned rays */
 static void sweep_2d_forward_x(RadGridS *pRG, int ifr)
 {
   int i, j, l, m;
@@ -393,7 +496,10 @@ static void sweep_2d_forward_x(RadGridS *pRG, int ifr)
   return;
 }
 
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_2d_backward(RadGridS *pRG, int ifr)
+ *  \brief Perform Jacobi sweep from upper right to lower left
+ *   for x-aligned rays*/
 static void sweep_2d_backward_x(RadGridS *pRG, int ifr)
 {
   int i, j, l, m;
@@ -488,7 +594,10 @@ static void sweep_2d_backward_x(RadGridS *pRG, int ifr)
   return;
 }
 
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, 
+ *                                int j, int i, int l)
+ *  \brief Update radiation variables in a single cell for y-aligned intensities*/
 static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l)
 
 {
@@ -551,8 +660,8 @@ static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
 	dtaup = 0.5 * (chi2 + chi1); */
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dy * muinv[m][1]; 
-      dtaup *= dy * muinv[m][1]; 
+      dtaum *= dy / pRG->mu[0][m][1];
+      dtaup *= dy / pRG->mu[0][m][1];
       interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 			           S0, pRG->R[ifr][k][j][i].S, S2);
       imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
@@ -562,9 +671,9 @@ static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
       pRG->R[ifr][k][j][i].J += wimu;
       pRG->R[ifr][k][j][i].H[0] += pRG->mu[l][m][0] * wimu;
       pRG->R[ifr][k][j][i].H[1] += pRG->mu[l][m][1] * wimu;
-      pRG->R[ifr][k][j][i].K[0] += mu2[l][m][0] * wimu;
-      pRG->R[ifr][k][j][i].K[1] += mu2[l][m][1] * wimu;
-      pRG->R[ifr][k][j][i].K[2] += mu2[l][m][2] * wimu;
+      pRG->R[ifr][k][j][i].K[0] += pRG->mu[l][m][0] * pRG->mu[l][m][0] * wimu;
+      pRG->R[ifr][k][j][i].K[1] += pRG->mu[l][m][0] * pRG->mu[l][m][1] * wimu;
+      pRG->R[ifr][k][j][i].K[2] += pRG->mu[l][m][1] * pRG->mu[l][m][1] * wimu;
       /* Update intensity workspace */
       imuo[ifr][i][l][m][1] = imuo[ifr][i][l][m][0];
       imuo[ifr][i][l][m][0] = imu;
@@ -573,6 +682,10 @@ static void update_cell_y(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, 
+ *                                int j, int i, int l)
+ *  \brief Update radiation variables in a single cell for x-aligned intensities*/
 static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, int i, int l)
 
 {
@@ -617,7 +730,7 @@ static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
       S2 = bm  * pRG->R[ifr][k][jp][ip].S +
            bm1 * pRG->R[ifr][k][j ][ip].S;
       /* Use linear interpolation for intensity */
-      w0 = 0.5 * bm * (1.0 + bm); /* these should only be computed once for each angle? */
+      w0 = 0.5 * bm * (1.0 + bm); 
       w1 = bm1 * (1.0 + bm);
       w2 = -0.5 * bm * bm1;
       imu0 = w0 * imuo[ifr][jm][l][m][1] + w1 * imuo[ifr][j][l][m][0] +
@@ -636,8 +749,8 @@ static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
 	dtaup = 0.5 * (chi2 + chi1); */
       interp_quad_chi(chi0,chi1,chi2,&dtaum);
       interp_quad_chi(chi2,chi1,chi0,&dtaup);
-      dtaum *= dx * muinv[m][0]; 
-      dtaup *= dx * muinv[m][0]; 	
+      dtaum *= dx / pRG->mu[0][m][0];
+      dtaup *= dx / pRG->mu[0][m][0];
       interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				   S0, pRG->R[ifr][k][j][i].S, S2);
       imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
@@ -648,9 +761,9 @@ static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
       pRG->R[ifr][k][j][i].J += wimu;
       pRG->R[ifr][k][j][i].H[0] += pRG->mu[l][m][0] * wimu;
       pRG->R[ifr][k][j][i].H[1] += pRG->mu[l][m][1] * wimu;
-      pRG->R[ifr][k][j][i].K[0] += mu2[l][m][0] * wimu;
-      pRG->R[ifr][k][j][i].K[1] += mu2[l][m][1] * wimu;
-      pRG->R[ifr][k][j][i].K[2] += mu2[l][m][2] * wimu;
+      pRG->R[ifr][k][j][i].K[0] += pRG->mu[l][m][0] * pRG->mu[l][m][0] * wimu;
+      pRG->R[ifr][k][j][i].K[1] += pRG->mu[l][m][0] * pRG->mu[l][m][1] * wimu;
+      pRG->R[ifr][k][j][i].K[2] += pRG->mu[l][m][1] * pRG->mu[l][m][1] * wimu;
  /* Update intensity workspace */
       imuo[ifr][j][l][m][1] = imuo[ifr][j][l][m][0];
       imuo[ifr][j][l][m][0] = imu;
@@ -660,7 +773,9 @@ static void update_cell_x(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, 
   return;
 }
 
-
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
+ *  \brief Jacobi update of source function with new mean intensity */
 static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
 {
   Real Snew, dS;
@@ -673,74 +788,6 @@ static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
   return;
 }
 
-void formal_solution_2d_destruct(void)
-{
-  int i;
-
-  if (lamstr != NULL) free_3d_array(lamstr);
-  if (imuo   != NULL) free_5d_array(imuo);
-  if (muinv  != NULL) free_2d_array(muinv);
-  if (am0    != NULL) free_1d_array(am0);
-  if (mu2    != NULL) free_3d_array(mu2);
-  if (Jold   != NULL) free_3d_array(Jold);
-
-  return;
-}
-
-void formal_solution_2d_init(RadGridS *pRG)
-{
-  int nx1 = pRG->Nx[0], nx2 = pRG->Nx[1], nx3 = pRG->Nx[2];
-  int nf = pRG->nf, nang = pRG->nang;
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, je = pRG->je;
-  int ks = pRG->ks; 
-  Real dx = pRG->dx1, dy = pRG->dx2;
-  int ifr, i, j, l, m;
-  int nmx;
-
-  nmx = MAX(nx1,nx2);
-  if ((imuo = (Real *****)calloc_5d_array(nf,nmx+2,4,nang,2,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((muinv = (Real **)calloc_2d_array(nang,2,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((am0 = (Real *)calloc_1d_array(nang,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((mu2 = (Real ***)calloc_3d_array(4,nang,3,sizeof(Real))) == NULL)
-    goto on_error;
-
-  for(i=0; i<nang; i++)  
-    for(j=0; j<2; j++) 
-      muinv[i][j] = fabs(1.0 / pRG->mu[0][i][j]);
-
-  for(i=0; i<nang; i++) {
-    am0[i]   = fabs(dy * muinv[i][1] / (dx * muinv[i][0]));
-  }
-
-  for(i=0; i<4; i++) 
-    for(j=0; j<nang; j++)  {
-      mu2[i][j][0] = pRG->mu[i][j][0] * pRG->mu[i][j][0];
-      mu2[i][j][1] = pRG->mu[i][j][0] * pRG->mu[i][j][1];
-      mu2[i][j][2] = pRG->mu[i][j][1] * pRG->mu[i][j][1];
-    }
-
-  if ((lamstr = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if (lte != 0) 
-    if ((Jold = (Real ***)calloc_3d_array(nf,nx2+2,nx1+2,sizeof(Real))) == NULL)
-      goto on_error;
-
-  return;
-
-  on_error:
-  formal_solution_2d_destruct();
-  ath_error("[formal_solution__2d_init]: Error allocating memory\n");
-  return;
-
-}
 
 #endif /* JACOBI  && QUADTRATIC_INTENSITY */
 #endif /* RADIATION_TRANSFER */

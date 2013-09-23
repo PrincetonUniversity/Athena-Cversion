@@ -142,7 +142,7 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/utils_rad.o\
 		radiation/bvals_rad.o\
 		radiation/bvals_rad_shear.o\
-		radiation/dump_intensity_vtk.o\
+		radiation/output_intensity_vtk.o\
 		radiation/output_spec.o\
 		radiation/jacobi_1d.o\
 		radiation/gausseid_1d.o\

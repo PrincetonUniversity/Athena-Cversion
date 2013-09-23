@@ -24,10 +24,12 @@
 #ifdef RADIATION_TRANSFER
 #ifdef GAUSSEID
 
+/* Working arrays used in formal solution */
 static Real **psiint = NULL;
 static Real **lamstr = NULL;
-static Real *muinv = NULL, *mu2 = NULL;
 static Real ***imuo = NULL;
+
+/* Variables used for succesive over-relaxation */
 static Real sorw, dsrold, dsrmx;
 static int isor;
 
@@ -39,6 +41,11 @@ static int isor;
 static void sweep_1d(RadGridS *pRG, int sx, int ifr);
 static void update_sfunc(RadS *R, Real *deltas, Real lamstr);
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
+ *  \brief formal solution for single freq. in 1D using Gauss-Seidel method */
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
 {
   int i, m;
@@ -94,6 +101,74 @@ void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d_destruct(void)
+ *  \brief free temporary working arrays */
+void formal_solution_1d_destruct(void)
+{
+
+  if (psiint != NULL) free_2d_array(psiint);
+  if (lamstr != NULL) free_2d_array(lamstr);
+  if (imuo != NULL)   free_3d_array(imuo);
+
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_1d_init(DomainS *pD)
+ *  \brief Allocate memory for working arrays */
+void formal_solution_1d_init(DomainS *pD)
+{
+  RadGridS *pRG, *pROG;
+  int nx1;
+  int nf, nang;
+
+  if (radt_mode == 0) { /* integration only */
+    pRG = pD->RadGrid;
+    nx1 = pRG->Nx[0];
+    nf = pRG->nf; 
+    nang = pRG->nang;
+  } else if (radt_mode == 1) { /* output only */
+    pRG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0];
+    nf = pRG->nf;
+    nang = pRG->nang;
+  } else if (radt_mode == 2) { /* integration and output */
+    pRG = pD->RadGrid;
+    pROG = pD->RadOutGrid;
+    nx1 = pRG->Nx[0];
+    nf = MAX(pRG->nf,pROG->nf);
+    nang = MAX(pRG->nang,pROG->nang);
+  }
+
+/* Initialize variables for sor*/
+  isor = par_geti_def("radiation","isor",0);
+  sorw = 1.0;
+  dsrold = 0.0;
+
+  if ((imuo = (Real ***)calloc_3d_array(nf,2,nang,sizeof(Real))) == NULL) 
+    goto on_error;
+
+  if ((lamstr = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
+    goto on_error;
+
+  if ((psiint = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
+    goto on_error;
+  
+  return;
+
+  on_error:
+  formal_solution_1d_destruct();
+  ath_error("[formal_solution__1d_init]: Error allocating memory\n");
+  return;
+
+}
+
+/*=========================== PRIVATE FUNCTIONS ==============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void sweep_1d(RadGridS *pRG, int sx, int ifr)
+ *  \brief Perform Gauss-Seidel sweep in one direction */
 static void sweep_1d(RadGridS *pRG, int sx, int ifr)
 {
   int it0, i, l, m;
@@ -120,12 +195,11 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
      for(m=0; m<nang; m++) {
        chim = pRG->R[ifr][ks][js][i-sx].chi;
        chip = pRG->R[ifr][ks][js][i+sx].chi;
-       /*dtaum = 0.5 * (chim + chio);
-	 dtaup = 0.5 * (chip + chio);*/
        interp_quad_chi(chim,chio,chip,&dtaum);
        interp_quad_chi(chip,chio,chim,&dtaup);
-       dtaum *= dx * muinv[m]; 
-       dtaup *= dx * muinv[m];
+       dtaum *= dx / pRG->mu[0][m][0]; 
+       dtaup *= dx / pRG->mu[0][m][0];
+/* ---------  compute intensity at grid center and add to mean intensity ------- */
        interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				    S0, pRG->R[ifr][ks][js][i].S, S2);
        imu = a0 * S0 + a1 * pRG->R[ifr][ks][js][i].S + a2 * S2;
@@ -137,7 +211,7 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
        wimu = pRG->wmu[m] * imu;
        pRG->R[ifr][ks][js][i].J += wimu;
        pRG->R[ifr][ks][js][i].H[0] += pRG->mu[l][m][0] * wimu;
-       pRG->R[ifr][ks][js][i].K[0] += mu2[m] * wimu;
+       pRG->R[ifr][ks][js][i].K[0] += pRG->mu[l][m][0] * pRG->mu[l][m][0] * wimu;
        imuo[ifr][l][m] = imu;
      }
      if (sx == -1) {
@@ -151,6 +225,9 @@ static void sweep_1d(RadGridS *pRG, int sx, int ifr)
   return;
 }
 
+/*----------------------------------------------------------------------------*/
+/*! \fn static void update_sfunc(RadS *R, Real *dSr, Real lamstr)
+ *  \brief Gauss-Seidel update of source function with new mean intensity */
 static void update_sfunc(RadS *R, Real *deltas, Real lamstr)
 {
   Real snew, deltasr;
@@ -166,61 +243,6 @@ static void update_sfunc(RadS *R, Real *deltas, Real lamstr)
   return;
 }
 
-void formal_solution_1d_destruct(void)
-{
-
-  int i;
-
-  if (psiint != NULL) free_2d_array(psiint);
-  if (lamstr != NULL) free_2d_array(lamstr);
-  if (imuo != NULL)   free_3d_array(imuo);
-  if (muinv != NULL)  free(muinv);
-  if (mu2 != NULL)    free(mu2);
-
-  return;
-}
-
-void formal_solution_1d_init(RadGridS *pRG)
-{
-  int nx1 = pRG->Nx[0];
-  int is = pRG->is, ie = pRG->ie;
-  int js = pRG->js, ks = pRG->ks;
-  int nf = pRG->nf, nang = pRG->nang;
-  int ifr, i, l, m;
-
-/* Initialize variables for sor*/
-  isor = par_geti_def("radiation","isor",0);
-  sorw = 1.0;
-  dsrold = 0.0;
-
-  if ((imuo = (Real ***)calloc_3d_array(nf,2,nang,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if ((muinv = (Real *)calloc(nang,sizeof(Real))) == NULL)
-    goto on_error;
-
-  if ((mu2 = (Real *)calloc(nang,sizeof(Real))) == NULL)
-    goto on_error;
-
-  for(m=0; m<nang; m++) {
-    muinv[m] = fabs(1.0 / pRG->mu[0][m][0]);
-    mu2[m] = pRG->mu[0][m][0] * pRG->mu[0][m][0];
-  }
-
-  if ((lamstr = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
-    goto on_error;
-
-  if ((psiint = (Real **)calloc_2d_array(nf,nx1+2,sizeof(Real))) == NULL) 
-    goto on_error;
-  
-  return;
-
-  on_error:
-  formal_solution_1d_destruct();
-  ath_error("[formal_solution__1d_init]: Error allocating memory\n");
-  return;
-
-}
 
 #endif /* GAUSSEID */
 #endif /* RADIATION_TRANSFER */

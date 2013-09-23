@@ -1,13 +1,12 @@
 #include "../copyright.h"
 /*==============================================================================
- * FILE: dump_intensity_vtk.c
+ * FILE: output_intensity_vtk.c
  *
- * PURPOSE: Function to write a dump in VTK "legacy" format.  With SMR,
- *   dumps are made for all levels and domains, unless nlevel and ndomain are
- *   specified in <output> block.  Works for BOTH conserved and primitives.
+ * PURPOSE: Function to write a dump of the specific intensity on specific
+ *   faces in VTK "legacy" format. 
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   dump_r(l)*imu_vtk() - writes VTK dump of boundary intensity.
+ *   dump_???_vtk() - writes VTK dump of intensity at ?? boundary
  *============================================================================*/
 
 #include <stdio.h>
@@ -18,9 +17,11 @@
 #include "../prototypes.h"
 
 #ifdef RADIATION_TRANSFER
-/*----------------------------------------------------------------------------*/
-/* dump_ix1_vtk:   */
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/* \fn dump_ix1_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;
@@ -185,8 +186,7 @@ void dump_ix1_vtk(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_ox1_vtk:   */
-
+/* \fn dump_ox1_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;
@@ -353,8 +353,7 @@ void dump_ox1_vtk(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_ix2_vtk:   */
-
+/* \fn dump_ix2_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;
@@ -514,9 +513,9 @@ void dump_ix2_vtk(MeshS *pM, OutputS *pOut)
   }
   return;
 }
-/*----------------------------------------------------------------------------*/
-/* dump_ox2_vtk:   */
 
+/*----------------------------------------------------------------------------*/
+/* \fn dump_ox2_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ox2_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;
@@ -675,8 +674,7 @@ void dump_ox2_vtk(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_ix3_vtk:   */
-
+/* \fn dump_ix3_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ix3_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;
@@ -816,8 +814,7 @@ void dump_ix3_vtk(MeshS *pM, OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/* dump_ox3_vtk:   */
-
+/* \fn dump_ox3_vtk(MeshS *pM, OutputS *pOut)  */
 void dump_ox3_vtk(MeshS *pM, OutputS *pOut)
 {
   RadGridS *pRG;

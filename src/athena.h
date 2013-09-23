@@ -296,21 +296,19 @@ typedef struct GPCouple_s{
 /* RadS: basic radiation quantities for single zone and frequency */
 
 typedef struct Rad_s {
-#ifndef FULL_RADIATION_TRANSFER
-  Real S;                       /* total source function */
-#endif
+
   Real J;                       /* 0th moment: mean intensity */
   Real H[3];                    /* 1st moment: flux */
   Real K[6];                    /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
-#ifndef FULL_RADIATION_TRANSFER
+
+#ifdef FULL_RADIATION_TRANSFER
+  Real Sigma[4];		/* The four opacity Sigma[0] B, Sigma[1] J, Sigmat[2] J Sigmat3[] I */
+#else
+  Real S;                       /* total source function */
   Real B;                       /* thermal source function */
   Real eps;                     /* thermalization coeff */
   Real chi;                     /* total opacity */
   Real Snt;                     /* non-thermal photon source */
-#endif
-
-#ifdef FULL_RADIATION_TRANSFER
-  Real Sigma[4];		/* The four opacity Sigma[0] B, Sigma[1] J, Sigmat[2] J Sigmat3[] I */
 #endif
 
 } RadS;
@@ -320,6 +318,9 @@ typedef struct Rad_s {
  * for radiative transfer computation.  Modelled after GridS. */
 
 typedef struct RadGrid_s {
+
+  struct GridS *pG;         /* pointer to corresponding Grid */
+  int outflag;       /* outflag = 0: feedback;  outflag=1: passive */
 
  /* For FULL RADIATION TRANFER, the number of angles are the fixed */
  /* But how to choose these angles are different for each cell */
@@ -333,22 +334,19 @@ typedef struct RadGrid_s {
   Real ***mu;        /* direction cosine relative to x1, x2, x3 axis */
   Real *wmu;         /* weights for angular quad. */
 #else
-  Real ******mu;     /* direction cosine relative to x1, x2, x3 axis for each octant, for each angle, for each cell k, j, i,  */
 #ifdef CYLINDRICAL
   Real ******Rphimu; /* direction cosin relative to the radius and azimuthal direction in cylindrical coordinate case */  
-#endif
-
+#endif /* CYLINDRICAL */
+  Real ******mu;     /* direction cosine relative to x1, x2, x3 axis for each octant, for each angle, for each cell k, j, i,  */
   Real ****wmu;	    /* weight for each angle at each cell k, j, i */	
 #endif
 
   Real *nu;          /* array of frequencies */
   Real *wnu;         /* weights for freq. quad. */
-
   RadS ****R;        /* array of radiation variables */
 
 
 #ifndef FULL_RADIATION_TRANSFER
-
   Real *****r1imu;   /* intensity on R side in x1-dir  */
   Real *****l1imu;   /* intensity on L side in x1-dir  */
   Real *****r2imu;   /* intensity on R side in x2-dir  */
@@ -361,7 +359,6 @@ typedef struct RadGrid_s {
   Real *****Ghstl2i;   /* Ghost zone on L side in x2-dir  */
   Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
   Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
-
 #else
   Real ******imu;     /* specific intensity  for frequency nf, for octant, and for angle, for cell k, j, i,*/ 
 #endif
@@ -543,8 +540,14 @@ MPI_Comm Comm_Domain;
 typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
 
 #ifdef RADIATION_TRANSFER
-typedef void (*VRGIFun_t)(GridS *pG, RadGridS *pRG, int ifs, int ife);    /* void function of RadGrid, int */
+/* function template for opacities, epsilon, planck, etc */
+typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
+			     const int j, const int k);
+typedef void (*VRGIFun_t)(RadGridS *pRG, int ifr);    /* void function of RadGrid, int */
+#ifdef RAY_TRACING
+typedef Real (*RRGIIFun_t)(RadGridS *pRG, int if1, int if2);  /* void function of RadGrid, int */
 #endif
+#endif /* RADIATION_TRANSFER */
 
 #ifdef FULL_RADIATION_TRANSFER
 typedef void (*VRGIFun_t)(GridS *pG, RadGridS *pRG); 
@@ -702,6 +705,9 @@ typedef struct Domain_s{
 #if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
 #endif /* RADIATION_TRANSFER and FULL radiation transfer */
+#ifdef RADIATION_TRANSFER
+  RadGridS *RadOutGrid; /* pointer to RadOutGrid in this Dom updated on this proc   */
+#endif
 }DomainS;
 
 /*! \fn void (*VDFun_t)(DomainS *pD)
@@ -774,7 +780,9 @@ typedef struct Output_s{
   int out_pargrid;    /*!< bin particles to grid (=1) or not (=0) */
   PropFun_t par_prop; /*!< particle property selection function */
 #endif
-
+#ifdef RADIATION_TRANSFER
+  int out_grd;
+#endif
 /* level and domain number of output (default = [-1,-1] = output all levels) */
 
   int nlevel, ndomain;
@@ -863,10 +871,6 @@ typedef void (*OpacityFun_t)(const PrimS *pW, Real Sigma[NOPACITY], Real dSigma[
  */
 
 
-#ifdef RADIATION_TRANSFER
-typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
-			     const int j, const int k);
-#endif /* RADIATION_TRANSFER */
 
 
 #ifdef FULL_RADIATION_TRANSFER

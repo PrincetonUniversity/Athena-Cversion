@@ -56,8 +56,8 @@ void radMHD_Mat_inflowo2(MatrixS *pMat);
 
 
 #ifdef RADIATION_TRANSFER
-void const_H_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife);
-void const_J_ox1(GridS *pG, RadGridS *pRG, int ifs, int ife);
+void const_H_ix1(RadGridS *pRG, int ifr);
+void const_J_ox1(RadGridS *pRG, int ifr);
 
 static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k);
@@ -406,6 +406,8 @@ void problem(DomainS *pDomain)
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_in_formal_solution  - problem specific work in formal solution loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
@@ -950,15 +952,14 @@ static Real transfer_opacity(const GridS *pG, const int ifr, const int i,
   
 }
 
-void const_H_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife)
+void const_H_ix1(RadGridS *pRG, int ifr)
 {
   int il = pRG->is-1;
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nang = pRG->nang;
   int noct = pRG->noct;
-  int i, j, k, l, m, n, ifr;
-  int ig,kg,ioff,joff,koff;
+  int i, j, k, l, m, n;
   Real I0, Jm, H, Hm, gamma = 0.0;
 
   /* gamma ~ 1/4 */
@@ -967,68 +968,57 @@ void const_H_ix1(GridS *pG, RadGridS *pRG, int ifs, int ife)
   }
   if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
 
-  ioff = nghost - 1;
-  if (pG->Nx[1] > 1) {
-    joff = nghost - 1;
-  } else joff = 0; 
-  if (pG->Nx[2] > 1) {
-    koff = nghost - 1;
-  } else koff = 0;
-
-  for(ifr=ifs; ifr<=ife; ifr++) {
 /* update Ghstl1i using l1imu */
-    for (k=kl; k<=ku; k++) {
-      kg = k + koff;
-      for (j=jl; j<=ju; j++) {
-	Hm = 0.0;
-	Jm = 0.0;
-	for (m=0; m<nang; m++) {
-	  Hm += pRG->l1imu[ifr][k][j][1][m] * pRG->mu[1][m][0] * pRG->wmu[m];
-	  Hm += pRG->l1imu[ifr][k][j][3][m] * pRG->mu[3][m][0] * pRG->wmu[m];
-	  Jm += pRG->l1imu[ifr][k][j][1][m] * pRG->wmu[m];
-	  Jm += pRG->l1imu[ifr][k][j][3][m] * pRG->wmu[m];	  
-	  if (noct == 8) {
-	    Hm += pRG->l1imu[ifr][k][j][5][m] * pRG->mu[5][m][0] * pRG->wmu[m];
-	    Hm += pRG->l1imu[ifr][k][j][7][m] * pRG->mu[7][m][0] * pRG->wmu[m];
-	    Jm += pRG->l1imu[ifr][k][j][5][m] * pRG->wmu[m];
-	    Jm += pRG->l1imu[ifr][k][j][7][m] * pRG->wmu[m];
-	  }
-	}
-#ifdef RAY_TRACING 
-	H = 0.0;
-#else
-	H = consFr;
-#endif
-	I0 = (H - Hm) / gamma;
-	if (I0 < 0.0) I0 = 0.0; 
-	pRG->R[ifr][k][j][il].J = 0.5 * I0 + Jm;
-	for (m=0; m<nang; m++) {
-	  pRG->Ghstl1i[ifr][k][j][0][m] = I0;
-	  pRG->Ghstl1i[ifr][k][j][2][m] = I0;
-	  if (noct == 8) {
-	    pRG->Ghstl1i[ifr][k][j][4][m] = I0;
-	    pRG->Ghstl1i[ifr][k][j][6][m] = I0;
-	  }
-	}
-      }
-/* update r2imu and l2imu so corner intensities are correct w/ periodic bcs*/
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
+      Hm = 0.0;
+      Jm = 0.0;
       for (m=0; m<nang; m++) {
-	pRG->r2imu[ifr][k][il][0][m] = pRG->Ghstl1i[ifr][k][ju][0][m];
-	pRG->l2imu[ifr][k][il][2][m] = pRG->Ghstl1i[ifr][k][jl][2][m];
+	Hm += pRG->l1imu[ifr][k][j][1][m] * pRG->mu[1][m][0] * pRG->wmu[m];
+	Hm += pRG->l1imu[ifr][k][j][3][m] * pRG->mu[3][m][0] * pRG->wmu[m];
+	Jm += pRG->l1imu[ifr][k][j][1][m] * pRG->wmu[m];
+	Jm += pRG->l1imu[ifr][k][j][3][m] * pRG->wmu[m];	  
+	if (noct == 8) {
+	  Hm += pRG->l1imu[ifr][k][j][5][m] * pRG->mu[5][m][0] * pRG->wmu[m];
+	  Hm += pRG->l1imu[ifr][k][j][7][m] * pRG->mu[7][m][0] * pRG->wmu[m];
+	  Jm += pRG->l1imu[ifr][k][j][5][m] * pRG->wmu[m];
+	  Jm += pRG->l1imu[ifr][k][j][7][m] * pRG->wmu[m];
+	}
       }
+#ifdef RAY_TRACING 
+      H = 0.0;
+#else
+      H = consFr;
+#endif
+      I0 = (H - Hm) / gamma;
+      if (I0 < 0.0) I0 = 0.0; 
+      pRG->R[ifr][k][j][il].J = 0.5 * I0 + Jm;
+      for (m=0; m<nang; m++) {
+	pRG->Ghstl1i[ifr][k][j][0][m] = I0;
+	pRG->Ghstl1i[ifr][k][j][2][m] = I0;
+	if (noct == 8) {
+	  pRG->Ghstl1i[ifr][k][j][4][m] = I0;
+	  pRG->Ghstl1i[ifr][k][j][6][m] = I0;
+	}
+      }
+    }
+/* update r2imu and l2imu so corner intensities are correct w/ periodic bcs*/
+    for (m=0; m<nang; m++) {
+      pRG->r2imu[ifr][k][il][0][m] = pRG->Ghstl1i[ifr][k][ju][0][m];
+      pRG->l2imu[ifr][k][il][2][m] = pRG->Ghstl1i[ifr][k][jl][2][m];
     }
   }
   return;
 }
 
-void const_J_ox1(GridS *pG, RadGridS *pRG, int ifs, int ife)
+void const_J_ox1(RadGridS *pRG, int ifr)
 {
   int iu = pRG->ie+1;
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nang = pRG->nang;
   int noct = pRG->noct;
-  int i, j, k, l, m, n, ifr;
+  int i, j, k, l, m, n;
   Real I0, Jp, J, Hp, gamma = 0.0;
 
   /* gamma ~ 1/4 */
@@ -1037,44 +1027,42 @@ void const_J_ox1(GridS *pG, RadGridS *pRG, int ifs, int ife)
   }
   if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
 
-  for(ifr=ifs; ifr<=ife; ifr++) {
 /* update Ghstr2i using r2imu */
-    for (k=kl; k<=ku; k++) {
-      for (j=jl; j<=ju; j++) {
-	Hp = 0.0;
-	Jp = 0.0;
-	for (m=0; m<nang; m++) {
-	  Hp += pRG->r1imu[ifr][k][j][0][m] * pRG->mu[0][m][0] * pRG->wmu[m];
-	  Hp += pRG->r1imu[ifr][k][j][2][m] * pRG->mu[2][m][0] * pRG->wmu[m];
-	  Jp += pRG->r1imu[ifr][k][j][0][m] * pRG->wmu[m];
-	  Jp += pRG->r1imu[ifr][k][j][2][m] * pRG->wmu[m];
-	  if (noct == 8) {
-	    Hp += pRG->r1imu[ifr][k][j][4][m] * pRG->mu[4][m][0] * pRG->wmu[m];
-	    Hp += pRG->r1imu[ifr][k][j][6][m] * pRG->mu[6][m][0] * pRG->wmu[m];
-	    Jp += pRG->r1imu[ifr][k][j][4][m] * pRG->wmu[m];
-	    Jp += pRG->r1imu[ifr][k][j][6][m] * pRG->wmu[m];
-	  }
-	}
-#ifdef RAY_TRACING
-	Jp += pRG->H[ifr][k][j][iu];
-#endif
-	J = pRG->R[ifr][k][j][iu].J;
-	I0 = 2.0 * (J - Jp); 
-	if (I0 < 0.0) I0 = 0.0; 
-	for (m=0; m<nang; m++) {
-	  pRG->Ghstr1i[ifr][k][j][1][m] = I0;
-	  pRG->Ghstr1i[ifr][k][j][3][m] = I0;
-	  if (noct == 8) {
-	    pRG->Ghstr1i[ifr][k][j][5][m] = I0;
-	    pRG->Ghstr1i[ifr][k][j][7][m] = I0;
-	  }
-	}
-      }
-/* update r2imu and l2imu so corner intensities are correct w/ periodic bcs*/
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
+      Hp = 0.0;
+      Jp = 0.0;
       for (m=0; m<nang; m++) {
-	pRG->r2imu[ifr][k][iu][1][m] = pRG->Ghstr1i[ifr][k][ju][1][m];
-	pRG->l2imu[ifr][k][iu][3][m] = pRG->Ghstr1i[ifr][k][jl][3][m];
+	Hp += pRG->r1imu[ifr][k][j][0][m] * pRG->mu[0][m][0] * pRG->wmu[m];
+	Hp += pRG->r1imu[ifr][k][j][2][m] * pRG->mu[2][m][0] * pRG->wmu[m];
+	Jp += pRG->r1imu[ifr][k][j][0][m] * pRG->wmu[m];
+	Jp += pRG->r1imu[ifr][k][j][2][m] * pRG->wmu[m];
+	if (noct == 8) {
+	  Hp += pRG->r1imu[ifr][k][j][4][m] * pRG->mu[4][m][0] * pRG->wmu[m];
+	  Hp += pRG->r1imu[ifr][k][j][6][m] * pRG->mu[6][m][0] * pRG->wmu[m];
+	  Jp += pRG->r1imu[ifr][k][j][4][m] * pRG->wmu[m];
+	  Jp += pRG->r1imu[ifr][k][j][6][m] * pRG->wmu[m];
+	}
       }
+#ifdef RAY_TRACING
+      Jp += pRG->H[ifr][k][j][iu];
+#endif
+      J = pRG->R[ifr][k][j][iu].J;
+      I0 = 2.0 * (J - Jp); 
+      if (I0 < 0.0) I0 = 0.0; 
+      for (m=0; m<nang; m++) {
+	pRG->Ghstr1i[ifr][k][j][1][m] = I0;
+	pRG->Ghstr1i[ifr][k][j][3][m] = I0;
+	if (noct == 8) {
+	  pRG->Ghstr1i[ifr][k][j][5][m] = I0;
+	  pRG->Ghstr1i[ifr][k][j][7][m] = I0;
+	}
+      }
+    }
+/* update r2imu and l2imu so corner intensities are correct w/ periodic bcs*/
+    for (m=0; m<nang; m++) {
+      pRG->r2imu[ifr][k][iu][1][m] = pRG->Ghstr1i[ifr][k][ju][1][m];
+      pRG->l2imu[ifr][k][iu][3][m] = pRG->Ghstr1i[ifr][k][jl][3][m];
     }
   }
 
@@ -1121,7 +1109,7 @@ void Userwork_in_formal_solution(DomainS *pD)
   return;
 }
 
-void Userwork_after_first_formal_solution(DomainS *pD)
+void Userwork_after_formal_solution(DomainS *pD)
 {
 
   GridS *pG=(pD->Grid);
@@ -1137,6 +1125,10 @@ void Userwork_after_first_formal_solution(DomainS *pD)
 #ifdef MPI_PARALLEL
   Real Kloc, Hloc, Jloc;
 #endif
+  static int fstflag = 1;
+
+  if (fstflag != 1) return;
+
   ioff = nghost - 1;
   nDim = 1;
   if (pG->Nx[1] > 1) {
@@ -1202,6 +1194,9 @@ void Userwork_after_first_formal_solution(DomainS *pD)
 	                      (Ertop - x1) / pG->U[k][j][i].Edd_11;
 	}
       }}}
+  fstflag = 0;
+
+  return;
 }
 
 #endif /* End radiation transfer */

@@ -176,7 +176,9 @@ void init_output(MeshS *pM)
   char block[80], *fmt, defid[10];
   OutputS new_out;
   int usr_expr_flag;
-
+#ifdef RADIATION_TRANSFER
+  int rad_out_flag = 0;
+#endif
   maxout = par_geti_def("job","maxout",MAXOUT_DEFAULT);
 
 /* allocate output array */
@@ -402,28 +404,44 @@ Now use the default one.\n");
 
 /* If solving radiative transfer check for outputs of boundary intensities */ 
 #ifdef RADIATION_TRANSFER
+    if ((strcmp(new_out.out,"ix1") == 0) || (strcmp(new_out.out,"ox1") == 0) ||
+        (strcmp(new_out.out,"ix2") == 0) || (strcmp(new_out.out,"ox2") == 0) ||
+        (strcmp(new_out.out,"ix3") == 0) || (strcmp(new_out.out,"ox3") == 0)) {
+/* Set out_grd = 0: integration grid; 1: output grid only; 2: both */
+      if (radt_mode == 0)
+	new_out.out_grd == 0;
+      else if (radt_mode == 1) {
+	new_out.out_grd == 1;
+	rad_out_flag = 1;
+      } else if (radt_mode == 2) {
+	/* Default is to only write output grid for outputs*/
+	new_out.out_grd = par_geti_def(block,"out_grd",1);
+	rad_out_flag = 1;
+      }
+    }
+
     if (strcmp(new_out.out,"ix1") == 0){
-      new_out.out_fun = dump_ix1_vtk;
-      goto add_it;
+      new_out.out_fun = output_ix1_vtk;
+       goto add_it;
     }
     if (strcmp(new_out.out,"ox1") == 0){
-      new_out.out_fun = dump_ox1_vtk;
+      new_out.out_fun = output_ox1_vtk;
       goto add_it;
     }
     if (strcmp(new_out.out,"ix2") == 0){
-      new_out.out_fun = dump_ix2_vtk;
+      new_out.out_fun = output_ix2_vtk;
       goto add_it;
     }
     if (strcmp(new_out.out,"ox2") == 0){
-      new_out.out_fun = dump_ox2_vtk;
+      new_out.out_fun = output_ox2_vtk;
       goto add_it;
     }
     if (strcmp(new_out.out,"ix3") == 0){
-      new_out.out_fun = dump_ix3_vtk;
+      new_out.out_fun = output_ix3_vtk;
       goto add_it;
     }
     if (strcmp(new_out.out,"ox3") == 0){
-      new_out.out_fun = dump_ox3_vtk;
+      new_out.out_fun = output_ox3_vtk;
       goto add_it;
     }
 #endif
@@ -540,6 +558,7 @@ Now use the default one.\n");
 
   add_it:
 
+
 /* Now copy data in "new_out" into OutArray structure, and increment index. */
     
     ath_pout(1,"OUTPUT: %d %d %s %s [%g : %g]\n",
@@ -551,6 +570,15 @@ Now use the default one.\n");
     ath_pout(0,"Added out%d\n",outn);
 
   } /*---------------------- end loop over output blocks ----------------------*/
+
+
+#ifdef RADIATION_TRANSFER
+  /* If radiation mode is set to 1 (output only) or 2 (output and integration), confirms 
+     that a radiation output is used. */
+  if ( (rad_out_flag == 0) && !(radt_mode == 0) ) 
+     ath_error("[init_output]: radiation mode set to %d, but no radiation output is specified.\n",radt_mode);
+#endif
+
 
 }
 
@@ -573,6 +601,10 @@ void data_output(MeshS *pM, const int flag)
   int n;
   int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
+#ifdef RADIATION_TRANSFER
+  int nl, nd;
+  int rad_out_flag = 0;
+#endif
 
 /* Loop over all elements in output array
  * set dump flag to input argument, check whether time for output */
@@ -582,6 +614,10 @@ void data_output(MeshS *pM, const int flag)
     if (pM->time >= OutArray[n].t) {
       OutArray[n].t += OutArray[n].dt;
       dump_flag[n] = 1;
+#ifdef RADIATION_TRANSFER
+/* Check if output requires update of the RadOutGrid */
+      if (OutArray[n].out_grd == 1) rad_out_flag = 1;
+#endif
     }
   }
 
@@ -622,6 +658,20 @@ void data_output(MeshS *pM, const int flag)
     }
   }
 
+#ifdef RADIATION_TRANSFER
+/* If RadOutGrid update is required, compute formal solution on this grid. */
+  if (rad_out_flag == 1) {
+    for (nl=0; nl<(pM->NLevels); nl++){ 
+      for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){  
+	if (pM->Domain[nl][nd].Grid != NULL){
+	  hydro_to_rad(&(pM->Domain[nl][nd]),1);  
+	  formal_solution(&(pM->Domain[nl][nd]),1,0);
+	}
+      }
+    }
+  }
+#endif
+
 /* Loop over all elements in output array, if dump_flag != 0, make output */
 
   for (n=0; n<out_count; n++) {
@@ -640,10 +690,12 @@ void data_output(MeshS *pM, const int flag)
 
     }
   }
+
 /* Output frequency and angular grid data to file */
-#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+#ifdef FULL_RADIATION_TRANSFER
   output_spec(pM);
 #endif
+
   return;
 }
 

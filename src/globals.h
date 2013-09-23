@@ -93,13 +93,13 @@ Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calcul
 RadInitFun_t get_thermal_source = NULL;
 RadInitFun_t get_thermal_fraction = NULL;
 RadInitFun_t get_total_opacity = NULL;
-int lte, niter;
-Real dScnv;
+int lte;
+int radt_mode;
 Real CPrat;  /* equiv to Prat * Crat in radhydro module */
-Real B00;
 #ifdef RAY_TRACING
 RadInitFun_t get_raytrace_thermal_fraction = NULL;
 RadInitFun_t get_raytrace_opacity = NULL;
+RRGIIFun_t raytrace_to_radtrans = NULL;
 #endif
 #endif
 
@@ -192,13 +192,13 @@ extern Real R_ideal;
 extern RadInitFun_t get_thermal_source;
 extern RadInitFun_t get_thermal_fraction;
 extern RadInitFun_t get_total_opacity;
-extern int lte, niter;
-extern Real dScnv;
+extern int lte;
+extern int radt_mode;
 extern Real CPrat; 
-extern Real B00;
 #ifdef RAY_TRACING
 extern RadInitFun_t get_raytrace_thermal_fraction;
 extern RadInitFun_t get_raytrace_opacity;
+extern RRGIIFun_t raytrace_to_radtrans;
 #endif
 #endif
 

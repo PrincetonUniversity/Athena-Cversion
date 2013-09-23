@@ -300,7 +300,7 @@ ConsFun_t get_usr_expr(const char *expr);
 VOutFun_t get_usr_out_fun(const char *name);
 #ifdef RADIATION_TRANSFER
 void Userwork_in_formal_solution(DomainS *pD);
-void Userwork_after_first_formal_solution(DomainS *pD);
+void Userwork_after_formal_solution(DomainS *pD);
 #endif
 #ifdef PARTICLES
 PropFun_t get_usr_par_prop(const char *name);
@@ -385,7 +385,7 @@ Real EquState(const Real density, const Real sum, const Real Er0); /* Function t
 
 void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
 
-#ifdef RADIATION_TARNSFER
+#ifdef RADIATION_TRANSFER
 /* Function to calculate Eddington tensor */
 
 void Eddington_FUN(DomainS *pD);

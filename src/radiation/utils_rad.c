@@ -5,8 +5,11 @@
  * PURPOSE: contains misc. functions require for computation of rad. transfer
  *
  * CONTAINS PUBLIC FUNCTIONS: 
- *   get_weights_linear()     - 
- *   get_weights_parabolic()  -
+ *  interp_quad_chi()       -- 2nd order representation of opacity with slope lim.
+ *  interp_quad_source_slope_lim() -- FS integ. weights with quad. interp. and
+ *                                     slope limiting.
+ *  interp_quad_source()    -- FS integ. weights with quad. interp. (obsolete)
+ *  interp_linear_source()  -- FS integ. weights with linear interp. (obsolete)
  *============================================================================*/
 
 #include <stdlib.h>
@@ -19,37 +22,15 @@
 
 #ifdef RADIATION_TRANSFER
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+
 /*----------------------------------------------------------------------------*/
-/* copute weights using parabolic interpolation of source function.  Uses Bezier
+/*! \fn void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
+ * Compute weights using parabolic interpolation of opacity.  Uses Bezier
  * interpolation scheme discussed in Auer (2003, ASP, 228, 3).  Method is
  * nearly equivalent to Hayek et al. (2010, A&A, 517, 49).  This version assumes
- * that the grid spacing is fixed.
- */
-void interp_quad_chi_new(Real chi0, Real chi1, Real chi2, Real *chi12, Real *chi32)
-{
-
-  Real chic12, chic32, dchi;
-
-  dchi = 0.25 * (chi2 - chi0);
-  chic12 = chi1 - dchi;
-  chic32 = chi1 + dchi;
-
-  /* use standard interp if chimin < chic < chimax */
-
-  if ((chi0-chic12)*dchi <= 0.0) {
-    (*chi12) = 0.4166666666666667 * chi0 + 0.6666666666666667 * chi1 -  0.0833333333333333 * chi2;
-    /* chic = chi1 */  
-  } else {
-    (*chi12) = 0.3333333333333333 * chi0 + 0.6666666666666667 * chi1;
-  }
-  if ((chic32-chi2)*dchi <= 0.0) {
-    (*chi32) = 0.4166666666666667 * chi2 + 0.6666666666666667 * chi1 -  0.0833333333333333 * chi0;
-    /* chic = chi1 */  
-  } else {
-    (*chi32) = 0.3333333333333333 * chi2 + 0.6666666666666667 * chi1;
-  }
-}
-
+ * that the grid spacing is fixed. */
 void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
 {
 
@@ -74,15 +55,14 @@ void interp_quad_chi(Real chi0, Real chi1, Real chi2, Real *chi)
 
 }
 
-
 /*----------------------------------------------------------------------------*/
-/* copute weights using parabolic interpolation of source function.  Uses Bezier
+/* \fn void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
+ *			                 Real *a1, Real *a2, Real S0, Real S1, Real S2)
+ * Copute weights using parabolic interpolation of source function.  Uses Bezier
  * interpolation scheme discussed in Auer (2003, ASP, 228, 3).  Method is
  * nearly equivalent to Hayek et al. (2010, A&A, 517, 49).  In addition to
  * improving stability, it ensures a positive intensity as long as source
- * terms are positive.
- */
-
+ * terms are positive.*/
 void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 			Real *a1, Real *a2, Real S0, Real S1, Real S2)
 {
@@ -141,25 +121,26 @@ void interp_quad_source_slope_lim(Real dtaum, Real dtaup, Real *edtau, Real *a0,
   }
 }
 
+/*----------------------------------------------------------------------------*/
+/* \fn void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
+ *       		       Real *a1, Real *a2)
+ *  Computes quadrature weights for integration of the radiation transfer
+ *  eq. along one ray in one gridzone using quadratic interpolation.  Retained only 
+ *  for testing/debugging.  Replaced by interp_quad_source_slope_lim(). */
 void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
-			Real *a1, Real *a2, Real S0, Real S1, Real S2)
+			Real *a1, Real *a2)
 {
   Real c0, c1, c2;
   Real dtaus, dtausp, dtausm, dtaum2;
-  Real Sc, Smax, Smin;
-  Real dSp, dSm;
 
   dtaus  = dtaum + dtaup;
   dtausp = dtaus * dtaup;
   dtausm = dtaus * dtaum;
   dtaum2 = dtaum * dtaum;
 
-  dSm = S1 - S0;
-  dSp = S2 - S1;
 
   (*edtau) = exp(-dtaum);
-  /*(*edtau) = 1.0 - dtaum + 0.5 * dtaum2 - 0.333333333 * dtaum * dtaum2;  //testing
-*/
+
   c0 = 1.0 - (*edtau);
   c1 = dtaum - c0;
   c2 = dtaum2 - 2.0 * c1;
@@ -169,33 +150,13 @@ void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
   (*a2) = (c2 - dtaum * c1) / dtausp;
 }
 
-/*----------------------------------------------------------------------------*/
-/* get weights using parabolic interpolation of source function
- */
-void get_weights_parabolic(Real dtaum, Real dtaup, Real *edtau, Real *a0,
-		 Real *a1, Real *a2)
-{
-  Real c0, c1, c2;
-  Real dtausum;
-
-  dtausum = dtaum + dtaup;
-  (*edtau) = exp(-dtaum);
-
-  c0 = 1.0 - (*edtau);
-  c1 = dtaum - c0;
-  c2 = dtaum * dtaum - 2.0 * c1;
-  
-  (*a0) = c0 + (c2 - (dtaup + 2.0 * dtaum) * c1) / (dtaum * dtausum);
-  (*a1) = (dtausum * c1 - c2) / (dtaum * dtaup);
-  (*a2) = (c2 - dtaum * c1) / (dtaup * dtausum);
-
-
-}
 
 /*----------------------------------------------------------------------------*/
-/* get weights using linear interpolation of source function
- */
-void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1)
+/* \fn void interp_linear_source(Real dtaum, Real *edtau, Real *a0, Real *a1)
+ *  Computes quadrature weights for integration of the radiation transfer
+ *  eq. along one ray in one gridzone using linear interpolation.  Retained only 
+ *  for testing/debugging.  Replaced by interp_quad_source_slope_lim(). */
+void interp_linear_source(Real dtaum, Real *edtau, Real *a0, Real *a1)
 {
   Real c0, c1;
 
@@ -208,6 +169,35 @@ void get_weights_linear(Real dtaum, Real *edtau, Real *a0, Real *a1)
   (*a1) = c1 / dtaum;
 
 }
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void interp_quad_chi_new(Real chi0, Real chi1, Real chi2, Real *chi12, Real *chi32)
+ *  Experimental version of interp_quad_chi() */
+void interp_quad_chi_new(Real chi0, Real chi1, Real chi2, Real *chi12, Real *chi32)
+{
+
+  Real chic12, chic32, dchi;
+
+  dchi = 0.25 * (chi2 - chi0);
+  chic12 = chi1 - dchi;
+  chic32 = chi1 + dchi;
+
+  /* use standard interp if chimin < chic < chimax */
+
+  if ((chi0-chic12)*dchi <= 0.0) {
+    (*chi12) = 0.4166666666666667 * chi0 + 0.6666666666666667 * chi1 -  0.0833333333333333 * chi2;
+    /* chic = chi1 */  
+  } else {
+    (*chi12) = 0.3333333333333333 * chi0 + 0.6666666666666667 * chi1;
+  }
+  if ((chic32-chi2)*dchi <= 0.0) {
+    (*chi32) = 0.4166666666666667 * chi2 + 0.6666666666666667 * chi1 -  0.0833333333333333 * chi0;
+    /* chic = chi1 */  
+  } else {
+    (*chi32) = 0.3333333333333333 * chi2 + 0.6666666666666667 * chi1;
+  }
+}
+
 
 #endif /* RADIATION_TRANSFER */
 

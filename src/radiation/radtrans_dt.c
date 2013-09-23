@@ -21,9 +21,14 @@
 #include "../prototypes.h" 
 
 #ifdef RADIATION_TRANSFER
-/*----------------------------------------------------------------------------*/
-/* diff_dt:  */
 
+/*=========================== PUBLIC FUNCTIONS ===============================*/
+
+/*----------------------------------------------------------------------------*/
+/*! \fn Real radtrans_dt(DomainS *pD)
+ *  Computes minimum dt needed to obey Courant-like condition on the
+ *  radiation relaxation time.
+ */
 Real radtrans_dt(DomainS *pD)
 {
   int irefine, ir;

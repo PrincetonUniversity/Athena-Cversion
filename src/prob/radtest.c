@@ -10,8 +10,8 @@
  *           by vert_dir=1,2,3 in the problem block.  eps sets the degree of
  *           deviation from LTE.  See Fabiani Bendicho & Trujillo Bueno ApJ,
  *           455, 646..
- * Initial conditions available:
  *
+ *   configure --with-problem=radtest --enable-radiation-transfer 
  *============================================================================*/
 
 #include <math.h>
@@ -468,6 +468,7 @@ get_total_opacity = const_opacity;
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  * Userwork_in_formal_solution  - problem specific work in formal solution loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -488,6 +489,11 @@ ConsFun_t get_usr_expr(const char *expr)
 
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
+}
+
+void Userwork_after_formal_solution(DomainS *pD)
+{
+  return;
 }
 
 void Userwork_in_formal_solution(DomainS *pD)

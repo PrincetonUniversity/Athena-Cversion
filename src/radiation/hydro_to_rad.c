@@ -22,23 +22,32 @@
 
 #ifdef RADIATION_TRANSFER
 
-static char *construct_filename(char *basename,char *key,int dump,char *ext);
+/*=========================== PUBLIC FUNCTIONS ===============================*/
 
 /*----------------------------------------------------------------------------*/
-/* hydro_to_rad:  */
-
-void hydro_to_rad(DomainS *pD, int iflag)
+/*! \fn void hydro_to_rad(DomainS *pD, const int outflag)
+ *  Computes opacities, thermalization paraters, thermal source function
+ *  from primative variables using user defined functions */
+void hydro_to_rad(DomainS *pD, const int outflag)
 {
   GridS *pG=(pD->Grid);
-  RadGridS *pRG=(pD->RadGrid);
+  RadGridS *pRG;
   int i,j,k,ifr;
-  int il = pRG->is, iu = pRG->ie;
-  int jl = pRG->js, ju = pRG->je;
-  int kl = pRG->ks, ku = pRG->ke;
-  int nf = pRG->nf;
+  int il, iu, jl, ju, kl, ku;
+  int nf;
   int ig,jg,kg,ioff,joff,koff;
   Real eps;
   Real etherm, ekin, B, d;
+
+  if (outflag == 0) 
+    pRG = pD->RadGrid;    /* set ptr to RadGrid */
+  else 
+    pRG = pD->RadOutGrid; /* set ptr to RadOutGrid */
+  il = pRG->is; iu = pRG->ie;
+  jl = pRG->js; ju = pRG->je;
+  kl = pRG->ks; ku = pRG->ke;
+  nf = pRG->nf;
+
 
 /* Assumes ghost zone conserved variables have been set by
  * bvals routines.  These values are used to set B, chi, eps,
@@ -69,36 +78,16 @@ void hydro_to_rad(DomainS *pD, int iflag)
 	etherm -= 0.5 * (SQR(pG->U[kg][jg][ig].B1c) + SQR(pG->U[kg][jg][ig].B2c) + 
 			 SQR(pG->U[kg][jg][ig].B3c) );
 #endif
-	pG->tgas[kg][jg][ig] = MAX(etherm * Gamma_1 / (d * R_ideal),0.0);
+	if (outflag == 0)
+	  pG->tgas[kg][jg][ig] = MAX(etherm * Gamma_1 / (d * R_ideal),0.0);
 
 	for(ifr=0; ifr<nf; ifr++) {
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	  if (iflag == 0) {
-	    lte = 1;
-	    pRG->R[ifr][k][j][i].J = pG->U[kg][jg][ig].Er;
-	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);	   
-	    pRG->R[ifr][k][j][i].B = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
-	      eps  * get_thermal_source(pG,ifr,ig,jg,kg);
-	    pRG->R[ifr][k][j][i].eps = 1.0;
-	    pRG->R[ifr][k][j][i].S = pRG->R[ifr][k][j][i].B;	    
-	  } else {
-	    eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
-	    pRG->R[ifr][k][j][i].B = get_thermal_source(pG,ifr,ig,jg,kg);
-	    pRG->R[ifr][k][j][i].eps = eps;
-	    pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
-	                                    eps  * pRG->R[ifr][k][j][i].B;
-	    //printf("%d %d %d %g %g %g %g\n",myID_Comm_world,j,i,eps,
-	    //	   pRG->R[ifr][k][j][i].B,pRG->R[ifr][k][j][i].S,pRG->R[ifr][k][j][i].J);
-	  }
-#else
 	  eps = get_thermal_fraction(pG,ifr,ig,jg,kg);
 	  pRG->R[ifr][k][j][i].B = get_thermal_source(pG,ifr,ig,jg,kg);
 	  pRG->R[ifr][k][j][i].eps = eps;
 	  pRG->R[ifr][k][j][i].S = (1.0 - eps) * pRG->R[ifr][k][j][i].J +
 	                                  eps  * pRG->R[ifr][k][j][i].B;
-#endif
 	  pRG->R[ifr][k][j][i].chi = get_total_opacity(pG,ifr,ig,jg,kg);
-
 	}
       }
     }
@@ -108,8 +97,10 @@ void hydro_to_rad(DomainS *pD, int iflag)
 }
 
 /*----------------------------------------------------------------------------*/
-/* rad_to_hydro:  */
-
+/*! \fn void rad_to_hydro(DomainS *pD)
+ *  Performs operator split update of the energy equation using radiation
+ *  transfer solution directly.  Uses differential form for high optical
+ *  depth and integral form for low optical depth */
 void rad_to_hydro(DomainS *pD)
 {
   GridS *pG=(pD->Grid);
@@ -167,10 +158,6 @@ void rad_to_hydro(DomainS *pD)
 	      }
 	    }
 	  }
-
-	  /*kappa = pRG->R[ifr][k][j][i].eps * pRG->R[ifr][k][j][i].chi;
-	  esource = pRG->wnu[ifr] * kappa * (B00 - pRG->R[ifr][k][j][i].B) * 
-	  (1.0 - kappa/(2.0*PI) * atan((2.0 * PI)/kappa));*/
 	  
 	}
 	pG->U[kg][jg][ig].E += pG->dt * 4.0 * PI * esource * CPrat;
@@ -179,25 +166,6 @@ void rad_to_hydro(DomainS *pD)
 
  
   return;
-}
-
-static char *construct_filename(char *basename,char *key,int dump,char *ext)
-{
-  char *fname = NULL;
-
-  int namelen = strlen(basename)+1+4+1+strlen(ext)+1;
-  if (key != NULL) namelen += 1+strlen(key);
-
-  if ((fname = (char *)calloc(namelen,sizeof(char))) == NULL)
-    ath_error("[problem]: Error allocating memory for filename\n");
-
-  if (key != NULL) {
-    sprintf(fname, "%s-%s.%04d.%s", basename, key, dump, ext);
-  } else {
-    sprintf(fname, "%s.%04d.%s", basename, dump, ext);
-  }
-
-  return fname;
 }
 
 #endif /* RADIATION_TRANSFER */

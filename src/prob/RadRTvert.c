@@ -79,8 +79,8 @@ void radMHD_Mat_inflowo2(MatrixS *pMat);
 
 #ifdef RADIATION_TRANSFER
 
-void const_H_ix2(GridS *pG, RadGridS *pRG, int ifs, int ife);
-void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife);
+void const_H_ix2(RadGridS *pRG, int ifr);
+void const_J_ox2(RadGridS *pRG, int ifr);
 static Real Thermal_B(const GridS *pG, const int ifr, const int i, const int j, 
 		    const int k);
 static Real const_eps(const GridS *pG, const int ifr, const int i, const int j, 
@@ -413,6 +413,8 @@ get_total_opacity = transfer_opacity;
  * get_usr_par_prop()      - returns a user defined particle selection function
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
+ * Userwork_in_formal_solution  - problem specific work in formal solution loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
@@ -1184,15 +1186,14 @@ static Real transfer_opacity(const GridS *pG, const int ifr, const int i,
   
 }
 
-void const_H_ix2(GridS *pG, RadGridS *pRG, int ifs, int ife)
+void const_H_ix2(RadGridS *pRG, int ifr)
 {
   int il = pRG->is, iu = pRG->ie;
   int jl = pRG->js-1;
   int kl = pRG->ks, ku = pRG->ke;
   int nang = pRG->nang;
   int noct = pRG->noct;
-  int i, j, k, l, m, n, ifr;
-  int jg,kg,ioff,joff,koff;
+  int i, j, k, l, m, n;
   Real I0, Jm, H, Hm, gamma = 0.0;
 
   /* gamma ~ 1/4 */
@@ -1201,69 +1202,59 @@ void const_H_ix2(GridS *pG, RadGridS *pRG, int ifs, int ife)
   }
   if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
 
-  ioff = nghost - 1;
-  if (pG->Nx[1] > 1) {
-    joff = nghost - 1;
-  } else joff = 0; 
-  if (pG->Nx[2] > 1) {
-    koff = nghost - 1;
-  } else koff = 0;
-
-  for(ifr=ifs; ifr<=ife; ifr++) {
 /* update Ghstl2i using l2imu */
-    for (k=kl; k<=ku; k++) {
-      kg = k + koff;
-      for (i=il; i<=iu; i++) {
-	Hm = 0.0;
-	Jm = 0.0;
-	for (m=0; m<nang; m++) {
-	  Hm += pRG->l2imu[ifr][k][i][2][m] * pRG->mu[2][m][1] * pRG->wmu[m];
-	  Hm += pRG->l2imu[ifr][k][i][3][m] * pRG->mu[3][m][1] * pRG->wmu[m];
-	  Jm += pRG->l2imu[ifr][k][i][2][m] * pRG->wmu[m];
-	  Jm += pRG->l2imu[ifr][k][i][3][m] * pRG->wmu[m];	  
-	  if (noct == 8) {
-	    Hm += pRG->l2imu[ifr][k][i][6][m] * pRG->mu[6][m][1] * pRG->wmu[m];
-	    Hm += pRG->l2imu[ifr][k][i][7][m] * pRG->mu[7][m][1] * pRG->wmu[m];
-	    Jm += pRG->l2imu[ifr][k][i][6][m] * pRG->wmu[m];
-	    Jm += pRG->l2imu[ifr][k][i][7][m] * pRG->wmu[m];
-	  }
+  for (k=kl; k<=ku; k++) {
+    for (i=il; i<=iu; i++) {
+      Hm = 0.0;
+      Jm = 0.0;
+      for (m=0; m<nang; m++) {
+	Hm += pRG->l2imu[ifr][k][i][2][m] * pRG->mu[2][m][1] * pRG->wmu[m];
+	Hm += pRG->l2imu[ifr][k][i][3][m] * pRG->mu[3][m][1] * pRG->wmu[m];
+	Jm += pRG->l2imu[ifr][k][i][2][m] * pRG->wmu[m];
+	Jm += pRG->l2imu[ifr][k][i][3][m] * pRG->wmu[m];	  
+	if (noct == 8) {
+	  Hm += pRG->l2imu[ifr][k][i][6][m] * pRG->mu[6][m][1] * pRG->wmu[m];
+	  Hm += pRG->l2imu[ifr][k][i][7][m] * pRG->mu[7][m][1] * pRG->wmu[m];
+	  Jm += pRG->l2imu[ifr][k][i][6][m] * pRG->wmu[m];
+	  Jm += pRG->l2imu[ifr][k][i][7][m] * pRG->wmu[m];
+	}
 	}	
-	H = consFr;
-	I0 = (H - Hm) / gamma;
-	if (I0 < 0.0) I0 = 0.0; 
-	pRG->R[ifr][k][jl][i].J = 0.5 * I0 + Jm;
-	for (m=0; m<nang; m++) {
-	  pRG->Ghstl2i[ifr][k][i][0][m] = I0;
-	  pRG->Ghstl2i[ifr][k][i][1][m] = I0;
-	  if (noct == 8) {
-	    pRG->Ghstl2i[ifr][k][i][4][m] = I0;
-	    pRG->Ghstl2i[ifr][k][i][5][m] = I0;
-	  }
+      H = consFr;
+      I0 = (H - Hm) / gamma;
+      if (I0 < 0.0) I0 = 0.0; 
+      pRG->R[ifr][k][jl][i].J = 0.5 * I0 + Jm;
+      for (m=0; m<nang; m++) {
+	pRG->Ghstl2i[ifr][k][i][0][m] = I0;
+	pRG->Ghstl2i[ifr][k][i][1][m] = I0;
+	if (noct == 8) {
+	  pRG->Ghstl2i[ifr][k][i][4][m] = I0;
+	  pRG->Ghstl2i[ifr][k][i][5][m] = I0;
 	}
       }
+    }
 /* update Ghstr1i and Ghstl1i so corner intensities are correct w/ periodic bcs */
-      for(l=0; l<noct; l++) {
-	for (m=0; m<nang; m++) {
-	  pRG->Ghstl2i[ifr][k][il-1][l][m] = pRG->Ghstl2i[ifr][k][iu][l][m];
-	  pRG->Ghstl2i[ifr][k][iu+1][l][m] = pRG->Ghstl2i[ifr][k][il][l][m];
-	}}
+    for(l=0; l<noct; l++) {
       for (m=0; m<nang; m++) {
-	pRG->Ghstl1i[ifr][k][jl][0][m] = pRG->Ghstl2i[ifr][k][iu][0][m];
-	pRG->Ghstr1i[ifr][k][jl][1][m] = pRG->Ghstl2i[ifr][k][il][1][m];
-      }
+	pRG->Ghstl2i[ifr][k][il-1][l][m] = pRG->Ghstl2i[ifr][k][iu][l][m];
+	pRG->Ghstl2i[ifr][k][iu+1][l][m] = pRG->Ghstl2i[ifr][k][il][l][m];
+      }}
+    for (m=0; m<nang; m++) {
+      pRG->Ghstl1i[ifr][k][jl][0][m] = pRG->Ghstl2i[ifr][k][iu][0][m];
+      pRG->Ghstr1i[ifr][k][jl][1][m] = pRG->Ghstl2i[ifr][k][il][1][m];
     }
   }
+
   return;
 }
 
-void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
+void const_J_ox2(RadGridS *pRG, int ifr)
 {
   int il = pRG->is-1, iu = pRG->ie+1;
   int ju = pRG->je+1;
   int kl = pRG->ks, ku = pRG->ke;
   int nang = pRG->nang;
   int noct = pRG->noct;
-  int i, k, l, m, n, ifr;
+  int i, k, l, m, n;
   int ig, jg, kg, io, ko;
   Real I0, Jp, J, Hp, gamma = 0.0;
 
@@ -1274,44 +1265,42 @@ void const_J_ox2(GridS *pG, RadGridS *pRG, int ifs, int ife)
   if (noct == 8) gamma *= 4.0; else gamma *= 2.0;
   jg = ju + nghost - 1;
   io = nghost - 1;
-  if (pG->Nx[2] > 1) {
+  if (pRG->pG->Nx[2] > 1) {
     ko = nghost - 1;
   } else ko = 0;
 
-  for(ifr=ifs; ifr<=ife; ifr++) {
 /* update Ghstr2i using r2imu */
-    for (k=kl; k<=ku; k++) {
-      kg = k + ko;
-      for (i=il; i<=iu; i++) {
-	ig = i + io;
-	Hp = 0.0;
-	Jp = 0.0;
-	for (m=0; m<nang; m++) {
-	  Hp += pRG->r2imu[ifr][k][i][0][m] * pRG->mu[0][m][1] * pRG->wmu[m];
-	  Hp += pRG->r2imu[ifr][k][i][1][m] * pRG->mu[1][m][1] * pRG->wmu[m];
-	  Jp += pRG->r2imu[ifr][k][i][0][m] * pRG->wmu[m];
-	  Jp += pRG->r2imu[ifr][k][i][1][m] * pRG->wmu[m];
-	  if (noct == 8) {
-	    Hp += pRG->r2imu[ifr][k][i][4][m] * pRG->mu[4][m][1] * pRG->wmu[m];
-	    Hp += pRG->r2imu[ifr][k][i][5][m] * pRG->mu[5][m][1] * pRG->wmu[m];
-	    Jp += pRG->r2imu[ifr][k][i][4][m] * pRG->wmu[m];
-	    Jp += pRG->r2imu[ifr][k][i][5][m] * pRG->wmu[m];
-	  }
+  for (k=kl; k<=ku; k++) {
+    kg = k + ko;
+    for (i=il; i<=iu; i++) {
+      ig = i + io;
+      Hp = 0.0;
+      Jp = 0.0;
+      for (m=0; m<nang; m++) {
+	Hp += pRG->r2imu[ifr][k][i][0][m] * pRG->mu[0][m][1] * pRG->wmu[m];
+	Hp += pRG->r2imu[ifr][k][i][1][m] * pRG->mu[1][m][1] * pRG->wmu[m];
+	Jp += pRG->r2imu[ifr][k][i][0][m] * pRG->wmu[m];
+	Jp += pRG->r2imu[ifr][k][i][1][m] * pRG->wmu[m];
+	if (noct == 8) {
+	  Hp += pRG->r2imu[ifr][k][i][4][m] * pRG->mu[4][m][1] * pRG->wmu[m];
+	  Hp += pRG->r2imu[ifr][k][i][5][m] * pRG->mu[5][m][1] * pRG->wmu[m];
+	  Jp += pRG->r2imu[ifr][k][i][4][m] * pRG->wmu[m];
+	  Jp += pRG->r2imu[ifr][k][i][5][m] * pRG->wmu[m];
 	}
-	//J = pRG->R[ifr][k][ju][i].J;
-	J = pG->U[kg][jg][ig].Er;
-	I0 = 2.0 * (J - Jp); 
-	if (I0 < 0.0) I0 = 0.0; 
-	for (m=0; m<nang; m++) {
-	  pRG->Ghstr2i[ifr][k][i][2][m] = I0;
-	  pRG->Ghstr2i[ifr][k][i][3][m] = I0;
-	  if (noct == 8) {
-	    pRG->Ghstr2i[ifr][k][i][6][m] = I0;
-	    pRG->Ghstr2i[ifr][k][i][7][m] = I0;
-	  }
+      }
+      //J = pRG->R[ifr][k][ju][i].J;
+      J = pRG->pG->U[kg][jg][ig].Er;
+      I0 = 2.0 * (J - Jp); 
+      if (I0 < 0.0) I0 = 0.0; 
+      for (m=0; m<nang; m++) {
+	pRG->Ghstr2i[ifr][k][i][2][m] = I0;
+	pRG->Ghstr2i[ifr][k][i][3][m] = I0;
+	if (noct == 8) {
+	  pRG->Ghstr2i[ifr][k][i][6][m] = I0;
+	  pRG->Ghstr2i[ifr][k][i][7][m] = I0;
 	}
-      }}
-  }
+      }
+    }}
 
   return;
 }
@@ -1356,7 +1345,7 @@ void Userwork_in_formal_solution(DomainS *pD)
   return;
 }
 
-void Userwork_after_first_formal_solution(DomainS *pD)
+void Userwork_after_formal_solution(DomainS *pD)
 {
 
   GridS *pG=(pD->Grid);
@@ -1372,6 +1361,10 @@ void Userwork_after_first_formal_solution(DomainS *pD)
 #ifdef MPI_PARALLEL
   Real Kloc, Hloc, Jloc;
 #endif
+  static int fstflag = 1;
+
+  if (fstflag != 1) return;
+
   ioff = nghost - 1;
   nDim = 1;
   if (pG->Nx[1] > 1) {
@@ -1433,6 +1426,9 @@ void Userwork_after_first_formal_solution(DomainS *pD)
 	                      (Ertop - x2) / pG->U[k][j][i].Edd_22;
 	}
       }}}
+  fstflag = 0;
+
+  return;
 }
 
 #endif /* End radiation transfer */

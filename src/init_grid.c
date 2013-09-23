@@ -1519,17 +1519,15 @@ G3.ijkl[2],G3.ijkr[2]);
 
 /*--- Error messages ---------------------------------------------------------*/
 
-#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+#ifdef FULL_RADIATION_TRANSFER
  on_error28:
     free_4d_array(pG->Frsource);
-
-#endif
-	
-#ifdef FULL_RADIATION_TRANSFER
  on_error29:	
     free_4d_array(pG->Velguess); 	
  on_error21:
     free_3d_array(pG->Radheat);
+#endif
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
  on_error17:
     free_3d_array(pG->tgas);
 #endif

@@ -149,7 +149,6 @@ void problem(DomainS *pDomain)
   T0 = E0 * Gamma_1 / (d0 * R_ideal);
   kappa = tau * 2.0 * PI;
   B0 = Gamma * E0 / (Bo*PI);
-  B00 = B0;
   printf("E0, B0 kappa: %g %g %g\n",E0,B0,kappa);
 
   il = pRG->is-1, iu = pRG->ie+1;
@@ -233,6 +232,7 @@ get_total_opacity = const_chi;
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  * Userwork_in_formal_solution  - problem specific work in formal solution loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -267,7 +267,7 @@ void Userwork_in_formal_solution(DomainS *pD)
   return;
 }
 
-void Userwork_after_first_formal_solution(DomainS *pD)
+void Userwork_after_formal_solution(DomainS *pD)
 {
   return;
 }

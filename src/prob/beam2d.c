@@ -3,7 +3,7 @@
 /*==============================================================================
  * FILE: beam2d.c
  *
- * PURPOSE:  Problem generator for a 2D beam test of radiative transfer routine
+ * PURPOSE:  Problem generator for a simple 2D beam test of radiative transfer routine
  *
  *
  *============================================================================*/
@@ -59,7 +59,7 @@ void problem(DomainS *pDomain)
   Omega_0 = par_getd_def("problem","omega",1.0);
   qshear  = par_getd_def("problem","qshear",1.5);
   t0 = par_getd_def("problem","t0",0.0);
-  pRG->time = t0;
+  pG->time = t0;
 #endif
 /* Setup density structure */ 
 
@@ -127,6 +127,7 @@ get_total_opacity = const_opacity;
  * Userwork_in_loop        - problem specific work IN     main loop
  * Userwork_after_loop     - problem specific work AFTER  main loop
  * Userwork_in_formal_solution  - problem specific work in formal solution loop
+ * Userwork_after_formal_solution  - problem specific work after formal solution
  *----------------------------------------------------------------------------*/
 
 void problem_write_restart(MeshS *pM, FILE *fp)
@@ -147,6 +148,11 @@ ConsFun_t get_usr_expr(const char *expr)
 
 VOutFun_t get_usr_out_fun(const char *name){
   return NULL;
+}
+
+void Userwork_after_formal_solution(DomainS *pD)
+{
+  return;
 }
 
 void Userwork_in_formal_solution(DomainS *pD)

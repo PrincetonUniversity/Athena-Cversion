@@ -497,25 +497,34 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef RADIATION_TRANSFER
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-      if (Mesh.Domain[nl][nd].Grid != NULL){
-	hydro_to_rad(&(Mesh.Domain[nl][nd]),1);  
-	niter = par_geti_def("radiation","niter0",niter);
-	dScnv = par_getd_def("radiation","dScnv0",dScnv);
-	formal_solution(&(Mesh.Domain[nl][nd]));
-	niter = par_geti("radiation","niter");
-	dScnv = par_getd("radiation","dScnv");
-/* User work (defined in problem()) */
-	Userwork_after_first_formal_solution(&(Mesh.Domain[nl][nd]));
+/* Write ascii file containing information about the frequency and anglar
+   mesh */ 
+  output_rad_mesh(&Mesh);
+/* Compute first formal solution to initialize radiation transfer grid */
+  if ( (radt_mode == 0) || (radt_mode == 2) ) {
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+	if (Mesh.Domain[nl][nd].Grid != NULL){
+	  /* initialize integration RadGrid */
+	  if ( (radt_mode == 0) || (radt_mode == 2) ) {	  
+	    hydro_to_rad(&(Mesh.Domain[nl][nd]),0);  
+	    formal_solution(&(Mesh.Domain[nl][nd]),0,1);
+	    /* User work (defined in problem()) */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
-	Eddington_FUN(&(Mesh.Domain[nl][nd]));
-	/*bvals_radMHD(&(Mesh.Domain[nl][nd]));*/
+	    Eddington_FUN(&(Mesh.Domain[nl][nd]));
+	    /*bvals_radMHD(&(Mesh.Domain[nl][nd]));*/
 #endif
+	  }
+	  /* initialize output RadGrid */
+	  if ( (radt_mode == 1) || (radt_mode == 2) ) {	  
+	    hydro_to_rad(&(Mesh.Domain[nl][nd]),1);  
+	    formal_solution(&(Mesh.Domain[nl][nd]),1,1);
+	  }
+	}
       }
     }
   }
-#endif
+#endif /* RADIATION_TRANSFER */
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */
 #ifdef STATIC_MESH_REFINEMENT
@@ -653,39 +662,36 @@ int main(int argc, char *argv[])
  */
 
 #ifdef RADIATION_TRANSFER
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-/* compute radiation variables from conserved variables */
-	  hydro_to_rad(&(Mesh.Domain[nl][nd]),1);
-/* solve radiative transfer */
-	  formal_solution(&(Mesh.Domain[nl][nd]));
-
+    if ( (radt_mode == 0) || (radt_mode == 2) ) {
+      for (nl=0; nl<(Mesh.NLevels); nl++){ 
+	for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+	  if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+	    /* compute radiation variables from conserved variables */
+	    hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
+	    /* solve radiative transfer */
+	    formal_solution(&(Mesh.Domain[nl][nd]),0,0);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	  Eddington_FUN(&(Mesh.Domain[nl][nd]));
+	    Eddington_FUN(&(Mesh.Domain[nl][nd]));
 	  //	  Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
 #else
 /* modify timestep if necessary */
-	 dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
-	 Mesh.dt = MIN(Mesh.dt, dt_rad);
-	 Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
+	    dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
+	    Mesh.dt = MIN(Mesh.dt, dt_rad);
+	    Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
 /* operator split update of total energy equation */
-	 rad_to_hydro(&(Mesh.Domain[nl][nd]));
-	 bvals_mhd(&(Mesh.Domain[nl][nd]));
+	    rad_to_hydro(&(Mesh.Domain[nl][nd]));
+	    bvals_mhd(&(Mesh.Domain[nl][nd]));
 #endif
 /* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
 */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+	    bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif 
-	}        
-      }
-}
-
-	/* Update boundary condition for Eddington tensor */
+	  }    
+	}}
+    }
 #endif /* RADIATION_TRANSFER */
-
 
 
 /* Do the full radiation transfer step */
@@ -850,9 +856,6 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
           Mesh.Domain[nl][nd].Grid->time = Mesh.time;
-	  //#ifdef RADIATION_TRANSFER
-	  //Mesh.Domain[nl][nd].RadGrid->time = Mesh.time;
-	  //#endif
         }
       }
     }
