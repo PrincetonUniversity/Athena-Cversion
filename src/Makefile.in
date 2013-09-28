@@ -151,7 +151,8 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/gausseid_2d.o\
 		radiation/jacobi_3d_linear.o\
 		radiation/gausseid_3d.o\
-		radiation/ray_tracing.o
+		radiation/ray_tracing.o\
+		radiation/angles.o
 
 FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/hydro_to_fullrad.o\

@@ -25,7 +25,7 @@
 #ifdef RADIATION_TRANSFER
 #if defined(JACOBI) && defined(LINEAR_INTENSITY)
 
-//static Real ANGMIN = 1.0e-8; //Experimental
+static Real ANGMIN = 1.0e-2; //Experimental
 
 /* Working arrays used in formal solution */
 static Real ***lamstr = NULL;
@@ -399,11 +399,11 @@ static void update_cell(RadGridS *pRG, Real *****imuo, int ifr, int k, int j, in
       /* Use linear interpolation for intensity */
       imu0 = bm  * imuo[ifr][im][l][m][1] + bm1 * imuo[ifr][im][l][m][0];
     }
-    /*    if (fabs(am - 1.0) < ANGMIN) {
-      wang = pRG->noct * pRG->wmu[m];
-      imu0 = (1.0-wang) * imuo[ifr][im][l][m][1] + 0.5 * wang *
-  	     (imuo[ifr][i][l][m][0] + imuo[ifr][im][l][m][0]);
-	     }*/
+    //    if (fabs(am - 1.0) < ANGMIN) {
+    //   wang = pRG->noct * pRG->wmu[m];
+    // imu0 = (1.0-wang) * imuo[ifr][im][l][m][1] + 0.5 * wang *
+    //	(imuo[ifr][i][l][m][0] + imuo[ifr][im][l][m][0]);
+    //} 
 /* ---------  compute intensity at grid center and add to mean intensity ------- */
     if (am <= 1.0) {
       chi0 = am  * pRG->R[ifr][k][jm][im].chi + 

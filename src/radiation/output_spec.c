@@ -70,22 +70,47 @@ void output_rad_mesh(MeshS *pM)
 	    sprintf(pdom,"dom%d",nd);
 	  }
 	  if((fname = ath_fname(plev,pM->outfilename,plev,pdom,0,
-				0,NULL,"spc")) == NULL){
-	    ath_error("[output_spec]: Error constructing filename\n");
+				0,NULL,"rad")) == NULL){
+	    ath_error("[output_rad_mesh]: Error constructing filename\n");
 	  }
 	  if((pfile = fopen(fname,"w")) == NULL){
-	    ath_error("[output_spec]: Unable to open file\n");
+	    ath_error("[output_rad_mesh]: Unable to open file\n");
 	    return;
 	  }
-	  fprintf(pfile,"%d %d %d\n",nf,noct,nang);
-	  for (i=0; i<nf; i++) {
-	    fprintf(pfile,"%d %12.8e %12.8e\n",i,pRG->nu[i],pRG->wnu[i]);
+
+	  if ( (radt_mode == 0) || (radt_mode == 2) ) {
+	    pRG = pM->Domain[nl][nd].RadGrid;
+	    nf = pRG->nf;
+	    nang = pRG->nang;
+	    noct = pRG->noct;
+	    fprintf(pfile,"RadGrid:\n");
+	    fprintf(pfile,"%d %d %d\n",nf,noct,nang);
+	    for (i=0; i<nf; i++) {
+	      fprintf(pfile,"%d %12.8e %12.8e\n",i,pRG->nu[i],pRG->wnu[i]);
+	    }
+	    for (i=0; i<nang; i++) {
+	      fprintf(pfile,"%d ",i);
+	      for(j=0; j<3; j++) 
+		fprintf(pfile,"%12.8e ",pRG->mu[0][i][j]);
+	      fprintf(pfile,"%12.8e\n",pRG->wmu[i]);
+	    }
 	  }
-	  for (i=0; i<nang; i++) {
-	    fprintf(pfile,"%d ",i);
-	    for(j=0; j<3; j++) 
-	      fprintf(pfile,"%12.8e ",pRG->mu[0][i][j]);
-	    fprintf(pfile,"%12.8e\n",pRG->wmu[i]);
+	  if ( (radt_mode == 1) || (radt_mode == 2) ) {
+	    pRG = pM->Domain[nl][nd].RadOutGrid;
+	    nf = pRG->nf;
+	    nang = pRG->nang;
+	    noct = pRG->noct;
+	    fprintf(pfile,"RadOutGrid:\n");
+	    fprintf(pfile,"%d %d %d\n",nf,noct,nang);
+	    for (i=0; i<nf; i++) {
+	      fprintf(pfile,"%d %12.8e %12.8e\n",i,pRG->nu[i],pRG->wnu[i]);
+	    }
+	    for (i=0; i<nang; i++) {
+	      fprintf(pfile,"%d ",i);
+	      for(j=0; j<3; j++) 
+		fprintf(pfile,"%12.8e ",pRG->mu[0][i][j]);
+	      fprintf(pfile,"%12.8e\n",pRG->wmu[i]);
+	    }
 	  }
 	  /* close file */
 	  fclose(pfile);	

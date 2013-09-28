@@ -69,7 +69,8 @@ void interp_quad_source(Real dtaum, Real dtaup, Real *edtau, Real *a0,
 			Real *a1, Real *a2);
 void interp_linear_soource(Real dtaum, Real *edtau, Real *a0, Real *a1);
 
-int permutation(int i, int j, int k, int **pl, int np);
+/* angles.c */
+void init_angles(RadGridS *pRG, const int qmeth, const int outflag);
 
 /* all 1D formal solutions algorithms contain the following functions */
 void formal_solution_1d(RadGridS *pRG, Real *dSrmax, int ifr);

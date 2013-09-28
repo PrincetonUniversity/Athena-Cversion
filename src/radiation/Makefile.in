@@ -23,7 +23,8 @@ CORE_OBJ = init_radiation.o\
 	   jacobi_2d_linear.o\
 	   jacobi_3d_linear.o\
 	   gausseid_3d.o\
-	   ray_tracing.o
+	   ray_tracing.o\
+	   angles.o
 OBJ = $(CORE_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------
