@@ -52,6 +52,9 @@ void GaussSeidel3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi, 
 	/* damped parameter */
 	Real omega, Ert0, Frt0;
 	omega = 0.4;
+#ifdef FLD
+	omega = 1.0;
+#endif
 	
 
 /* Hardware to Ncycle */
@@ -64,6 +67,34 @@ for(n=0; n<Ncycle; n++){
 		/* Only need to set the elements once, at the beginning */
 		/* The right hand side is stored in pMat */
 		/* The coefficients are calculated according to the formula */
+				
+				
+#ifdef FLD
+				
+			/* For Er */
+			Ert0 = pMat->U[k][j][i].Er;
+			pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
+				
+			tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][6] * pMat->U[k+1][j][i].Er;
+			tempEr2 = theta[k][j][i][1] * pMat->U[k][j-1][i].Er + theta[k][j][i][5] * pMat->U[k][j+1][i].Er;
+			tempEr1 = theta[k][j][i][2] * pMat->U[k][j][i-1].Er + theta[k][j][i][4] * pMat->U[k][j][i+1].Er;
+				
+				
+				
+			pMat->U[k][j][i].Er -= (tempEr1 + tempEr2 + tempEr3);
+				
+				
+			/* diagonal elements are not included */
+				
+			pMat->U[k][j][i].Er /= theta[k][j][i][3];
+				
+			pMat->U[k][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[k][j][i].Er;
+				
+				/*****************************************************/
+				
+				
+				
+#else
 
 			/* The diagonal elements are theta[6], phi[7], psi[7], varphi[7] */
 		
@@ -164,6 +195,8 @@ for(n=0; n<Ncycle; n++){
 			pMat->U[k][j][i].Fr3 /= varphi[k][j][i][7];
 
 			pMat->U[k][j][i].Fr3 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr3;
+				
+#endif /* FLD */				
 
 	}
 			

@@ -113,7 +113,7 @@ void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **T
 	
 	Real Sigma;
 	Real Er, Ersource, weightJ;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3], Kin[3]; /* velocity source terms and change of kinetic energy */
+	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
 	Real dt = pG->dt;
 	Real Tgas, Tgas4;
 	Real rho;
@@ -166,9 +166,9 @@ void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **T
 			for(l=0; l<3; l++)
 				Velguess[l] = pG->Velguess[0][j+offset][i+offset][l];
 			
-			for(l=0; l<3; l++)
+		/*	for(l=0; l<3; l++)
 				Kin[l] = 0.5 * rho * SQR(Vel[l]);
-			
+		*/	
 			/* The new gas temperature is in sol[j][i][nelements], the last elements */
 			Sigma = pRG->R[ifr][0][j][i].Sigma[1];
 			
@@ -184,30 +184,33 @@ void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **T
 			
 			/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
 			/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-			for(l=0; l<3; l++)
+		/*	for(l=0; l<3; l++)
 				DeltaKin[l] = dt * Prat * Sigma * (Velguess[l] * CoFr[l] - SQR(Velguess[l]) * (Tgas4 - Er)/Crat);
-			
-			Ersource = 0.0;
+		*/	
+
 			for(l=0; l<3; l++){
+				Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
+				DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
 				
-				Kin[l] += DeltaKin[l];
+				
+			/*	Kin[l] += DeltaKin[l];
 				
 				if(Kin[l] >= 0.0){
 					Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
 					Ersource += DeltaKin[l];
 				}else {
-					/* When Kin[l] < 0, there kinetic change is too large in the implicit radiation part */
-					/* In this case, we do not keep the energy conserved, but just use the momentum source term */
-					Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
-					/* This equals 0.5 rho Vnew^2 - 0.5 rho Vold^2 */ 
+					
+					Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; 
+				 
 					Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
-				}/* end negative Kin */
+				}
+			 */
 				
 			}/* end l for three directions */
 			
 						
 			/* Add the change of internal energy */
-			Ersource += Tcoef[j][i] * (Tgas - pG->tgas[0][j+offset][i+offset]);
+			Ersource = Tcoef[j][i] * (Tgas - pG->tgas[0][j+offset][i+offset]) + DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
 		
 			
 			/* Now put the energy and momentum source term back */	
@@ -240,7 +243,7 @@ void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***
 	
 	Real Sigma;
 	Real Er, Ersource, weightJ;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3], Kin[3]; /* velocity source terms and change of kinetic energy */
+	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
 	Real dt = pG->dt;
 	Real Tgas, Tgas4;
 	Real rho;
@@ -295,9 +298,6 @@ void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***
 				for(l=0; l<3; l++)
 					Velguess[l] = pG->Velguess[k+offset][j+offset][i+offset][l];
 				
-				for(l=0; l<3; l++)
-					Kin[l] = 0.5 * rho * SQR(Vel[l]);
-			
 				/* The new gas temperature is in sol[j][i][nelements], the last elements */
 				Sigma = pRG->R[ifr][k][j][i].Sigma[1];
 			
@@ -313,30 +313,29 @@ void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***
 			
 				/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
 				/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-				for(l=0; l<3; l++)
-					DeltaKin[l] = dt * Prat * Sigma * (Velguess[l] * CoFr[l] - SQR(Velguess[l]) * (Tgas4 - Er)/Crat);
-			
-				Ersource = 0.0;
 				for(l=0; l<3; l++){
-				
-					Kin[l] += DeltaKin[l];
-				
-					if(Kin[l] >= 0.0){
-						Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
-						Ersource += DeltaKin[l];
-					}else {
-						/* When Kin[l] < 0, there kinetic change is too large in the implicit radiation part */
-						/* In this case, we do not keep the energy conserved, but just use the momentum source term */
-						Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
-						/* This equals 0.5 rho Vnew^2 - 0.5 rho Vold^2 */ 
-						Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
-					}/* end negative Kin */
-				
+					Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
+					DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
+					
+					
+					/*	Kin[l] += DeltaKin[l];
+					 
+					 if(Kin[l] >= 0.0){
+					 Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
+					 Ersource += DeltaKin[l];
+					 }else {
+					 
+					 Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; 
+					 
+					 Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
+					 }
+					 */
+					
 				}/* end l for three directions */
-			
-			
+				
+				
 				/* Add the change of internal energy */
-				Ersource += Tcoef[k][j][i] * (Tgas - pG->tgas[k+offset][j+offset][i+offset]);
+				Ersource = Tcoef[k][j][i] * (Tgas - pG->tgas[k+offset][j+offset][i+offset]) + DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
 			
 			
 				/* Now put the energy and momentum source term back */	
@@ -374,7 +373,7 @@ void RadSsource(const int ifr, RadGridS *pRG, GridS *pG)
 	
 	Real Sigma;
 	Real Er, Ersource;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3], Kin[3]; /* velocity source terms and change of kinetic energy */
+	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
 	Real dt = pG->dt;
 	Real rho;
 	
@@ -423,8 +422,6 @@ void RadSsource(const int ifr, RadGridS *pRG, GridS *pG)
 				for(l=0; l<3; l++)
 					Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
 			
-				for(l=0; l<3; l++)
-					Kin[l] = 0.5 * rho * SQR(Vel[l]);
 			
 				/* The new gas temperature is in sol[j][i][nelements], the last elements */
 				Sigma = pRG->R[ifr][k][j][i].Sigma[2];
@@ -435,27 +432,20 @@ void RadSsource(const int ifr, RadGridS *pRG, GridS *pG)
 			
 				/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
 				/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-				for(l=0; l<3; l++)
-					DeltaKin[l] = dt * Prat * Sigma * Velguess[l] * CoFr[l];
-			
+					
 
 				/* For scattering opacity, use kinetic energy change to update velocity momentum so that gas temperature is unchanged */
-				Ersource = 0.0;
 				for(l=0; l<3; l++){
+				
+					Msource[l] = dt * Prat * Sigma * CoFr[l]; /* This is actually momentum source term */
+					DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); 
 					
-					Kin[l] += DeltaKin[l];
-					
-					if(Kin[l] >= 0.0){
-						Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
-						Ersource += DeltaKin[l];
-					}else {
-						/* When Kin[l] < 0, there kinetic change is too large in the implicit radiation part */
-						/* In this case, we do not keep the energy conserved, but just use the momentum source term */
-						Msource[l] = dt * Prat * Sigma * CoFr[l]; /* This is actually momentum source term */
-						Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
-					}/* end negative Kin */
-					
+														
 				}/* end l for three directions */
+				
+				Ersource = DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
+				
+				
 		
 				/* Now put the energy and momentum source term back */	
 				/* This is initialized to be zero before it is called */
@@ -652,7 +642,7 @@ void Absorption2D(const int N, RadGridS *pRG, Real ***sol, Real ***inisol, Real 
 	int n;
 	const int MAXIte = 15;
 	int count;
-	const Real TOL = 1.e-10;
+	const Real TOL = 1.e-12;
 	Real Tgas, Tgas3, Tgas4;
 	Real residual;
 	int line=N-1;

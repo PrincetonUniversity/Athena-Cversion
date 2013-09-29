@@ -4743,6 +4743,19 @@ k][j][i].M3);
 		/* calculate the predict energy source term */
 		ThermalRelaxation(temperature, pG->U[k][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
 		Ersource = Ersource - pG->U[k][j][i].Er;
+					
+		/* For FLD, add the energy source term directly */			
+#ifdef FLD
+		pG->U[k][j][i].Er += (1.0 - Eratio)*Ersource;	
+					
+		Uguess[4] -= Prat * Ersource;
+					
+		pG->U[k][j][i].d  = Uguess[0];
+		pG->U[k][j][i].M1 = Uguess[1];
+		pG->U[k][j][i].M2 = Uguess[2];
+		pG->U[k][j][i].M3 = Uguess[3];
+		pG->U[k][j][i].E  = Uguess[4];			
+#else
 
 		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
 		
@@ -4891,6 +4904,8 @@ k][j][i].M3);
 			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
 			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
 			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
+					
+#endif /* FLD */					
 
 
 			} /* End i */

@@ -716,6 +716,12 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 
 			UN2[N-1] /= temp;
 		}/* End Nzl > 1 */
+		else {
+			/* In this case, array UN2 is the same as array UN1 */
+			UN2[Nzl] = UN1[Nzl];
+			UN2[N-1] = UN1[N-1];
+		}
+
 
 		/* now the last element UN[N-1][N-1] */
 		/* sum LN[N-1][i] * UN[i][N-1] = Mb */

@@ -45,6 +45,9 @@ void GaussSeidel2D(MatrixS *pMat, Real ***theta,  Real ***phi,  Real ***psi)
 	ks = pMat->ks;
 
 	Real omega = 0.4;
+#ifdef FLD
+	omega = 1.0;
+#endif
 	Real Ert0, Frt0;
 
 
@@ -62,6 +65,23 @@ for(n=0; n<Ncycle; n++){
 		/* The right hand side is stored in pMat */
 		/* The coefficients are calculated according to the formula */
 			/* The diagonal elements are theta[4], phi[5], psi[5] */
+				
+#ifdef FLD
+				
+			/* For Er */
+			Ert0 = pMat->U[ks][j][i].Er;
+			pMat->U[ks][j][i].Er  = pMat->RHS[ks][j][i][0];
+			pMat->U[ks][j][i].Er -= theta[j][i][0] * pMat->U[ks][j-1][i].Er;
+			pMat->U[ks][j][i].Er -= theta[j][i][1] * pMat->U[ks][j][i-1].Er;
+				
+			pMat->U[ks][j][i].Er -= theta[j][i][3] * pMat->U[ks][j][i+1].Er;			
+			pMat->U[ks][j][i].Er -= theta[j][i][4] * pMat->U[ks][j+1][i].Er;
+				
+			pMat->U[ks][j][i].Er /= theta[j][i][2];
+				
+			pMat->U[ks][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[ks][j][i].Er;
+				
+#else
 			
 			/* For Er */
 			Ert0 = pMat->U[ks][j][i].Er;
@@ -118,6 +138,8 @@ for(n=0; n<Ncycle; n++){
 			pMat->U[ks][j][i].Fr2 /= psi[j][i][5];
 
 			pMat->U[ks][j][i].Fr2 = (1.0 - omega) * Frt0 + omega * pMat->U[ks][j][i].Fr2;
+				
+#endif /* FLD */
 
 	}
 			

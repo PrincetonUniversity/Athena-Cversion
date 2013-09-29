@@ -73,6 +73,8 @@ INTEGRATORS_OBJ = integrators/integrate.o \
 		  integrators/BackEuler_1d.o \
 		  integrators/BackEuler_2d.o \
 		  integrators/BackEuler_3d.o \
+		  integrators/BackEuler_2d_FLD.o \
+		  integrators/BackEuler_3d_FLD.o \
 		  integrators/BackEuler_smr_3d.o \
 		  integrators/BackEuler.o \
 		  integrators/smr_radMHD.o \

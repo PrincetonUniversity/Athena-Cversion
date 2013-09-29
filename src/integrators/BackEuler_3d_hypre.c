@@ -28,6 +28,8 @@
 #include "../particles/particle.h"
 #endif
 
+#ifndef FLD
+
 #ifdef STATIC_MESH_REFINEMENT
 #error : HYPRE library cannot be used for STATIC_MESH_REFINEMENT
 #endif
@@ -29602,3 +29604,4 @@ if(rx1 < ID)
 
 #endif /* radMHD_INTEGRATOR */
 
+#endif /* FLD */

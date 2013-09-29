@@ -26,6 +26,7 @@
 #include "../particles/particle.h"
 #endif
 
+#ifndef FLD
 
 #ifdef STATIC_MESH_REFINEMENT
 
@@ -1501,5 +1502,5 @@ void Initialize_matrix(MatrixS *pMat, DomainS *pD)
 
 
 
-
+#endif /* FLD */
 

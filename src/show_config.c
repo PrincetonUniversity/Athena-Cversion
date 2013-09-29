@@ -96,9 +96,22 @@ void show_config(void)
 #endif
 
 #if defined(RADIATION_TRANSFER)
-    ath_pout(0,"Time dependent RT	ON\n");
+    ath_pout(0,"Time independent RT	ON\n");
 #else
-    ath_pout(0,"Time dependent RT	OFF\n");
+    ath_pout(0,"Time independent RT	OFF\n");
+#endif
+	
+#if defined(FULL_RADIATION_TRANSFER)
+    ath_pout(0,"Full time dependent RT	ON\n");
+#else
+    ath_pout(0,"Full time dependent RT	OFF\n");
+#endif
+	
+	
+#if defined(FLD)
+    ath_pout(0,"FLD			ON\n");
+#else
+    ath_pout(0,"FLD			OFF\n");
 #endif
 
 #if defined(CYLINDRICAL)

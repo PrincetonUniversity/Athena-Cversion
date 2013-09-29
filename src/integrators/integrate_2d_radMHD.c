@@ -2179,6 +2179,18 @@ void integrate_2d_radMHD(DomainS *pD)
 		/* calculate the predict energy source term */
 		ThermalRelaxation(temperature, pG->U[ks][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
 		Ersource = Ersource - pG->U[ks][j][i].Er;
+				
+#ifdef FLD
+		pG->U[ks][j][i].Er += (1.0 - Eratio) * Ersource;
+				
+		Uguess[4] -= Prat * Ersource;
+				
+		pG->U[ks][j][i].d  = Uguess[0];
+		pG->U[ks][j][i].M1 = Uguess[1];
+		pG->U[ks][j][i].M2 = Uguess[2];			
+		pG->U[ks][j][i].E  = Uguess[4];		
+				
+#else
 
 		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[ks][j][i].Er;
 
@@ -2280,6 +2292,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		pG->U[ks][j][i].M1 = Uguess[1] + tempguess[1];
 		pG->U[ks][j][i].M2 = Uguess[2] + tempguess[2];			
 		pG->U[ks][j][i].E  = Uguess[4] + tempguess[4];
+				
+				
+#endif /* FLD */
 
 	
 /*

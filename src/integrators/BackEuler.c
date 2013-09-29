@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include "../defs.h"
 #include "../athena.h"
+#include "../globals.h"
 #include "prototypes.h"
 #include "../prototypes.h"
 
@@ -32,6 +33,11 @@ VMFun_t BackEuler_init(MeshS *pM)
 /* Calculate the dimensions (using root Domain)  */
   dim = 0;
   for (i=0; i<3; i++) if(pM->Nx[i] > 1) dim++;
+
+  /* For FLD, always use the safe approach */	
+#ifdef FLD
+  Erflag = 0;	
+#endif
 
 #ifdef SHEARING_BOX
 #ifdef RADFARGO

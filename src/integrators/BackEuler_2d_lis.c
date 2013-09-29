@@ -36,6 +36,7 @@
 #include "../particles/particle.h"
 #endif
 
+#ifndef FLD
 #ifdef MATRIX_LIS
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -11115,4 +11116,5 @@ void i_j(int i, int j)
 
 #endif
 
+#endif /* FLD */
 

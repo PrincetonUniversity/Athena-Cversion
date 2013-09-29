@@ -32,6 +32,7 @@
 #   --enable-radiation-transfer                             (radiation transfer) 
 #   --enable-ray-tracing				           (ray tracing)
 #   --enable-full-radiation-transfer	     (time dependent radiation transfer)
+#  ---enable-fld					(flux limited diffusion)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
@@ -417,6 +418,22 @@ if test "$ok" = "yes"; then
 else
   FULL_RADIATION_TRANSFER_MODE="NO_FULL_RADIATION_TRANSFER"
   FULL_RADIATION_TRANSFER_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: FLD
+#   --enable-fld
+
+AC_SUBST(FLD_MODE)
+AC_ARG_ENABLE(fld,
+	[--enable-fld  enable radiation transfer (default is no)],
+	ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  FLD_MODE="FLD"
+  FLD_MODE_USER="ON"
+else
+  FLD_MODE="NO_FLD"
+  FLD_MODE_USER="OFF"
 fi
 
 #-------------------------------------------------------------------------------
@@ -931,6 +948,7 @@ echo "Radiation transfer:      $RADIATION_TRANSFER_MODE_USER"
 echo "Ray tracing:             $RAY_TRACING_MODE_USER"
 echo "Time Dependent Radiation
 	  transfer:      $FULL_RADIATION_TRANSFER_MODE_USER"
+echo "FLD:      	       $FLD_MODE_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"

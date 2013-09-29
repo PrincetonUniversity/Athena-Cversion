@@ -28,7 +28,7 @@
 #include "../particles/particle.h"
 #endif
 
-#ifndef FLD
+#ifdef FLD
 
 #if defined(MATRIX_MULTIGRID) || defined(MATRIX_HYPRE)
 
@@ -128,9 +128,13 @@ void BackEuler_2d(MeshS *pM)
 	pMat->time = pG->time;
 
 	Real velocity_x, velocity_y, T4, pressure, density, temperature, Fr0x, Fr0y;
-	Real AdvFx[2], AdvFy[2];
+	Real vxi0, vxi1, vyj0, vyj1, vzk0, vzk1,dvxdx,dvydy,dvzdz;
+	Real AdvFx, AdvFy, f11, f22, f21;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
+	Real dErdx, dErdy, divEr, limiter;
+
 	Real Sigma[NOPACITY];
+
 
 	Real error;
 	int Wcycle;
@@ -161,6 +165,40 @@ void BackEuler_2d(MeshS *pM)
 	qom = qshear * Omega_0;
 #endif
 
+
+/*========================================*/
+
+        for(j=js; j<=je; j++){
+                for(i=is; i<= ie; i++){	
+			f11 = pG->U[ks][j][i].Edd_11;
+		        f22 = pG->U[ks][j][i].Edd_22;
+			f21 = pG->U[ks][j][i].Edd_21;
+       		
+
+			vxi0 = pG->U[ks][j][i-1].M1 / pG->U[ks][j][i-1].d;
+			vxi1 = pG->U[ks][j][i+1].M1 / pG->U[ks][j][i+1].d;	
+			vyj0 = pG->U[ks][j-1][i].M2 / pG->U[ks][j-1][i].d;
+			vyj1 = pG->U[ks][j+1][i].M2 / pG->U[ks][j+1][i].d;
+			
+			dvxdx = (vxi1 - vxi0) / (2.0 * pG->dx1);
+			dvydy = (vyj1 - vyj0) / (2.0 * pG->dx2);
+			
+			pG->U[ks][j][i].Er /= (1.0 + pG->dt * ((f11 + f21) * dvxdx + (f21 + f22) * dvydy));
+			}
+		}
+
+
+	/* Apply the boundary condition */
+	/* Need to update the boundary condition of Er before calculating Fr */
+        for (i=0; i<pM->NLevels; i++){
+            for (j=0; j<pM->DomainsPerLevel[i]; j++){  
+                if (pM->Domain[i][j].Grid != NULL){
+                        bvals_radMHD(&(pM->Domain[i][j]));
+
+                }                    }
+        }  
+
+/*===============================================*/
 
 /* First, do the advection step and update bounary */
 
@@ -209,17 +247,26 @@ void BackEuler_2d(MeshS *pM)
 				pMat->Ugas[Matk][Matj][Mati].Sigma[2] = Sigma_aP;
 				pMat->Ugas[Matk][Matj][Mati].Sigma[3] = Sigma_aE;
 
-				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, AdvFx, AdvFy);
+				dErdx = (pG->U[ks][j][i+1].Er - pG->U[ks][j][i-1].Er) / (2.0 * pG->dx1); 
+				dErdy = (pG->U[ks][j+1][i].Er - pG->U[ks][j-1][i].Er) / (2.0 * pG->dx2);
+				
+				divEr = sqrt(dErdx * dErdx + dErdy * dErdy);
 
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]));
-				pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_x / Crat;
-				pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_y / Crat;
+				FLD_limiter(divEr, pG->U[ks][j][i].Er, Sigma_sF + Sigma_aF, &(pMat->Ugas[Matk][Matj][Mati].lambda));
+
+				
+				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, &AdvFx, &AdvFy);
+
+
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + (AdvFx + AdvFy) + dt * Sigma_aP * T4 * Crat * Eratio;
+				
 
 
 				
 	} /* End i */
 	}/* End j */
 
+	
 
 /* First, calculate the coefficient for the top level  */
 /* coefficient will not change until next time step */
@@ -234,13 +281,10 @@ if(pMat->bgflag){
 	for(j=pMat->js-Matghost; j<=pMat->je+Matghost; j++){
 		for(i=pMat->is-Matghost; i<= pMat->ie+Matghost; i++){
 			pMat->U[ks][j][i].Er = 0.0;
-			pMat->U[ks][j][i].Fr1 = 0.0;
-			pMat->U[ks][j][i].Fr2 = 0.0;
-	
+		
 
 			pMat->RHS[ks][j][i][0] = INIerror[ks][j][i][0];	
-			pMat->RHS[ks][j][i][1] = INIerror[ks][j][i][1];	
-			pMat->RHS[ks][j][i][2] = INIerror[ks][j][i][2];	
+			
 	
 
 			}
@@ -286,7 +330,7 @@ if(pMat->bgflag){
 		Resnum++;
 
 		if(error != error)
-			ath_error("[BackEuler3D]: NaN encountered!\n");
+			ath_error("[BackEuler2D]: NaN encountered!\n");
 
 		error /= INInorm;
 
@@ -314,30 +358,68 @@ if(pMat->bgflag){
 
 			if(pMat->bgflag){
 				pG->U[ks][j][i].Er += pMat->U[Matk][Matj][Mati].Er;
-				pG->U[ks][j][i].Fr1 += pMat->U[Matk][Matj][Mati].Fr1;
-				pG->U[ks][j][i].Fr2 += pMat->U[Matk][Matj][Mati].Fr2;
+				
 			}
 			else{
 				pG->U[ks][j][i].Er = pMat->U[Matk][Matj][Mati].Er;
-				pG->U[ks][j][i].Fr1 = pMat->U[Matk][Matj][Mati].Fr1;
-				pG->U[ks][j][i].Fr2 = pMat->U[Matk][Matj][Mati].Fr2;
+				
 			}
 
-			velocity_x = pMat->Ugas[Matk][Matj][Mati].V1;
-                	velocity_y = pMat->Ugas[Matk][Matj][Mati].V2;
-                	
-
-			Fr0x =  pG->U[ks][j][i].Fr1 - ((1.0 +  pG->U[ks][j][i].Edd_11) * velocity_x +  pG->U[ks][j][i].Edd_21 * velocity_y) *  pG->U[ks][j][i].Er / Crat; 
-			Fr0y =  pG->U[ks][j][i].Fr2 - ((1.0 +  pG->U[ks][j][i].Edd_22) * velocity_y +  pG->U[ks][j][i].Edd_21 * velocity_x) *  pG->U[ks][j][i].Er / Crat;
 			
-			/* Estimate the added energy source term */
-			if(Prat > 0.0){
-				
-				pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
-				
-							
-			}
 		}
+
+
+/* Need to update the boundary condition of Er before calculating Fr */
+	for (i=0; i<pM->NLevels; i++){ 
+            for (j=0; j<pM->DomainsPerLevel[i]; j++){  
+        	if (pM->Domain[i][j].Grid != NULL){
+  			bvals_radMHD(&(pM->Domain[i][j]));
+
+        	}
+      	     }
+    	}
+
+/* Update the Eddington tensor */
+	/* calculate the Eddington tensor first */
+	Eddington_FUN(&(pM->Domain[0][0]));
+
+	/* Now update the cell centered  flux */
+
+		for(j=pG->js; j<=pG->je; j++)
+			for(i=pG->is; i<= pG->ie; i++){
+
+				Mati = i - (nghost - Matghost);
+				Matj = j - (nghost - Matghost);
+
+
+	/* calculate the FLD limiter */
+				dErdx = (pG->U[ks][j][i+1].Er - pG->U[ks][j][i-1].Er) / (2.0 * pG->dx1); 
+				dErdy = (pG->U[ks][j+1][i].Er - pG->U[ks][j-1][i].Er) / (2.0 * pG->dx2);
+				
+
+				divEr = sqrt(dErdx * dErdx + dErdy * dErdy);
+
+				Sigma_sF = pG->U[ks][j][i].Sigma[0];
+				Sigma_aF = pG->U[ks][j][i].Sigma[1];
+			
+
+				FLD_limiter(divEr, pG->U[ks][j][i].Er, Sigma_sF + Sigma_aF, &(limiter)); 
+				
+				velocity_x = pMat->Ugas[Matk][Matj][Mati].V1;
+                		velocity_y = pMat->Ugas[Matk][Matj][Mati].V2;
+                		
+				/* First, the co-moving flux */
+				pG->U[ks][j][i].Fr1 = -limiter * dErdx / (Sigma_sF + Sigma_aF);
+				pG->U[ks][j][i].Fr2 = -limiter * dErdy / (Sigma_sF + Sigma_aF); 
+				
+
+				/* Now add the advection part */	
+				pG->U[ks][j][i].Fr1 += ((1.0 +  pG->U[ks][j][i].Edd_11) * velocity_x +  pG->U[ks][j][i].Edd_21 * velocity_y) *  pG->U[ks][j][i].Er / Crat; 
+				pG->U[ks][j][i].Fr2 += ((1.0 +  pG->U[ks][j][i].Edd_22) * velocity_y +  pG->U[ks][j][i].Edd_21 * velocity_x) *  pG->U[ks][j][i].Er / Crat;
+				
+			}
+
+
 
 
 	/* Set the boundary condition */
@@ -643,7 +725,7 @@ void prolongation2D(MatrixS *pMat_coarse, MatrixS *pMat_fine)
 
 			/* Only needs to update Er, Frx, Fry, Frz. */
 			/* Vx, Vy, Vz and T4 do not need to be updated */
-				for(num=0; num<4; num++){
+				for(num=0; num<1; num++){
 				/* We access a continuous array */
 				ptr_fine[0][num] += 0.75*ptr_coarse[0][num];
       				ptr_fine[0][num] += 0.25*ptr_coarse[1][num];
@@ -688,7 +770,7 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 
 
 	Real ****error;	
-	if((error=(Real****)calloc_4d_array(1,pMat_fine->Nx[1]+2*Matghost,pMat_fine->Nx[0]+2*Matghost,3,sizeof(Real))) == NULL)
+	if((error=(Real****)calloc_4d_array(1,pMat_fine->Nx[1]+2*Matghost,pMat_fine->Nx[0]+2*Matghost,1,sizeof(Real))) == NULL)
 			ath_error("[Restriction3D]: malloc return a NULL pointer\n");		
 
 	Real *ptr_coarse;
@@ -714,7 +796,7 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 				ptr_fine[2] = &(pMat_fine->Ugas[ks][2*j-1][2*i ].rho);
 				ptr_fine[3] = &(pMat_fine->Ugas[ks][2*j-1][2*i-1].rho);
 
-				for(num=0; num<11+NOPACITY; num++){
+				for(num=0; num<12+NOPACITY; num++){
 
 					ptr_coarse[num] =  (ptr_fine[0][num] + ptr_fine[1][num]
 							 + ptr_fine[2][num] + ptr_fine[3][num] ) / 4.0;
@@ -730,21 +812,14 @@ void Restriction2D(MatrixS *pMat_fine, MatrixS *pMat_coarse)
 			*/
 			pMat_coarse->RHS[ks][j][i][0] =  (error[ks][2*j ][2*i ][0] + error[ks][2*j ][2*i-1][0]
 						     +	error[ks][2*j-1][2*i ][0]+ error[ks][2*j-1][2*i-1][0]) / 4.0;	
-
-			pMat_coarse->RHS[ks][j][i][1] =  (error[ks][2*j ][2*i ][1] + error[ks][2*j ][2*i-1][1]
-						     +	error[ks][2*j-1][2*i ][1]+ error[ks][2*j-1][2*i-1][1]) / 4.0;	
-
-			pMat_coarse->RHS[ks][j][i][2] =  (error[ks][2*j ][2*i ][2] + error[ks][2*j ][2*i-1][2]
-						     +	error[ks][2*j-1][2*i ][2]+ error[ks][2*j-1][2*i-1][2]) / 4.0;	
+			
 	
 	}
 
 		for(j=pMat_coarse->js-Matghost; j<=pMat_coarse->je+Matghost; j++)
 			for(i=pMat_coarse->is-Matghost; i<=pMat_coarse->ie+Matghost; i++){
 				/* The initial guess is taken to be zero */
-				pMat_coarse->U[ks][j][i].Er = 0.0;
-				pMat_coarse->U[ks][j][i].Fr1 = 0.0;
-				pMat_coarse->U[ks][j][i].Fr2 = 0.0;
+				pMat_coarse->U[ks][j][i].Er = 0.0;				
 
 			}
 		
@@ -774,9 +849,8 @@ void RHSResidual2D(MatrixS *pMat, Real ***newRHS)
 
 
 	/* To store the coefficient */
-	Real theta[11];
-	Real phi[11];
-	Real psi[11];
+	Real theta[5];
+	
 	
 	/* current level */
 	n = pMat->Level;
@@ -785,55 +859,19 @@ void RHSResidual2D(MatrixS *pMat, Real ***newRHS)
 			for(i=is; i<=ie; i++){
 
 				/* get the coefficient */
-				for(m=0; m<11; m++){
+				for(m=0; m<5; m++){
 					theta[m]  = Ptheta[n][j][i][m];
-					phi[m] 	  = Pphi[n][j][i][m];
-					psi[m]    = Ppsi[n][j][i][m];
+					
 					
 				}
 
 	
 			newRHS[j][i][0] = pMat->RHS[ks][j][i][0];
 			newRHS[j][i][0] -= theta[0] * pMat->U[ks][j-1][i].Er;
-			newRHS[j][i][0] -= theta[1] * pMat->U[ks][j-1][i].Fr2;
-			newRHS[j][i][0] -= theta[2] * pMat->U[ks][j][i-1].Er;
-			newRHS[j][i][0] -= theta[3] * pMat->U[ks][j][i-1].Fr1;
-			newRHS[j][i][0] -= theta[4] * pMat->U[ks][j][i].Er;
-			newRHS[j][i][0] -= theta[5] * pMat->U[ks][j][i].Fr1;
-			newRHS[j][i][0] -= theta[6] * pMat->U[ks][j][i].Fr2;
-			newRHS[j][i][0] -= theta[7] * pMat->U[ks][j][i+1].Er;
-			newRHS[j][i][0] -= theta[8] * pMat->U[ks][j][i+1].Fr1;
-			newRHS[j][i][0] -= theta[9] * pMat->U[ks][j+1][i].Er;
-			newRHS[j][i][0] -= theta[10] * pMat->U[ks][j+1][i].Fr2;
-
-
-			
-			newRHS[j][i][1] = pMat->RHS[ks][j][i][1];
-			newRHS[j][i][1] -= phi[0] * pMat->U[ks][j-1][i].Er;
-			newRHS[j][i][1] -= phi[1] * pMat->U[ks][j-1][i].Fr1;
-			newRHS[j][i][1] -= phi[2] * pMat->U[ks][j][i-1].Er;
-			newRHS[j][i][1] -= phi[3] * pMat->U[ks][j][i-1].Fr1;
-			newRHS[j][i][1] -= phi[4] * pMat->U[ks][j][i].Er;
-			newRHS[j][i][1] -= phi[5] * pMat->U[ks][j][i].Fr1;
-			newRHS[j][i][1] -= phi[6] * pMat->U[ks][j][i+1].Er;
-			newRHS[j][i][1] -= phi[7] * pMat->U[ks][j][i+1].Fr1;
-			newRHS[j][i][1] -= phi[8] * pMat->U[ks][j+1][i].Er;
-			newRHS[j][i][1] -= phi[9] * pMat->U[ks][j+1][i].Fr1;
-
-			
-			newRHS[j][i][2] = pMat->RHS[ks][j][i][2];
-			newRHS[j][i][2] -= psi[0] * pMat->U[ks][j-1][i].Er;
-			newRHS[j][i][2] -= psi[1] * pMat->U[ks][j-1][i].Fr2;
-			newRHS[j][i][2] -= psi[2] * pMat->U[ks][j][i-1].Er;
-			newRHS[j][i][2] -= psi[3] * pMat->U[ks][j][i-1].Fr2;
-			newRHS[j][i][2] -= psi[4] * pMat->U[ks][j][i].Er;
-			newRHS[j][i][2] -= psi[5] * pMat->U[ks][j][i].Fr2;
-			newRHS[j][i][2] -= psi[6] * pMat->U[ks][j][i+1].Er;
-			newRHS[j][i][2] -= psi[7] * pMat->U[ks][j][i+1].Fr2;
-			newRHS[j][i][2] -= psi[8] * pMat->U[ks][j+1][i].Er;
-			newRHS[j][i][2] -= psi[9] * pMat->U[ks][j+1][i].Fr2;
-
-	
+			newRHS[j][i][0] -= theta[1] * pMat->U[ks][j][i-1].Er;
+			newRHS[j][i][0] -= theta[2] * pMat->U[ks][j][i].Er;
+			newRHS[j][i][0] -= theta[3] * pMat->U[ks][j][i+1].Er;
+			newRHS[j][i][0] -= theta[4] * pMat->U[ks][j+1][i].Er;
 
 	}
 
@@ -863,8 +901,8 @@ void Calculate_Coef2D(MatrixS *pMat)
 
 	for(j=js; j<=je; j++)
 		for(i=is; i<=ie; i++){
+			matrix_coef_FLD(pMat, 2, i, j, ks, &(Ptheta[n][j][i][0]));
 
-			matrix_coef(pMat, NULL, 2, i, j, ks, 0.0, &(Ptheta[n][j][i][0]), &(Pphi[n][j][i][0]), &(Ppsi[n][j][i][0]), NULL);
 		}
 
 }
@@ -1060,10 +1098,6 @@ void Inner_product2D(MatrixS *pMat, Real ***vector1, Real ***vector2, Real *resu
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 {
 
-#ifdef MPI_PARALLEL
-	pMat_coarse->Comm_Domain = pMat->Comm_Domain;
-#endif
-
 	pMat_coarse->dx1 = 2.0 * pMat->dx1;
 	pMat_coarse->dx2 = 2.0 * pMat->dx2;
 	pMat_coarse->dx3 = pMat->dx3;
@@ -1206,20 +1240,18 @@ void BackEuler_init_2d(MeshS *pM)
 	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
 
-#ifdef MPI_PARALLEL
-        pMat->Comm_Domain = pD->Comm_Domain;
-#endif
+
 	/* allocate memory at each level */
 	Nx2 = Nx;
 	Ny2 = Ny;
 
 	for(i=0; i<Nlevel; i++){
 
-		if((Ptheta[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,11,sizeof(Real))) == NULL)
+		if((Ptheta[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,5,sizeof(Real))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
-		if((Pphi[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,11,sizeof(Real))) == NULL)
+		if((Pphi[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,5,sizeof(Real))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
-		if((Ppsi[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,11,sizeof(Real))) == NULL)
+		if((Ppsi[i]=(Real***)calloc_3d_array(Ny2+2*Matghost,Nx2+2*Matghost,5,sizeof(Real))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
 
 		if((U_coarse[i] = (RadMHDS***)calloc_3d_array(Nz,Ny2+2*Matghost, Nx2+2*Matghost,sizeof(RadMHDS))) == NULL)
@@ -1358,6 +1390,7 @@ void BackEuler_destruct_2d(MeshS *pM)
 
 #endif /* MATRIX_MULTIGRID */
 
-
 #endif /* FLD */
+
+
 

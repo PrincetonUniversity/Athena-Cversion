@@ -827,7 +827,7 @@ void bvals_fullrad_init(MeshS *pM)
 	   /* space for J H, K and Sigma */
 
 	  xcnt = Radghost * nx1t * nx3t * noct * nang * nf;
-	  xcnt += Radghost * nx2t * nx3t * (1 + 3);	
+	  xcnt += Radghost * nx1t * nx3t * (1 + 3);	
 
 	  if(xcnt > x2cnt) x2cnt = xcnt;
 	}
@@ -841,7 +841,7 @@ void bvals_fullrad_init(MeshS *pM)
 	   /* space for J H, K and Sigma */
 
 	  xcnt = Radghost * nx1t * nx2t * noct * nang * nf;
-	  xcnt += Radghost * nx2t * nx3t * (1 + 3);	
+	  xcnt += Radghost * nx1t * nx2t * (1 + 3);	
 
           if(xcnt > x3cnt) x3cnt = xcnt;
 	}

@@ -74,6 +74,9 @@
 /* Time Dependent Radiation Transfer */
 #define @FULL_RADIATION_TRANSFER_MODE@
 
+/* FLD */
+#define @FLD_MODE@
+
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
 

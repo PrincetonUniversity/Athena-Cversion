@@ -578,6 +578,9 @@ typedef struct RadCoef_s {
   Real Edd_32;
   Real Edd_33;
   Real Sigma[NOPACITY];	
+#ifdef FLD
+  Real lambda;		/* FLD limiter */	
+#endif
 
 } RadCoefS;
 

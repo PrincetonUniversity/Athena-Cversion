@@ -1433,6 +1433,87 @@ else{
 
 
 
+
+/* Function to calculate the eddington tensor.
+ *  Only used when radiation_transfer module is defined
+ * Only work for 1 frequency now 
+ */
+
+#ifdef FLD
+
+void Eddington_FUN (DomainS *pD)
+{
+	GridS *pG=(pD->Grid);
+	int i, j, k, DIM;
+	int is, ie, js, je, ks, ke;
+	
+	
+	DIM = 0;
+	is = pG->is;
+	ie = pG->ie;
+	js = pG->js;
+	je = pG->je;
+	ks = pG->ks;
+	ke = pG->ke;
+	
+	for (i=0; i<3; i++) if(pG->Nx[i] > 1) ++DIM;	
+	
+	/* Note that in pRG, is = 1, ie = is + Nx *
+	 * that is, for radiation_transfer, there is only one ghost zone
+	 * for hydro ,there is 4 ghost zone
+	 */
+	
+	Real dErdx, dErdy, dErdz, dx, dy, dz, divEr, limiter, sigmat, Er, Eddf, FLDR;
+	dx = pG->dx1;
+	dy = pG->dx2;
+	dz = pG->dx3;
+	
+	for(k=ks; k<=ke; k++) {  
+		for(j=js; j<=je; j++) {    
+			for(i=is; i<=ie; i++) {
+				dErdx = (pG->U[k][j][i+1].Er - pG->U[k][j][i-1].Er) / (2.0 * dx);
+				dErdy = (pG->U[k][j+1][i].Er - pG->U[k][j-1][i].Er) / (2.0 * dy);
+				if(DIM == 3){
+					dErdz = (pG->U[k+1][j][i].Er - pG->U[k-1][j][i].Er) / (2.0 * dz);
+				}
+				else{
+					dErdz = 0.0;
+				}
+				
+				Er = pG->U[k][j][i].Er;
+				
+				divEr = sqrt(dErdx * dErdx + dErdy * dErdy + dErdz * dErdz);
+				/* scale to unit vector */
+				if(divEr > TINY_NUMBER){
+					dErdx /= divEr;
+					dErdy /= divEr;
+					dErdz /= divEr;
+				}
+				
+				sigmat = pG->U[k][j][i].Sigma[0] + pG->U[k][j][i].Sigma[1];
+				
+				FLD_limiter(divEr, Er, sigmat, &(limiter));	
+				FLDR = divEr/(sigmat*Er);
+				Eddf = limiter + limiter * limiter * FLDR * FLDR;
+				
+				
+				pG->U[k][j][i].Edd_11 = 0.5 * (1.0 - Eddf) + 0.5 * (3.0 * Eddf - 1.0) * dErdx * dErdx;
+				pG->U[k][j][i].Edd_21 = 0.5 * (3.0 * Eddf - 1.0) * dErdx * dErdy;
+				pG->U[k][j][i].Edd_22 = 0.5 * (1.0 - Eddf) + 0.5 * (3.0 * Eddf - 1.0) * dErdy * dErdy;
+				if(DIM == 3){
+					pG->U[k][j][i].Edd_31 = 0.5 * (3.0 * Eddf - 1.0) * dErdx * dErdz;
+					pG->U[k][j][i].Edd_32 = 0.5 * (3.0 * Eddf - 1.0) * dErdy * dErdz;
+					pG->U[k][j][i].Edd_33 = 0.5 * (1.0 - Eddf) + 0.5 * (3.0 * Eddf - 1.0) * dErdz * dErdz;
+				}
+			}
+		}
+	}
+	return;
+}
+
+#else
+
+
 #ifdef RADIATION_TRANSFER 
 /* Function to calculate the eddington tensor.
 *  Only used when radiation_transfer module is defined
@@ -1471,8 +1552,10 @@ void Eddington_FUN (DomainS *pD)
       koff = 1 - nghost;
     else
       koff = 0;
-  } else
+  } else{
     joff = 0;
+    koff = 0;
+  } 
   
   for(k=ks; k<=ke; k++) {
     rk = k + koff;
@@ -1603,7 +1686,12 @@ void Eddington_FUN_new(const GridS *pG, const RadGridS *pRG)
 
 #endif
 
+
+
 /* end radiation_transfer*/
+
+
+#endif /* FLD */
 
 
 /* Extrapolation function adopted from Numerical Receipes */
@@ -2585,6 +2673,180 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 }
 
 
+#ifdef FLD
+
+
+
+/* Function to calculate matrix coefficient */
+
+void matrix_coef_FLD(const MatrixS *pMat, const int DIM, const int i, const int j, const int k, Real *theta)
+{
+	/* The FLD equation is theta0 Ek-1 + theta1 * Ej-1 + theta2 * Ei-1 + theta3 Ei + theta4 Ei+1 + theta5 Ej+1 + theta6 Ek+1 = Eijk */
+	/* We always use multigrid to do this */
+	
+	/* Average the diffusion coefficient */
+	Real diffi0, diffi1, diffj0, diffj1, diffk0, diffk1;
+	diffi0 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+					+ pMat->Ugas[k][j][i-1].lambda/(pMat->Ugas[k][j][i-1].Sigma[0] + pMat->Ugas[k][j][i-1].Sigma[1]));
+	diffi1 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+					+ pMat->Ugas[k][j][i+1].lambda/(pMat->Ugas[k][j][i+1].Sigma[0] + pMat->Ugas[k][j][i+1].Sigma[1])); 
+	
+	diffj0 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+					+ pMat->Ugas[k][j-1][i].lambda/(pMat->Ugas[k][j-1][i].Sigma[0] + pMat->Ugas[k][j-1][i].Sigma[1]));
+	diffj1 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+					+ pMat->Ugas[k][j+1][i].lambda/(pMat->Ugas[k][j+1][i].Sigma[0] + pMat->Ugas[k][j+1][i].Sigma[1])); 
+	
+	if(DIM == 3){
+		
+		diffk0 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+						+ pMat->Ugas[k-1][j][i].lambda/(pMat->Ugas[k-1][j][i].Sigma[0] + pMat->Ugas[k-1][j][i].Sigma[1]));
+		diffk1 = 0.5 * (pMat->Ugas[k][j][i].lambda/(pMat->Ugas[k][j][i].Sigma[0] + pMat->Ugas[k][j][i].Sigma[1]) 
+						+ pMat->Ugas[k+1][j][i].lambda/(pMat->Ugas[k+1][j][i].Sigma[0] + pMat->Ugas[k+1][j][i].Sigma[1])); 
+	}
+	
+	/* Now the velocity dependent part Div(vEr + vPr) */
+	Real hdtodx1, hdtodx2, hdtodx3, dt, dx, dy, dz;
+	Real dvxdx, dvydy, dvzdz;
+	
+	Real vxi0, vxi1, vxj0, vxj1, vxk0, vxk1, vyi0, vyi1, vyj0, vyj1, vyk0, vyk1, vzi0, vzi1, vzj0, vzj1, vzk0, vzk1;
+	
+	Real f11, f22, f33, f11i0, f11i1, f22j0, f22j1, f33k0, f33k1;
+	Real f21, f31, f32, f21j0, f21j1, f21i0, f21i1, f31k0, f31k1, f31i0, f31i1, f32j0, f32j1, f32k0, f32k1;
+	
+	Real vFxi0, vFxi1, vFyj0, vFyj1, vFzk0, vFzk1;	
+	Real Sigma_aE;
+	Sigma_aE = pMat->Ugas[k][j][i].Sigma[3];
+	
+	hdtodx1 = 0.5 * pMat->dt/pMat->dx1;
+	hdtodx2 = 0.5 * pMat->dt/pMat->dx2;
+	hdtodx3 = 0.5 * pMat->dt/pMat->dx3;
+	
+	
+	dx = pMat->dx1;
+	dy = pMat->dx2;
+	dz = pMat->dx3;
+	dt = pMat->dt;	
+	
+	/* Assume the velocity already includes background shearing */	
+	
+	vxi0 = pMat->Ugas[k][j][i-1].V1;
+	vxi1 = pMat->Ugas[k][j][i+1].V1;
+	
+	
+	
+	vyi0 = pMat->Ugas[k][j][i-1].V2;
+	vyi1 = pMat->Ugas[k][j][i+1].V2;
+	
+	vxj0 = pMat->Ugas[k][j-1][i].V1;
+	vxj1 = pMat->Ugas[k][j+1][i].V1;
+	
+	vyj0 = pMat->Ugas[k][j-1][i].V2;
+	vyj1 = pMat->Ugas[k][j+1][i].V2;
+	
+	
+	vzi0 = pMat->Ugas[k][j][i-1].V3;
+	vzi1 = pMat->Ugas[k][j][i+1].V3;
+	
+	vzj0 = pMat->Ugas[k][j-1][i].V3;
+	vzj1 = pMat->Ugas[k][j+1][i].V3;
+	
+	if(DIM == 3){
+		
+		vzk0 = pMat->Ugas[k-1][j][i].V3;
+		vzk1 = pMat->Ugas[k+1][j][i].V3;
+		
+		
+		vxk0 = pMat->Ugas[k-1][j][i].V1;
+		vxk1 = pMat->Ugas[k+1][j][i].V1;
+		
+		vyk0 = pMat->Ugas[k-1][j][i].V2;
+		vyk1 = pMat->Ugas[k+1][j][i].V2;
+		
+	}
+	
+	f11i0 = pMat->Ugas[k][j][i-1].Edd_11;
+	f21i0 = pMat->Ugas[k][j][i-1].Edd_21;
+	f31i0 = pMat->Ugas[k][j][i-1].Edd_31;
+	
+	f11 = pMat->Ugas[k][j][i].Edd_11;
+	f22 = pMat->Ugas[k][j][i].Edd_22;
+	f33 = pMat->Ugas[k][j][i].Edd_33;
+	
+	f21 = pMat->Ugas[k][j][i].Edd_21;
+	f31 = pMat->Ugas[k][j][i].Edd_31;
+	f32 = pMat->Ugas[k][j][i].Edd_32;
+	
+	f11i1 = pMat->Ugas[k][j][i+1].Edd_11;
+	f21i1 = pMat->Ugas[k][j][i+1].Edd_21;
+	f31i1 = pMat->Ugas[k][j][i+1].Edd_31;
+	
+	f32j0 = pMat->Ugas[k][j-1][i].Edd_32;
+	f22j0 = pMat->Ugas[k][j-1][i].Edd_22;
+	f21j0 = pMat->Ugas[k][j-1][i].Edd_21;
+	
+	f21j1 = pMat->Ugas[k][j+1][i].Edd_21;
+	f22j1 = pMat->Ugas[k][j+1][i].Edd_22;
+	f32j1 = pMat->Ugas[k][j+1][i].Edd_32;
+	
+	if(DIM == 3){
+		
+		f33k0 = pMat->Ugas[k-1][j][i].Edd_33;
+		f32k0 = pMat->Ugas[k-1][j][i].Edd_32;
+		f31k0 = pMat->Ugas[k-1][j][i].Edd_31;
+		
+		f31k1 = pMat->Ugas[k+1][j][i].Edd_31;
+		f32k1 = pMat->Ugas[k+1][j][i].Edd_32;
+		f33k1 = pMat->Ugas[k+1][j][i].Edd_33;
+	}
+	
+	if(DIM == 2){
+		vFxi0 = f11i0 * vxi0 + vyi0 * f21i0;
+		vFxi1 = f11i1 * vxi1 + vyi1 * f21i1;			
+		
+		
+		vFyj0 = f22j0 * vyj0 + vxj0 * f21j0;
+		vFyj1 = f22j1 * vyj1 + vxj1 * f21j1;		
+		
+		
+	}
+	else if(DIM == 3){
+		vFxi0 = f11i0 * vxi0 + vyi0 * f21i0 + vzi0 * f31i0;
+		vFxi1 = f11i1 * vxi1 + vyi1 * f21i1 + vzi1 * f31i1;			
+		
+		
+		vFyj0 = f22j0 * vyj0 + vxj0 * f21j0 + vzj0 * f32j0;
+		vFyj1 = f22j1 * vyj1 + vxj1 * f21j1 + vzj1 * f32j1;		
+		
+		
+		vFzk0 = f33k0 * vzk0 + vxk0 * f31k0	+ vyk0 * f32k0;
+		vFzk1 = f33k1 * vzk1 + vxk1 * f31k1	+ vyk1 * f32k1;
+	}
+	
+	if(DIM == 2){
+		
+		theta[0] = -Crat * diffj0 * dt / (dy * dy);
+		theta[1] = -Crat * diffi0 * dt / (dx * dx);
+		theta[2] = 1.0 + Crat * (diffi0 + diffi1) * dt /(dx * dx) + Crat * (diffj0 + diffj1) * dt / (dy * dy) + Eratio * Crat * dt * Sigma_aE;
+		theta[3] = -Crat * diffi1 * dt / (dx * dx);
+		theta[4] = -Crat * diffj1 * dt / (dy * dy);
+		
+	}
+	else if(DIM == 3){
+		
+		theta[0] = -Crat * diffk0 * dt / (dz * dz);
+		theta[1] = -Crat * diffj0 * dt / (dy * dy);
+		theta[2] = -Crat * diffi0 * dt / (dx * dx);
+		theta[3] = 1.0 + Crat * (diffi0 + diffi1) * dt /(dx * dx) + Crat * (diffj0 + diffj1) * dt / (dy * dy) 
+		+ Crat * (diffk0 + diffk1) * dt / (dz * dz) + Eratio * Crat * dt * Sigma_aE;
+		theta[4] = -Crat * diffi1 * dt / (dx * dx);
+		theta[5] = -Crat * diffj1 * dt / (dy * dy);
+		theta[6] = -Crat * diffk1 * dt / (dz * dz);
+	}
+}
+
+#endif /* FLD */
+
+
 /* The reduced factor for radiation subsystem */
 /* Eddington tensor is included here */
 /* Absolution value of minimum velocity, actual value should include velocity */
@@ -2640,6 +2902,27 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 	*alpha = reducefactor;	
 
 }
+
+#ifdef FLD
+
+/* The reduced factor for radiation subsystem */
+/* Eddington tensor is included here */
+/* Absolution value of minimum velocity, actual value should include velocity */
+void FLD_limiter(const Real divEr, const Real Er, const Real Sigma, Real *lambda)
+{
+	Real FLDR, limiter;
+	FLDR = fabs(divEr)/(Sigma*Er);
+	if(FLDR < 1.e-6)
+		limiter = 1.0/3.0 - FLDR * FLDR/45.0;
+	else
+		limiter = (1.0/tanh(FLDR) - 1.0/FLDR)/FLDR;
+	
+	(*lambda) = limiter; 
+	
+	
+}
+
+#endif /* FLD */
 
 #ifdef MATRIX_MULTIGRID
 

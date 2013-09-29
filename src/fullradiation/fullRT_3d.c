@@ -22,17 +22,14 @@
 
 static Real ******Divi = NULL;	/* temporary array to store flux for each array */
 static Real ******FullAngleV = NULL;	/* temporary array to store vn */
-static Real ******FullAngleV2 = NULL;	/* temporary array to store vKr */
 static Real ******MatrixAngleV2 = NULL;	/* temporary array to store vKr/I */
-static Real ******FullVsource3 = NULL;	/* temporary array to store vsource3 */
+
 
 static Real *flux = NULL;
-static Real *fluxsource3 = NULL;
-static Real *tempV3V = NULL; /* The advection velocity for source 3 */
+
 static Real *tempimu = NULL;
 static Real *vsource1 = NULL;
-static Real *vsource2 = NULL;
-static Real *vsource3 = NULL;
+
 static Real *tempV = NULL;
 static Real *tempAdv = NULL; /* temporary array for advection flux */
 static Real *tempS = NULL;
@@ -129,9 +126,7 @@ void fullRT_3d(DomainS *pD)
 					for(j=0; j<=je+Radghost; j++){					
 						for(i=0; i<=ie+Radghost; i++){
 							/* First, prepare the array */
-							sigmas = pRG->R[ifr][k][j][i].Sigma[2];
-							/* The absorption opacity in front of I */
-							sigmaa = pRG->R[ifr][k][j][i].Sigma[1];
+							
 #ifdef CYLINDRICAL						
 							miux = pRG->Rphimu[l][n][k][j][i][0];
                             				miuy = pRG->Rphimu[l][n][k][j][i][1];
@@ -153,17 +148,12 @@ void fullRT_3d(DomainS *pD)
 							vz = pG->Velguess[k+offset][j+offset][i+offset][2];
 							
 							FullAngleV[ifr][l][n][k][j][i] = miux * vx + miuy * vy + miuz * vz;
-							FullAngleV2[ifr][l][n][k][j][i] = vx * vx * pRG->R[ifr][k][j][i].K[0] + 2.0 * vx * vy * pRG->R[ifr][k][j][i].K[1] 
-											+ 2.0 * vx * vz * pRG->R[ifr][k][j][i].K[3] + vy * vy * pRG->R[ifr][k][j][i].K[2] 
-											+ 2.0 * vy * vz * pRG->R[ifr][k][j][i].K[4] + vz * vz * pRG->R[ifr][k][j][i].K[5];
-
+							
 							MatrixAngleV2[ifr][l][n][k][j][i] = vx * vx * miux * miux + 2.0 * vx * vy * miux * miuy 
 												+ 2.0 * vx * vz * miux * miuz + vy * vy * miuy * miuy 
 												+ 2.0 * vy * vz * miuy * miuz + vz * vz * miuz * miuz;
 							
-							FullVsource3[ifr][l][n][k][j][i] = -2.0 * sigmas * (vx * pRG->R[ifr][k][j][i].H[0] + vy * pRG->R[ifr][k][j][i].H[1] 
-								+ vz * pRG->R[ifr][k][j][i].H[2])/(sigmaa+sigmas)
-								+ (sigmas-sigmaa)* ((vx*vx+vy*vy+vz*vz)*pRG->R[ifr][k][j][i].J+FullAngleV2[ifr][l][n][k][j][i])/(Crat*(sigmas+sigmaa));
+							
 						}/* end i */
 					}/* end j */
 				}/* end k */
@@ -206,26 +196,22 @@ void fullRT_3d(DomainS *pD)
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 														
 							if((sigmas + sigmaa) > TINY_NUMBER){
-								vsource1[i] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
-								vsource2[i] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[i] = FullVsource3[ifr][l][n][k][j][i];
+								vsource1[i] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
 								
-								tempS[i] = miux * miux * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
+								
+								tempS[i] = miux * miux * (3.0 * pRG->R[ifr][k][j][i].J);
 								if(fabs(miux) > TINY_NUMBER)
 									tempSV[i] = vx + miuy * vy/miux + miuz * vz/miux;
 								else
-									tempSV[i] = 0.0;
-								tempV3V[i] = miux;
+									tempSV[i] = 0.0;				
 							}else{
-								vsource1[i] = 0.0;
-								vsource2[i] = 0.0;
-								vsource3[i] = 0.0;
+								vsource1[i] = 0.0;								
 								tempS[i] = 0.0;
 								tempSV[i] = 0.0;
-								tempV3V[i] = 0.0;
+								
 								
 							}
-							tempimu[i] = miux * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[i] + vsource2[i] + vsource3[i])/Crat);
+							tempimu[i] = miux * (pRG->imu[ifr][l][n][k][j][i] - vsource1[i]/Crat);
 							ReduceVelocity(sigmaa+sigmas, ds, &alpha);	
 							tempV[i] = Crat * alpha * SIGN(miux);		
 						}
@@ -233,8 +219,7 @@ void fullRT_3d(DomainS *pD)
 						
 						/* first, calculate the advection part v(3J+I) */
 						flux_AdvJ(Radr, dir, tempS,	tempSV,	is, ie+1, ds, dt, tempAdv);
-						/* second, calculate the flux due to vsource3 */
-						flux_AdvJ(Radr, dir, vsource3, tempV3V,	is, ie+1, ds, dt, fluxsource3);
+						
 						/* Third, calculate flux due to co-moving miu */
 						flux_AdvJ(Radr, dir, tempimu,	tempV,	is, ie+1, ds, dt, flux);
 						
@@ -245,7 +230,6 @@ void fullRT_3d(DomainS *pD)
 #endif						
 							
 							Divi[ifr][l][n][k][j][i] = 0.5 * (rsf * (tempSV[i+1]+tempSV[i]) * tempAdv[i+1] - lsf * (tempSV[i] + tempSV[i-1]) * tempAdv[i]) * dtods;
-							Divi[ifr][l][n][k][j][i]+= 0.5 * (rsf * (tempV3V[i+1]+tempV3V[i]) * fluxsource3[i+1] - lsf * (tempV3V[i] + tempV3V[i-1]) * fluxsource3[i]) * dtods;
 							Divi[ifr][l][n][k][j][i]+= Crat * (rsf * flux[i+1] - lsf * flux[i]) * dtods;
 							
 						}/* End i */
@@ -299,28 +283,22 @@ void fullRT_3d(DomainS *pD)
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 							
 							
-							if((sigmas + sigmaa) > TINY_NUMBER){
-								vsource1[j] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
-								vsource2[j] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[j] = FullVsource3[ifr][l][n][k][j][i];
-								
-								
-								tempS[j] = miuy * miuy * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
+							if((sigmas + sigmaa) > TINY_NUMBER){								
+								vsource1[j] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
+															
+								tempS[j] = miuy * miuy * 3.0 * pRG->R[ifr][k][j][i].J;
 								if(fabs(miuy) > TINY_NUMBER)
 									tempSV[j] = miux * vx/miuy + vy + miuz * vz/miuy;
 								else
-									tempSV[j] = 0.0;
-								tempV3V[j] = miuy;
+									tempSV[j] = 0.0;								
 							}else{
 								vsource1[j] = 0.0;
-								vsource2[j] = 0.0;
-								vsource3[j] = 0.0;
+								
 								tempS[j] = 0.0;
-								tempSV[j] = 0.0;
-								tempV3V[j] = 0.0;
+								tempSV[j] = 0.0;							
 								
 							}
-							tempimu[j] = miuy * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[j] + vsource2[j] + vsource3[j])/Crat);
+							tempimu[j] = miuy * (pRG->imu[ifr][l][n][k][j][i] - vsource1[j]/Crat);
 							ReduceVelocity(sigmaa+sigmas, ds, &alpha);
 							tempV[j] = Crat * alpha * SIGN(miuy);
 						}/* End j */				
@@ -329,15 +307,13 @@ void fullRT_3d(DomainS *pD)
 						
 						/* first, calculate the advection part v(3J+I) */
 						flux_AdvJ(Radr, dir, tempS, tempSV,	js, je+1, ds, dt, tempAdv);
-						/* second, calculate the flux due to vsource3 */
-						flux_AdvJ(Radr, dir, vsource3, tempV3V,	js, je+1, ds, dt, fluxsource3);
+						
 						/* Third, calculate flux due to co-moving miu */
 						flux_AdvJ(Radr, dir, tempimu,	tempV,	js, je+1, ds, dt, flux);
 						
 						/* Now save the flux difference. Note that flux_advJ only calculates the interface values, not the actual flux */
 						for(j=js; j<=je; j++){
 							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempSV[j+1]+tempSV[j])	* tempAdv[j+1] - (tempSV[j] + tempSV[j-1]) * tempAdv[j]) * dtods;
-							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempV3V[j+1]+tempV3V[j]) * fluxsource3[j+1] - (tempV3V[j] + tempV3V[j-1]) * fluxsource3[j]) * dtods;
 							Divi[ifr][l][n][k][j][i]+= Crat * (flux[j+1] - flux[j]) * dtods;						
 						}/* End j */	
 						
@@ -384,43 +360,39 @@ void fullRT_3d(DomainS *pD)
 							AngleV = FullAngleV[ifr][l][n][k][j][i];
 							
 							
-							if((sigmas + sigmaa) > TINY_NUMBER){
-								vsource1[k] = AngleV * (pRG->imu[ifr][l][n][k][j][i]);
-								vsource2[k] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
-								vsource3[k] = FullVsource3[ifr][l][n][k][j][i];
+							if((sigmas + sigmaa) > TINY_NUMBER){								
+								vsource1[k] = AngleV * (3.0 * pRG->R[ifr][k][j][i].J);
 								
 								
-								tempS[k] = miuz * miuz * (3.0 * pRG->R[ifr][k][j][i].J + pRG->imu[ifr][l][n][k][j][i]);
+								
+								tempS[k] = miuz * miuz * 3.0 * pRG->R[ifr][k][j][i].J;
 								if(fabs(miuz) > TINY_NUMBER)
 									tempSV[k] = miux * vx/miuz + miuy * vy/miuz  + vz;
 								else
 									tempSV[k] = 0.0;
-								tempV3V[k] = miuz;
+								
 							}else{
 								vsource1[k] = 0.0;
-								vsource2[k] = 0.0;
-								vsource3[k] = 0.0;
+								
 								tempS[k] = 0.0;
 								tempSV[k] = 0.0;
-								tempV3V[k] = 0.0;
+								
 								
 							}
-							tempimu[k] = miuz * (pRG->imu[ifr][l][n][k][j][i] - (vsource1[k] + vsource2[k] + vsource3[k])/Crat);
+							tempimu[k] = miuz * (pRG->imu[ifr][l][n][k][j][i] - vsource1[k]/Crat);
 							ReduceVelocity(sigmaa+sigmas, ds, &alpha);
 							tempV[k] = Crat * alpha * SIGN(miuz);
 						}/* End k */
 						
 						/* first, calculate the advection part v(3J+I) */
 						flux_AdvJ(Radr, dir, tempS,	tempSV,	ks, ke+1, ds, dt, tempAdv);
-						/* second, calculate the flux due to vsource3 */
-						flux_AdvJ(Radr, dir, vsource3, tempV3V,	ks, ke+1, ds, dt, fluxsource3);
+						
 						/* Third, calculate flux due to co-moving miu */
 						flux_AdvJ(Radr, dir, tempimu,	tempV,	ks, ke+1, ds, dt, flux);
 						
 						/* Now save the flux difference. Note that flux_advJ only calculates the interface values, not the actual flux */
 						for(k=ks; k<=ke; k++){
-							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempSV[k+1]+tempSV[k])	* tempAdv[k+1] - (tempSV[k] + tempSV[k-1]) * tempAdv[k]) * dtods;
-							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempV3V[k+1]+tempV3V[k]) * fluxsource3[k+1] - (tempV3V[k] + tempV3V[k-1]) * fluxsource3[k]) * dtods;
+							Divi[ifr][l][n][k][j][i]+= 0.5 * ((tempSV[k+1]+tempSV[k])	* tempAdv[k+1] - (tempSV[k] + tempSV[k-1]) * tempAdv[k]) * dtods;							
 							Divi[ifr][l][n][k][j][i]+= Crat * (flux[k+1] - flux[k]) * dtods;						
 						}/* End k */	
 				
@@ -658,18 +630,17 @@ void fullRT_3d_destruct(void)
 
 	if(Divi != NULL) free_6d_array(Divi);
 	if(FullAngleV != NULL) free_6d_array(FullAngleV);	
-	if(FullAngleV2 != NULL) free_6d_array(FullAngleV2);
+	
 	if(MatrixAngleV2 != NULL) free_6d_array(MatrixAngleV2);	
-	if(FullVsource3 != NULL) free_6d_array(FullVsource3);
+	
 	if(flux != NULL) free_1d_array(flux);
-	if(fluxsource3 != NULL) free_1d_array(fluxsource3);
-	if(tempV3V != NULL) free_1d_array(tempV3V);
+	
+
 	if(tempimu != NULL) free_1d_array(tempimu);
 	if(tempS != NULL) free_1d_array(tempS);
 	if(tempSV != NULL) free_1d_array(tempSV);
 	if(vsource1 != NULL) free_1d_array(vsource1);
-	if(vsource2 != NULL) free_1d_array(vsource2);
-	if(vsource3 != NULL) free_1d_array(vsource3);
+	
 	if(tempV != NULL) free_1d_array(tempV);
 	if(tempAdv != NULL) free_1d_array(tempAdv);
 	if(RHS != NULL) free_4d_array(RHS);
@@ -711,27 +682,19 @@ void fullRT_3d_init(RadGridS *pRG)
 	if ((flux = (Real *)calloc_1d_array( nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((fluxsource3 = (Real *)calloc_1d_array( nmax+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
-	
-	if ((tempV3V = (Real *)calloc_1d_array( nmax+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
-	
+		
 	if ((Divi = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
 	if ((FullAngleV = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((FullAngleV2 = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
+	
 
 	if ((MatrixAngleV2 = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((FullVsource3 = (Real ******)calloc_6d_array(nfr, noct, nang, nx3+2*Radghost, nx2+2*Radghost, nx1+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
-	
+		
 	if ((tempimu = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
@@ -744,11 +707,7 @@ void fullRT_3d_init(RadGridS *pRG)
 	if ((vsource1 = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
 	
-	if ((vsource2 = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
 	
-	if ((vsource3 = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
-		goto on_error;
 	
 	if ((tempV = (Real *)calloc_1d_array(nmax+2*Radghost, sizeof(Real))) == NULL)
 		goto on_error;
@@ -813,6 +772,62 @@ void fullRT_3d_init(RadGridS *pRG)
 		goto on_error;
 	if ((UN3 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)
 		goto on_error;
+	
+	
+	/* Store the angle and weight information to calculate the momentums */
+	/* This information does not change during the simulation */
+	/* So we can calculate it during the initialization after the memory is allocated */
+	
+	/*------------------------------------------------------*/
+	
+	int l, n, i, j, k, Mi;
+	int ie = pRG->ie, je = pRG->je, ke = pRG->ke;
+	
+	Real miux, miuy, miuz;
+	
+	for(l=0; l<noct; l++){
+		for(n=0; n<nang; n++){
+			/* First, prepare the data for AngleV, AngleV2 and Vsource3 */
+			for(k=0; k<=ke+Radghost; k++){
+				for(j=0; j<=je+Radghost; j++){	
+					for(i=0; i<=ie+Radghost; i++){
+					
+						Mi = l * nang + n;
+					
+#ifdef CYLINDRICAL						
+					
+						miux = pRG->Rphimu[l][n][k][j][i][0]; 
+						miuy = pRG->Rphimu[l][n][k][j][i][1];
+						miuz = pRG->Rphimu[l][n][k][j][i][2];
+#else
+						miux = pRG->mu[l][n][k][j][i][0]; 
+						miuy = pRG->mu[l][n][k][j][i][1];
+						miuz = pRG->mu[l][n][k][j][i][2];
+#endif
+					
+					
+					
+						Coefn[k][j][i][Mi][0] = miux;
+						Coefn[k][j][i][Mi][1] = miuy;
+						Coefn[k][j][i][Mi][2] = miuz;
+					
+						Coefnn[k][j][i][Mi][0] = miux * miux;
+						Coefnn[k][j][i][Mi][1] = miux * miuy;
+						Coefnn[k][j][i][Mi][2] = miuy * miuy;
+						Coefnn[k][j][i][Mi][3] = miux * miuz;
+						Coefnn[k][j][i][Mi][4] = miuy * miuz;
+						Coefnn[k][j][i][Mi][5] = miuz * miuz;
+					
+						CoefW[k][j][i][Mi] = pRG->wmu[n][k][j][i];
+					
+					}/* end i */
+				}/* end j */
+			}/* end k */
+		}/* end n */
+	}/* end l */
+	
+	
+	/*------------------------------------------------------*/
 	
 
 	return;

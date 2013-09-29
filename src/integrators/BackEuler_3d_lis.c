@@ -27,6 +27,8 @@
 #include "../particles/particle.h"
 #endif
 
+#ifndef FLD
+
 #ifdef MATRIX_LIS
 
 #ifdef STATIC_MESH_REFINEMENT
@@ -27998,4 +28000,6 @@ if(rx1 < ID)
 #endif /* radMHD_INTEGRATOR */
 
 #endif /* MATRIX_LIS */
+
+#endif /* FLD */
 

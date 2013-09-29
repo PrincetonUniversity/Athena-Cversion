@@ -81,6 +81,12 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 
 void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const Real Edd, const Real velocity, Real *alpha, int flag, Real dl);
 
+#ifdef FLD
+
+void FLD_limiter(const Real divEr, const Real Er, const Real Sigma, Real *lambda);
+
+#endif
+
 /* This function is in utils.c */
 #ifdef MATRIX_MULTIGRID
 void vector_product(const Real *v1, const Real *v2, const int dim, Real *result);
