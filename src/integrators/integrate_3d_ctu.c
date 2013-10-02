@@ -267,36 +267,7 @@ void integrate_3d_ctu(DomainS *pD)
 	
 	
 	
-	
-	/*===============================================================*/
-	/* First of all, calculate the radiation source term for pressure  */
-	/* sigma_a(T^4 - Er) */	
-	
-#ifdef FULL_RADIATION_TRANSFER
-	Real T, rho;	
-	for(k=ks-Radghost; k<=ke+Radghost; k++){
-		for(j=js-Radghost; j<=je+Radghost; j++){
-			for(i=is-Radghost; i<=ie+Radghost; i++){
-				/* First, calculate current T */
-				rho = pG->U[k][j][i].d;
-				T = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + 
-										   pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / rho;
-#ifdef MHD       
-				T -= 0.5 * (SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) +
-							SQR(pG->U[k][j][i].B3c) );
-#endif			
-				T *= Gamma_1;
-			
-				T = MAX(T/(rho*R_ideal), 0.0);
-			
-				RadPsource[k][j][i] = (pG->tgas[k][j][i] - T) * rho * R_ideal;
-			
-			}/* end i */	
-		}/* end j */
-	}/* end k */
-	
-#endif
-	
+
 	
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
@@ -4141,6 +4112,14 @@ void integrate_init_3d(MeshS *pM)
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL) {
+		  
+#ifdef FULL_RADIATION_TRANSFER
+		  
+		  /* Set the pointer */
+		  RadPsource = pM->Domain[nl][nd].Grid->Pgsource;
+		  
+#endif
+		  
         if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
           size1 = pM->Domain[nl][nd].Grid->Nx[0];
         }
@@ -4230,11 +4209,7 @@ void integrate_init_3d(MeshS *pM)
     ==NULL)  goto on_error;
 #endif
 	
-#ifdef FULL_RADIATION_TRANSFER
-  if ((RadPsource=(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))==NULL)
-	goto on_error;	
- 	
-#endif	
+	
 
 #ifdef CYLINDRICAL
 #ifndef MHD
@@ -4332,9 +4307,7 @@ void integrate_destruct_3d(void)
   if (density_old    != NULL) free_3d_array(density_old);
 #endif
 	
-#ifdef FULL_RADIATION_TRANSFER
-  if (RadPsource != NULL) free_3d_array(RadPsource); 	
-#endif	
+
 
   /* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL

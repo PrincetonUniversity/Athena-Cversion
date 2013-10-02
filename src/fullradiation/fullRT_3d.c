@@ -420,6 +420,7 @@ void fullRT_3d(DomainS *pD)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){
 				pG->Radheat[k+offset][j+offset][i+offset] = 0.0;
+				pG->Pgsource[k+offset][j+offset][i+offset] = 0.0;
 				for(l=0; l<3; l++)
 					pG->Frsource[k+offset][j+offset][i+offset][l] = 0.0;
 			}
@@ -675,6 +676,10 @@ void fullRT_3d_init(RadGridS *pRG)
 	int nfr = pRG->nf, noct = pRG->noct, nang = pRG->nang;
 	int nmax;
 
+	int l, n, i, j, k, Mi;
+	int ie = pRG->ie, je = pRG->je, ke = pRG->ke;
+	
+	Real miux, miuy, miuz;
 
 	nmax = MAX(nx1,nx2);
 	nmax = MAX(nmax,nx3);
@@ -780,10 +785,7 @@ void fullRT_3d_init(RadGridS *pRG)
 	
 	/*------------------------------------------------------*/
 	
-	int l, n, i, j, k, Mi;
-	int ie = pRG->ie, je = pRG->je, ke = pRG->ke;
 	
-	Real miux, miuy, miuz;
 	
 	for(l=0; l<noct; l++){
 		for(n=0; n<nang; n++){

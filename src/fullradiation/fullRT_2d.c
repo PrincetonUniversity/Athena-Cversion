@@ -330,6 +330,7 @@ void fullRT_2d(DomainS *pD)
 	for(j=js-Radghost; j<=je+Radghost; j++){
 		for(i=is-Radghost; i<=ie+Radghost; i++){
 			pG->Radheat[ks][j+offset][i+offset] = 0.0;
+			pG->Pgsource[ks][j+offset][i+offset] = 0.0;
 			for(l=0; l<3; l++)
 				pG->Frsource[ks][j+offset][i+offset][l] = 0.0;
 		}
@@ -572,6 +573,13 @@ void fullRT_2d_init(RadGridS *pRG)
 	int nx1 = pRG->Nx[0], nx2 = pRG->Nx[1];
 	int nfr = pRG->nf, noct = pRG->noct, nang = pRG->nang;
 	int nmax;
+	
+	
+	int l, n, i, j, Mi;
+	int ie = pRG->ie, je = pRG->je;
+	
+	Real miux, miuy, miuz;
+	
 
 
 	nmax = MAX(nx1,nx2);
@@ -679,12 +687,7 @@ void fullRT_2d_init(RadGridS *pRG)
 	/* So we can calculate it during the initialization after the memory is allocated */
 	
 	/*------------------------------------------------------*/
-	
-	int l, n, i, j, Mi;
-	int ie = pRG->ie, je = pRG->je;
-	
-	Real miux, miuy, miuz;
-	
+		
 	for(l=0; l<noct; l++){
 		for(n=0; n<nang; n++){
 			/* First, prepare the data for AngleV, AngleV2 and Vsource3 */

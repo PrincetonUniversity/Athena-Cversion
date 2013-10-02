@@ -195,33 +195,6 @@ void integrate_2d_ctu(DomainS *pD)
 #endif
 	
 
-/*===============================================================*/
-/* First of all, calculate the radiation source term for pressure  */
-/* sigma_a(T^4 - Er) */	
-	
-#ifdef FULL_RADIATION_TRANSFER
-	Real T, rho;	
-	
-	for(j=js-Radghost; j<=je+Radghost; j++){
-		for(i=is-Radghost; i<=ie+Radghost; i++){
-			/* First, calculate current T */
-			rho = pG->U[ks][j][i].d;
-			T = pG->U[ks][j][i].E - 0.5 * (pG->U[ks][j][i].M1 * pG->U[ks][j][i].M1 + pG->U[ks][j][i].M2 * pG->U[ks][j][i].M2 + 
-										   pG->U[ks][j][i].M3 * pG->U[ks][j][i].M3) / rho;
-#ifdef MHD       
-			T -= 0.5 * (SQR(pG->U[ks][j][i].B1c) + SQR(pG->U[ks][j][i].B2c) +
-							 SQR(pG->U[ks][j][i].B3c) );
-#endif			
-			T *= Gamma_1;
-			
-			T = MAX(T/(rho*R_ideal), 0.0);
-			
-			RadPsource[j][i] = (pG->tgas[ks][j][i] - T) * rho * R_ideal;
-			
-		}/* end i */	
-	}/* end j */
-	
-#endif
 
 /*=== STEP 1: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
@@ -2175,6 +2148,14 @@ void integrate_init_2d(MeshS *pM)
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL) {
+		  
+		  
+#ifdef FULL_RADIATION_TRANSFER
+		  /* Set the pointer */
+		  RadPsource = pM->Domain[nl][nd].Grid->Pgsource[0];
+		  
+#endif
+		  
         if (pM->Domain[nl][nd].Grid->Nx[0] > size1){
           size1 = pM->Domain[nl][nd].Grid->Nx[0];
         }
@@ -2242,11 +2223,6 @@ void integrate_init_2d(MeshS *pM)
     goto on_error;
 #endif
 
-#ifdef FULL_RADIATION_TRANSFER
-  if ((RadPsource=(Real**)calloc_2d_array(size2,size1,sizeof(Real)))==NULL)
-		goto on_error;	
- 	
-#endif
 
 #ifndef CYLINDRICAL
 #ifndef MHD
@@ -2315,9 +2291,7 @@ void integrate_destruct_2d(void)
 
 #endif
 	
-#ifdef FULL_RADIATION_TRANSFER
-  if (RadPsource != NULL) free_2d_array(RadPsource); 	
-#endif	
+
 
   if (dhalf     != NULL) free_2d_array(dhalf);
   if (phalf     != NULL) free_2d_array(phalf);

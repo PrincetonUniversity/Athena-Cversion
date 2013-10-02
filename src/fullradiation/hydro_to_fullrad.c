@@ -217,6 +217,9 @@ void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **T
 			/* This is initialized to be zero before it is called */
 			pG->Radheat[0][j+offset][i+offset] += (pRG->wnu[ifr] * Ersource);
 			
+			/* Radiation source term for gas pressure alone */
+			pG->Pgsource[0][j+offset][i+offset] += (pRG->wnu[ifr] * Tcoef[j][i] * (Tgas - pG->tgas[0][j+offset][i+offset]) * Gamma_1);
+			
 			for(l=0; l<3; l++)
 				pG->Frsource[0][j+offset][i+offset][l] += (pRG->wnu[ifr] * Msource[l]);
 			
@@ -341,6 +344,9 @@ void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***
 				/* Now put the energy and momentum source term back */	
 				/* This is initialized to be zero before it is called */
 				pG->Radheat[k+offset][j+offset][i+offset] += (pRG->wnu[ifr] * Ersource);
+				
+				/* Radiation source term for gas pressure alone */
+				pG->Pgsource[k+offset][j+offset][i+offset] += (pRG->wnu[ifr] * Tcoef[k][j][i] * (Tgas - pG->tgas[k+offset][j+offset][i+offset]) * Gamma_1);
 			
 				for(l=0; l<3; l++)
 					pG->Frsource[k+offset][j+offset][i+offset][l] += (pRG->wnu[ifr] * Msource[l]);

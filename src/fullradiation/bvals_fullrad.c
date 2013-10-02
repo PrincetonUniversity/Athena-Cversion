@@ -810,7 +810,7 @@ void bvals_fullrad_init(MeshS *pM)
 	 /* No need to transfer moments and opacity, they are updated locally */
 
 	  xcnt = Radghost * nx2t * nx3t * noct * nang * nf;
-	  xcnt += Radghost * nx2t * nx3t * (1 + 3);
+	  xcnt += Radghost * nx2t * nx3t * (1 + 1 + 3);
 
 	  if(xcnt > x1cnt) x1cnt = xcnt;
 	}
@@ -827,7 +827,7 @@ void bvals_fullrad_init(MeshS *pM)
 	   /* space for J H, K and Sigma */
 
 	  xcnt = Radghost * nx1t * nx3t * noct * nang * nf;
-	  xcnt += Radghost * nx1t * nx3t * (1 + 3);	
+	  xcnt += Radghost * nx1t * nx3t * (1 + 1 + 3);	
 
 	  if(xcnt > x2cnt) x2cnt = xcnt;
 	}
@@ -838,10 +838,10 @@ void bvals_fullrad_init(MeshS *pM)
 	  nx2t = pD->GData[n][m][l].Nx[1] + 2 * Radghost;
 
 
-	   /* space for J H, K and Sigma */
+	   /* space for Radheat, Pgsource, and 3 Frsource */
 
 	  xcnt = Radghost * nx1t * nx2t * noct * nang * nf;
-	  xcnt += Radghost * nx1t * nx2t * (1 + 3);	
+	  xcnt += Radghost * nx1t * nx2t * (1 + 1 + 3);	
 
           if(xcnt > x3cnt) x3cnt = xcnt;
 	}
@@ -961,7 +961,8 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];		
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];
+				pG->Pgsource[k+koff][j+joff][is-i+ioff] = pG->Pgsource[k+koff][j+joff][is+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][is+ioff][l];
@@ -1017,7 +1018,8 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];		
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];
+				pG->Pgsource[k+koff][j+joff][ie+i+ioff] = pG->Pgsource[k+koff][j+joff][ie+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][ie+ioff][l];
@@ -1071,7 +1073,8 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=1; j<=Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];		
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];
+				pG->Pgsource[k+koff][js-j+joff][i+ioff] = pG->Pgsource[k+koff][js+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][js+joff][i+ioff][l];
@@ -1120,6 +1123,7 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
 				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][je+joff][i+ioff];		
+				pG->Pgsource[k+koff][je+j+joff][i+ioff] = pG->Pgsource[k+koff][je+joff][i+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][je+joff][i+ioff][l];
@@ -1168,7 +1172,8 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];		
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];	
+				pG->Pgsource[ks-k+koff][j+joff][i+ioff] = pG->Pgsource[ks+koff][j+joff][i+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+koff][j+joff][i+ioff][l];
@@ -1216,7 +1221,8 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];		
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];	
+				pG->Pgsource[ke+k+koff][j+joff][i+ioff] = pG->Pgsource[ke+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ke+koff][j+joff][i+ioff][l];
@@ -1274,7 +1280,8 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][ie-(i-1)+ioff];		
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][ie-(i-1)+ioff];
+				pG->Pgsource[k+koff][j+joff][is-i+ioff] = pG->Pgsource[k+koff][j+joff][ie-(i-1)+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][ie-(i-1)+ioff][l];
@@ -1328,7 +1335,8 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][is+(i-1)+ioff];		
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][is+(i-1)+ioff];
+				pG->Pgsource[k+koff][j+joff][ie+i+ioff] = pG->Pgsource[k+koff][j+joff][is+(i-1)+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][is+(i-1)+ioff][l];
@@ -1382,7 +1390,8 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=1; j<=Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][je-(j-1)+joff][i+ioff];		
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][je-(j-1)+joff][i+ioff];	
+				pG->Pgsource[k+koff][js-j+joff][i+ioff] = pG->Pgsource[k+koff][je-(j-1)+joff][i+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][je-(j-1)+joff][i+ioff][l];
@@ -1434,6 +1443,7 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
 				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][js+(j-1)+joff][i+ioff];		
+				pG->Pgsource[k+koff][je+j+joff][i+ioff] = pG->Pgsource[k+koff][js+(j-1)+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][js+(j-1)+joff][i+ioff][l];
@@ -1484,7 +1494,8 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ke-(k-1)+koff][j+joff][i+ioff];		
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ke-(k-1)+koff][j+joff][i+ioff];
+				pG->Pgsource[ks-k+koff][j+joff][i+ioff] = pG->Pgsource[ke-(k-1)+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ke-(k-1)+koff][j+joff][i+ioff][l];
@@ -1537,7 +1548,8 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ks+(k-1)+koff][j+joff][i+ioff];		
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ks+(k-1)+koff][j+joff][i+ioff];
+				pG->Pgsource[ke+k+koff][j+joff][i+ioff] = pG->Pgsource[ks+(k-1)+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+(k-1)+koff][j+joff][i+ioff][l];
@@ -1808,7 +1820,8 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];		
+				pG->Radheat[k+koff][j+joff][is-i+ioff] = pG->Radheat[k+koff][j+joff][is+ioff];	
+				pG->Pgsource[k+koff][j+joff][is-i+ioff] = pG->Pgsource[k+koff][j+joff][is+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][is-i+ioff][l] = pG->Frsource[k+koff][j+joff][is+ioff][l];
@@ -1884,7 +1897,8 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=je; j++){
 			for(i=1; i<=Radghost; i++){
 				
-				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];		
+				pG->Radheat[k+koff][j+joff][ie+i+ioff] = pG->Radheat[k+koff][j+joff][ie+ioff];	
+				pG->Pgsource[k+koff][j+joff][ie+i+ioff] = pG->Pgsource[k+koff][j+joff][ie+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][j+joff][ie+i+ioff][l] = pG->Frsource[k+koff][j+joff][ie+ioff][l];
@@ -1959,7 +1973,8 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=1; j<=Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];		
+				pG->Radheat[k+koff][js-j+joff][i+ioff] = pG->Radheat[k+koff][js+joff][i+ioff];
+				pG->Pgsource[k+koff][js-j+joff][i+ioff] = pG->Pgsource[k+koff][js+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][js-j+joff][i+ioff][l] = pG->Frsource[k+koff][js+joff][i+ioff][l];
@@ -2013,7 +2028,9 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=1; j<=Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][je+joff][i+ioff];		
+				pG->Radheat[k+koff][je+j+joff][i+ioff] = pG->Radheat[k+koff][je+joff][i+ioff];
+				pG->Pgsource[k+koff][je+j+joff][i+ioff] = pG->Pgsource[k+koff][je+joff][i+ioff];
+				
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[k+koff][je+j+joff][i+ioff][l] = pG->Frsource[k+koff][je+joff][i+ioff][l];
@@ -2067,7 +2084,8 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];		
+				pG->Radheat[ks-k+koff][j+joff][i+ioff] = pG->Radheat[ks+koff][j+joff][i+ioff];	
+				pG->Pgsource[ks-k+koff][j+joff][i+ioff] = pG->Pgsource[ks+koff][j+joff][i+ioff];	
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ks-k+koff][j+joff][i+ioff][l] = pG->Frsource[ks+koff][j+joff][i+ioff][l];
@@ -2125,7 +2143,8 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){	
 				
-				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];		
+				pG->Radheat[ke+k+koff][j+joff][i+ioff] = pG->Radheat[ke+koff][j+joff][i+ioff];	
+				pG->Pgsource[ke+k+koff][j+joff][i+ioff] = pG->Pgsource[ke+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++){
 					pG->Frsource[ke+k+koff][j+joff][i+ioff][l] = pG->Frsource[ke+koff][j+joff][i+ioff][l];
@@ -2265,7 +2284,8 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
 			for(i=is; i<=is+(Radghost-1); i++){
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2320,7 +2340,8 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
 			for(i=ie-(Radghost-1); i<=ie; i++){
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2370,7 +2391,8 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js; j<=js+(Radghost-1); j++){
 	        for(i=is-Radghost; i<=ie+Radghost; i++){
 				
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2421,7 +2443,8 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=je-(Radghost-1); j<=je; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){
 				
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2475,7 +2498,8 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){
 				
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2526,7 +2550,8 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 		for(j=js-Radghost; j<=je+Radghost; j++){
 			for(i=is-Radghost; i<=ie+Radghost; i++){
 				
-				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];	
+				*(pSnd++) = pG->Radheat[k+koff][j+joff][i+ioff];
+				*(pSnd++) = pG->Pgsource[k+koff][j+joff][i+ioff];
 				
 				for(l=0; l<3; l++)
 					*(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];	
@@ -2578,6 +2603,7 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=is-1; i++){
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
@@ -2631,6 +2657,7 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=ie+1; i<=ie+Radghost; i++){
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
@@ -2681,6 +2708,7 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=ie+Radghost; i++){	  
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
@@ -2732,6 +2760,7 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=ie+Radghost; i++){ 	  
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
@@ -2783,6 +2812,7 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	        for(i=is-Radghost; i<=ie+Radghost; i++){    	  
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	
@@ -2836,6 +2866,7 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 			for(i=is-Radghost; i<=ie+Radghost; i++){          	  
 				
 				pG->Radheat[k+koff][j+joff][i+ioff] = *(pRcv++);
+				pG->Pgsource[k+koff][j+joff][i+ioff] = *(pRcv++);
 				
 				for(l=0; l<3; l++)
 					pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);	

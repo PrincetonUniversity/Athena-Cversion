@@ -848,9 +848,12 @@ void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real 
 	RHS[N] = (tempRHS[0] * CoefN1[0]/CoefN[0] - tempRHS[1])/temp;
 	RHS[N-1] = (tempRHS[0] - CoefN[1] * RHS[N])/CoefN[0];
 	
+	
+	temp = -Ma[N-1] * RHS[N-1];
+	
 	/* Now set the solution */
 	for(i=0; i<N-1; i++){
-		RHS[i] = (RHS[i] - (-Ma[N-1] * RHS[N-1] + Md[i] * RHS[N]))/Ma[i];		
+		RHS[i] = (RHS[i] - (temp + Md[i] * RHS[N]))/Ma[i];		
 	}
 	
 	/* Now the new solutions are stored in RHS[] */
