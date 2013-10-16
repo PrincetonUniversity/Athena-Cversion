@@ -4983,8 +4983,10 @@ void Fargo(DomainS *pD)
     ath_error("[Fargo]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
 #endif
 
+#ifdef SHEARING_BOX
   if (ShBoxCoord != xy)
     return;
+#endif
 
 /*--- Step 1. ------------------------------------------------------------------
  * Copy data into FargoVars array.  Note i and j indices are switched.
