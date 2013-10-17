@@ -1550,14 +1550,18 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
         Ur_x2Face[k][j][i].Mz -= hdt*pG->U[k][j][i].d*g;
 #ifndef BAROTROPIC
-        Ur_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+        Ur_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j  ][i  ].d
+                                         + rsf*x1Flux[k][j  ][i+1].d);
+	#ifdef ROTATING_FRAME
                 Ur_x2Face[k][j][i].E -= hdt * 0.5*(x1Flux[k][j  ][i  ].d+x1Flux[k][j  ][i+1].d)
                                         * SQR(Omega_0)*Rc*cos(x2);
-	#endif
+        #endif
+#else
+        Ur_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
+                                  + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
 #endif
-
+#endif
         phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
         phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
@@ -1578,12 +1582,17 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
         Ul_x2Face[k][j][i].Mz -= hdt*pG->U[k][j-1][i].d*g;
 #ifndef BAROTROPIC
-        Ul_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+        Ul_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j-1][i  ].d
+                                         + rsf*x1Flux[k][j-1][i+1].d);
+	#ifdef ROTATING_FRAME
                 Ul_x2Face[k][j][i].E -= hdt * 0.5*(x1Flux[k][j-1][i  ].d+x1Flux[k][j-1][i+1].d)
                                         * SQR(Omega_0)*Rc*cos(x2-pG->dx2);
-	#endif
+        #endif
+#else
+        Ul_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
+                                  + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
+#endif
 #endif
         phir = (*StaticGravPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
         phil = (*StaticGravPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
@@ -1983,27 +1992,35 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
         Ur_x3Face[k][j][i].My -= hdt*pG->U[k][j][i].d*g;
 #ifndef BAROTROPIC
-        Ur_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+        Ur_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k  ][j][i  ].d
+                                         + rsf*x1Flux[k  ][j][i+1].d);
+	#ifdef ROTATING_FRAME
                 Ur_x3Face[k][j][i].E -= hdt * 0.5*(x1Flux[k][j][i  ].d+x1Flux[k][j][i+1].d)
                                         * SQR(Omega_0)*Rc*cos(x2);
-	#endif
+        #endif
+#else
+        Ur_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
+                                  + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
 #endif
-
+#endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
         Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-        Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
-                                  + x2Flux[k  ][j+1][i].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+        Ur_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k  ][j][i  ].d
+                                         + rsf*x1Flux[k  ][j][i+1].d);
+	#ifdef ROTATING_FRAME
                 Ur_x3Face[k][j][i].E += hdt * 0.5*(x2Flux[k][j  ][i].d*sin(x2-0.5*pG->dx2) +
                                                    x2Flux[k][j+1][i].d*sin(x2+0.5*pG->dx2)) *SQR(Omega_0)*Rc;
         #endif
+#else
+        Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
+                                  + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
-
+#endif
         /* correct left states; x1 and x2 gradients */
         phic = (*StaticGravPot)((x1            ),x2,(x3-pG->dx3));
         phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
@@ -2015,14 +2032,18 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
         Ul_x3Face[k][j][i].My -= hdt*pG->U[k-1][j][i].d*g;
 #ifndef BAROTROPIC
-        Ul_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
-                                  + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+        Ul_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k-1][j][i  ].d
+                                         + rsf*x1Flux[k-1][j][i+1].d);
+	#ifdef ROTATING_FRAME
                 Ul_x3Face[k][j][i].E -= hdt * 0.5*(x1Flux[k-1][j][i  ].d+x1Flux[k-1][j][i+1].d)
                                          * SQR(Omega_0)*Rc*cos(x2);
-	#endif
+        #endif
+#else
+        Ul_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
+                                  + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
 #endif
-
+#endif
         phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
 
@@ -2970,11 +2991,16 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
           pG->U[k][j][i].M1 -= pG->dt*dhalf[k][j][i]*g;
 #ifndef BAROTROPIC
-          pG->U[k][j][i].E -= dtodx1*(lsf*x1Flux[k][j][i  ].d*(phic - phil) +
-                                      rsf*x1Flux[k][j][i+1].d*(phir - phic));
-        #ifdef ROTATING_FRAME
+#ifdef CYLINDRICAL
+          pG->U[k][j][i].E -= hdt*g*(lsf*x1Flux[k][j][i  ].d +
+                                     rsf*x1Flux[k][j][i+1].d);
+	#ifdef ROTATING_FRAME
                 pG->U[k][j][i].E -= pG->dt * 0.5*(x1Flux[k][j][i].d+x1Flux[k][j][i+1].d) * SQR(Omega_0)*Rc * cos(x2);
         #endif
+#else
+          pG->U[k][j][i].E -= dtodx1*(lsf*x1Flux[k][j][i  ].d*(phic - phil) +
+                                      rsf*x1Flux[k][j][i+1].d*(phir - phic));
+#endif
 #endif
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);

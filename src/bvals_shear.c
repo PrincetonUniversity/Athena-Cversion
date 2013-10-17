@@ -4969,6 +4969,7 @@ void Fargo(DomainS *pD)
 #endif
 #ifdef CYLINDRICAL
   const Real *r=pG->r, *ri=pG->ri;
+  Real Om, qsh;
 #endif
 #ifdef MPI_PARALLEL
   int ierr,cnt;
@@ -5011,6 +5012,20 @@ void Fargo(DomainS *pD)
 	  pG->U[k][jj][i].M2/pG->U[k][jj][i].d;
         FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
 #endif /* ADIABATIC */
+
+#if defined(ADIABATIC) && defined(CYLINDRICAL)
+        Om = (*OrbitalProfile)(r[i]);
+        qsh = (*ShearProfile)(r[i]);
+#ifdef MHD
+/* Add energy equation source term in MHD */
+        pG->U[k][jj][i].E -= qsh*Om*pG->dt*pG->U[k][jj][i].B1c*
+         (pG->U[k][jj][i].B2c - (qsh*Om*pG->dt/2.)*pG->U[k][jj][i].B1c);
+#endif /* MHD */
+        pG->U[k][jj][i].E += qsh*Om*pG->dt*pG->U[k][jj][i].M1*
+          pG->U[k][jj][i].M2/pG->U[k][jj][i].d;
+        FargoVars[k][i][j].U[4] = pG->U[k][jj][i].E;
+#endif /* ADIABATIC AND CYLINDRICAL */
+
 /* Only store Bz and Bx in that order.  This is to match order in FargoFlx:
  *  FargoFlx.U[NFARGO-2] = emfx = -Vy*Bz
  *  FargoFlx.U[NFARGO-1] = emfy = Vy*Bx  */
@@ -5455,6 +5470,8 @@ void bvals_shear_init(MeshS *pM)
 #ifdef CYLINDRICAL
 #ifdef ISOTHERMAL
   MachKep = MAX( xmin*(*OrbitalProfile)(xmin), xmax*(*OrbitalProfile)(xmax) )/Iso_csound;
+#else
+  MachKep = MAX( xmin*(*OrbitalProfile)(xmin), xmax*(*OrbitalProfile)(xmax))/csxb();
 #endif
   nfghost = nghost + 1 + ((int)(CourNo*MachKep));
 #endif

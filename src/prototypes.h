@@ -102,6 +102,9 @@ void RemapVar(DomainS *pD, Real ***RemapVar, Real dt);
 void bvals_shear_init(MeshS *pM);
 void bvals_shear_destruct(void);
 void Fargo(DomainS *pD);
+#ifndef ISOTHERMAL
+Real csxb(void);
+#endif
 #endif 
 
 /*----------------------------------------------------------------------------*/
