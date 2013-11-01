@@ -299,7 +299,7 @@ void attenuate(RadGridS *pRG)
 	  dtau *= dx;
 	  if (dtau < TAUMIN) {
 	    dH = (1.0 - 0.5 * dtau);
-	    edtau = 1.0 - dH;
+	    edtau = 1.0 - dtau;
 	  } else {
 	    edtau = exp(-dtau);
 	    dH = (1.0 - edtau) / dtau;	      

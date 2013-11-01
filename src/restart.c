@@ -1814,7 +1814,21 @@ void dump_radgrid_restart(RadGridS *pRG, Real *buf, int nbuf, const int bufsize,
       nbuf = 0;
     }
   }
-
+#ifdef RAY_TRACING
+  for(ifr=0; ifr<pRG->nf_rt; ifr++) {
+    for(k=ks; k<=ke; k++) {
+      for(j=js; j<=je; j++) {
+	buf[nbuf++] = pRG->H[ifr][k][j][is-1];
+	if ((nbuf+1) > bufsize) {
+	  fwrite(buf,sizeof(Real),nbuf,fp);
+	  nbuf = 0;
+	}
+      }}}
+  if (nbuf > 0) {
+    fwrite(buf,sizeof(Real),nbuf,fp);
+    nbuf = 0;
+  }
+#endif
   return;
 }
 
@@ -1839,7 +1853,6 @@ void restart_radgrids(RadGridS *pRG, FILE *fp, const int outflag)
   nf = pRG->nf;
   nang = pRG->nang;
   noct = pRG->noct;
-
 
 /* Read the mean intensity */
   fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
@@ -2071,7 +2084,13 @@ void restart_radgrids(RadGridS *pRG, FILE *fp, const int outflag)
 	      fread(&(pRG->r3imu[ifr][j][i][l][m]),sizeof(Real),1,fp);
 	    }}}}}
   }
-
+#ifdef RAY_TRACING
+  for(ifr=0; ifr<pRG->nf_rt; ifr++) {
+    for(k=ks; k<=ke; k++) {
+      for(j=js; j<=je; j++) {
+	fread(&(pRG->H[ifr][k][j][is-1]),sizeof(Real),1,fp);
+      }}}
+#endif
   return;
 }
 

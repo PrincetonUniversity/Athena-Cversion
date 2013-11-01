@@ -79,7 +79,7 @@ void init_radiation(MeshS *pM)
       }
 
 /* Initialize working arrays for formal solution */
-      formal_solution_init(pD);
+      //    formal_solution_init(pD); called after problem/restart
     }
   }
   }

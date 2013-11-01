@@ -500,19 +500,21 @@ int main(int argc, char *argv[])
 /* Write ascii file containing information about the frequency and anglar
    mesh */ 
   output_rad_mesh(&Mesh);
-/* Compute first formal solution to initialize radiation transfer grid */
-  if ( (radt_mode == 0) || (radt_mode == 2) ) {
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-	if (Mesh.Domain[nl][nd].Grid != NULL){
+/* Initialize working arrays for formal solution and, if not a restart, execute
+   first formal solution to initialize radiation transfer grid */
+  for (nl=0; nl<(Mesh.NLevels); nl++){ 
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+      if (Mesh.Domain[nl][nd].Grid != NULL){
+	/* intialize work arrays */
+	formal_solution_init(&(Mesh.Domain[nl][nd]));
+	if (ires == 0) { /* Not executed on a restart */
 	  /* initialize integration RadGrid */
 	  if ( (radt_mode == 0) || (radt_mode == 2) ) {	  
 	    hydro_to_rad(&(Mesh.Domain[nl][nd]),0);  
 	    formal_solution(&(Mesh.Domain[nl][nd]),0,1);
-	    /* User work (defined in problem()) */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
+	    /* Update Eddington tensor */
 	    Eddington_FUN(&(Mesh.Domain[nl][nd]));
-	    /*bvals_radMHD(&(Mesh.Domain[nl][nd]));*/
 #endif
 	  }
 	  /* initialize output RadGrid */
@@ -520,10 +522,9 @@ int main(int argc, char *argv[])
 	    hydro_to_rad(&(Mesh.Domain[nl][nd]),1);  
 	    formal_solution(&(Mesh.Domain[nl][nd]),1,1);
 	  }
-	}
+	} /* if (ires == 0) */
       }
-    }
-  }
+    }}
 #endif /* RADIATION_TRANSFER */
 
 /* Now that BC set, prolongate solution into child Grid GZ with SMR */

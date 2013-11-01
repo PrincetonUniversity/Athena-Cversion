@@ -669,6 +669,17 @@ static void update_cell(RadGridS *pRG, Real ******imuo, int ifr, int k, int j, i
     interp_quad_source_slope_lim(dtaum, dtaup, &edtau, &a0, &a1, &a2,
 				 S0, pRG->R[ifr][k][j][i].S, S2);
     imu = a0 * S0 + a1 * pRG->R[ifr][k][j][i].S + a2 * S2 + edtau * imu0;
+    /*  if (imu != imu) {
+      printf("%d %d %d %d %g %g %g %g\n",k,j,i,m,imu0,dtaum,dtaup,pRG->R[ifr][k][j][i].S);
+      printf("S %g %g\n",S0,S2);
+      printf("chi %g %g %g\n",chi0,chi1,chi2);
+      printf("mu %d %g %g %g\n",face[m],pRG->mu[0][m][0],pRG->mu[0][m][1],pRG->mu[0][m][2]);
+      printf("coeff %g %g %g %g\n",coeff[m][0],coeff[m][1],coeff[m][2],coeff[m][3]);
+      if (face[m] == 2) {
+	printf("%g %g %g %g\n", pRG->R[ifr][km][j ][i ].S,pRG->R[ifr][km][jm][i ].S,
+		pRG->R[ifr][km][jm][im].S,pRG->R[ifr][km][j ][im].S);
+      }
+      }*/
     lamstr[ifr][k][j][i] += pRG->wmu[m] * a1;    
 /* Add to radiation moments and save for next iteration */
     wimu = pRG->wmu[m] * imu;

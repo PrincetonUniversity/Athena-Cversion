@@ -36,16 +36,17 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
   Real *dSmaxa, dSmax = 0.0, dsm, dSmin, dSrmax;
   Real dScnv;
   int  ism, *iconv;
- 
+  
 #ifdef MPI_PARALLEL
   Real gdSrmax;
 #endif
+
 
   if (outflag == 0)  {
     pRG = pD->RadGrid;    /* set ptr to RadGrid */
     niter = par_geti("radiation","niter");
     dScnv = par_getd("radiation","dScnv");
-    if (fstflag == 0)  {
+    if (fstflag == 1)  {
       niter = par_geti_def("radiation","niter0",niter);
       dScnv = par_getd_def("radiation","dScnv0",dScnv);
     }
@@ -53,7 +54,8 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
     pRG = pD->RadOutGrid; /* set ptr to RadOutGrid */
     niter = par_geti("radiation_output","niter");
     dScnv = par_getd("radiation_output","dScnv");
-    if (fstflag == 0)  {
+    printf("fs: %d %g\n",niter,dScnv);
+    if (fstflag == 1)  {
       niter = par_geti_def("radiation_output","niter0",niter);
       dScnv = par_getd_def("radiation_output","dScnv0",dScnv);
     }
@@ -155,6 +157,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
   } else if (ndim == 3) {
 /* compute formal solution with 3D method*/
     for(i=0; i<niter; i++) {
+
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
 
@@ -168,6 +171,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 	  MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 	  dSrmax=gdSrmax;
 #endif	  
+	  if (myID_Comm_world == 0) printf("iter: %d %g\n",i,dSrmax);
 	  dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
 	  if(dSrmax <= dScnv) {
