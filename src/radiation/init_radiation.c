@@ -11,6 +11,7 @@
  * CONTAINS PUBLIC FUNCTIONS: 
  *   init_radiation()
  *   radiation_desrtuct()
+ *   formal_solution_init() - Calls appropriate formal_solution_*d_init()
  *============================================================================*/
 
 #include <math.h>
@@ -26,7 +27,6 @@
  * PRIVATE FUNCTION PROTOTYPES:
  * init_radiation_grid() - Allocate memory and intialize RadGrid
  * radgrid_destruct() - Free up memory allocated to RadGrid structures
- * formal_solution_init() - Calls appropriate formal_solution_*d_init()
  * formal_solution_destruct() -  Calls appropriate formal_solution_*d_destruct()
  * init_angles() - Initialize angles/quadratures with default method
  * InverseMatrix() -  Compute matrix inverse
@@ -39,7 +39,6 @@
 
 void init_radiation_grid(DomainS *pD, int outflag);
 void radgrid_destruct(RadGridS *pRG);
-void formal_solution_init(DomainS *pD);
 void formal_solution_destruct(DomainS *pD);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
@@ -116,6 +115,31 @@ void radiation_destruct(MeshS *pM)
       formal_solution_destruct(pD);
     }
   }}
+  return;
+}
+
+/*----------------------------------------------------------------------------*/
+/*! \fn void formal_solution_init(DomainS *pD)
+ *  \brief Call appropriate formal_solution_*d_init() */
+void formal_solution_init(DomainS *pD)
+{
+
+  int i, dim;
+
+/* Calculate the dimensions (using root Domain)  */
+  dim = 0;
+  for (i=0; i<3; i++) if(pD->Nx[i] > 1) dim++;
+
+/* set function pointer to appropriate initalization routine based on dimensions */
+  if (dim == 1) 
+    formal_solution_1d_init(pD);
+  else if (dim == 2) 
+    formal_solution_2d_init(pD);
+  else if (dim == 3)
+    formal_solution_3d_init(pD);
+  else
+    ath_error("[formal_solution_init]: incorrect number of dim: %d.\n",dim);
+
   return;
 }
 
@@ -531,31 +555,6 @@ void radgrid_destruct(RadGridS *pRG)
 #ifdef RAY_TRACING
       destruct_ray_tracing(pRG);
 #endif /* RAY_TRACING */
-
-  return;
-}
-
-/*----------------------------------------------------------------------------*/
-/*! \fn void formal_solution_init(DomainS *pD)
- *  \brief Call appropriate formal_solution_*d_init() */
-void formal_solution_init(DomainS *pD)
-{
-
-  int i, dim;
-
-/* Calculate the dimensions (using root Domain)  */
-  dim = 0;
-  for (i=0; i<3; i++) if(pD->Nx[i] > 1) dim++;
-
-/* set function pointer to appropriate initalization routine based on dimensions */
-  if (dim == 1) 
-    formal_solution_1d_init(pD);
-  else if (dim == 2) 
-    formal_solution_2d_init(pD);
-  else if (dim == 3)
-    formal_solution_3d_init(pD);
-  else
-    ath_error("[formal_solution_init]: incorrect number of dim: %d.\n",dim);
 
   return;
 }

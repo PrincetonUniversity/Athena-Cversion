@@ -18,6 +18,7 @@
 
 void init_radiation(MeshS *pM);
 void radiation_destruct(MeshS *pM);
+void formal_solution_init(DomainS *pD);
 
 /* ray_tracing.c */
 #ifdef RAY_TRACING

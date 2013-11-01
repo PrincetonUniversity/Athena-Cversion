@@ -1575,8 +1575,8 @@ void dump_radgrid_restart(RadGridS *pRG, Real *buf, int nbuf, const int bufsize,
   int nf, nang, noct, l, m, ifr;
 
 
-  is = pRG->is;
-  ie = pRG->ie;
+  is = pRG->is-1;
+  ie = pRG->ie+1;
   js = pRG->js;
   je = pRG->je;
   ks = pRG->ks;
@@ -1585,8 +1585,17 @@ void dump_radgrid_restart(RadGridS *pRG, Real *buf, int nbuf, const int bufsize,
   nang = pRG->nang;
   noct = pRG->noct;
 
-/* Write the mean intensity */
+  /* Set js, je, ks, ke based on dimensionality of pRG */
+  if (pRG->Nx[1] > 1) {
+    js -= 1;
+    je += 1;
+  }
+  if (pRG->Nx[2] > 1) {
+    ks -= 1;
+    ke += 1;
+  }
 
+/* Write the mean intensity */
   if (outflag == 0) fprintf(fp,"\nrad_J\n"); else fprintf(fp,"\nrad_J_out\n");
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -1844,8 +1853,8 @@ void restart_radgrids(RadGridS *pRG, FILE *fp, const int outflag)
   int nf, nang, noct, l, m, ifr;
   char line[MAXLEN];
 
-  is = pRG->is;
-  ie = pRG->ie;
+  is = pRG->is-1;
+  ie = pRG->ie+1;
   js = pRG->js;
   je = pRG->je;
   ks = pRG->ks;
@@ -1853,6 +1862,16 @@ void restart_radgrids(RadGridS *pRG, FILE *fp, const int outflag)
   nf = pRG->nf;
   nang = pRG->nang;
   noct = pRG->noct;
+
+  /* Set js, je, ks, ke based on dimensionality of pRG */
+  if (pRG->Nx[1] > 1) {
+    js -= 1;
+    je += 1;
+  }
+  if (pRG->Nx[2] > 1) {
+    ks -= 1;
+    ke += 1;
+  }
 
 /* Read the mean intensity */
   fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
