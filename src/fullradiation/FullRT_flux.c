@@ -171,7 +171,7 @@ void flux_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((u
 	/* This assume uniform spacing */
 	/* pG and dir are needed for cylindrical coordinate cases */
 	/* dir is the direction along which the flux is calculated */
-void lrstate_PPM2(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
+void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
 {
 	/* imu[0:4] i-3, i-2, i-1, i, i+1 */
 	Real Ihalf0, Ihalf1, lim_slope, IL, IR;
@@ -395,7 +395,7 @@ void lrstate_PPM2(Real r[5]  __attribute__((unused)), const int dir __attribute_
 }
 
 /* Try a new ppm scheme adopted from lr_state_ppm */
-void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
+void lrstate_PPM2(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1])
 {
 	/* imu[0:4] i-3, i-2, i-1, i, i+1 */
 	Real Ihalf0, Ihalf1, IL, IR;
@@ -558,67 +558,74 @@ void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__
  * of velocity is uncertain. So we need to determine the upwind direction first. 
  * The returned value is the interface only */
 
-void flux_AdvJ(Real *r  __attribute__((unused)), const int dir __attribute__((unused)), Real *tempJ, Real *tempV, int nstart,int nend,Real ds, Real dt, Real *tempAdv)
+void flux_AdvJ(const int nf, const int N, Real *r  __attribute__((unused)), const int dir __attribute__((unused)), Real ***tempJ, Real ***tempV, int nstart,int nend,Real ds, Real dt, Real ***tempAdv)
 {
-	int i, j;
+	int i, j, n, ifr;
 	Real vel, meanJ, dtods;
 	Real Jarray[5];
 	Real tempr[5];
 	dtods = dt/ds;
 
+
 	for(i=nstart; i<=nend; i++){
-		vel = 0.5 * (tempV[i-1] + tempV[i]);
-		if(vel > 0.0){
+		for(ifr=0; ifr<nf; ifr++){
+			for(n=0; n<N; n++){
+				vel = 0.5 * (tempV[i-1][ifr][n] + tempV[i][ifr][n]);
+				if(vel > 0.0){
 #ifdef SECOND_RAD_ORDER
-			for(j=0; j<3; j++){
-				Jarray[j] = tempJ[i-2+j];
+					for(j=0; j<3; j++){
+						Jarray[j] = tempJ[i-2+j][ifr][n];
 #ifdef CYLINDRICAL
-				tempr[j] = r[i-2+j];
+						tempr[j] = r[i-2+j];
 #endif
-			}
+					}
 			
-			flux_PLM(tempr, dir, dt, ds, vel, Jarray, &(meanJ));	
+					flux_PLM(tempr, dir, dt, ds, vel, Jarray, &(meanJ));	
 #else
 
-			for(j=0; j<5; j++){
-				Jarray[j] = tempJ[i-3+j];
+					for(j=0; j<5; j++){
+						Jarray[j] = tempJ[i-3+j][ifr][n];
 #ifdef CYLINDRICAL
-				tempr[j] = r[i-3+j];
+						tempr[j] = r[i-3+j];
 #endif
 
-			}
+					}
 
-			flux_PPM(tempr, dir, dt, ds, vel, Jarray, &(meanJ)); 
+					flux_PPM(tempr, dir, dt, ds, vel, Jarray, &(meanJ)); 
 
 #endif
-		}/* End if vel >0 */
-		else{
+				}/* End if vel >0 */
+				else{
 #ifdef SECOND_RAD_ORDER
-			for(j=0; j<3; j++){
-				Jarray[j] = tempJ[i+1-j];
+					for(j=0; j<3; j++){
+						Jarray[j] = tempJ[i+1-j][ifr][n];
 #ifdef CYLINDRICAL
-				tempr[j] = r[i+1-j];
+						tempr[j] = r[i+1-j];
 #endif				
 
-			}
+					}
 			
-			flux_PLM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
+					flux_PLM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
 #else
 
-			for(j=0; j<5; j++){
-				Jarray[j] = tempJ[i+2-j];
+					for(j=0; j<5; j++){
+						Jarray[j] = tempJ[i+2-j][ifr][n];
 #ifdef CYLINDRICAL
-				tempr[j] = r[i+2-j];
+						tempr[j] = r[i+2-j];
 #endif
 
-			}
+					}
 
-			flux_PPM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
+					flux_PPM(tempr, dir, dt, ds, -vel, Jarray, &(meanJ));
 
 #endif
-		}
-		tempAdv[i] = meanJ;
+				}
+				tempAdv[i][ifr][n] = meanJ;
+			}/* end n */
+		}/* End if */
 	}/* end i */
+	
+	
 
 }
 

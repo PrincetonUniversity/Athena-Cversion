@@ -100,262 +100,136 @@ void hydro_to_fullrad(DomainS *pD)
   return;
 }
 
+
 /* function to calculate the energy and momentum source terms from updated radiation quantities for a particular frequency band ifr*/
 /* the updated sol already include the weight for each ray */
 /* This function only calculate source terms due to absorption opacity */
 
-void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real ****Coefn, Real ****Coefnn, Real ***sol)
-{
-	int i, j, n, l;
-	int is, ie, js, je;
-	int offset;
 
+void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **sol)
+{
+
+	int l, n, ifr;
 	
-	Real Sigma;
+	
+	Real Sigma, SigmaI;
 	Real Er, Ersource, weightJ;
 	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
 	Real dt = pG->dt;
 	Real Tgas, Tgas4;
 	Real rho;
-	
-	offset = nghost - Radghost;
-	
-	is = pRG->is; ie = pRG->ie;
-	js = pRG->js; je = pRG->je;
-	
-	for(j=js; j<=je; j++){
-		for(i=is; i<=ie; i++){
-			/* calculate Er and Fr used in the update */
-			Er = 0.0;
-			for(l=0; l<3; l++)
-				Fr[l] = 0.0;
-			
-			for(l=0; l<6; l++)
-				Pr[l] = 0.0;
 
-			/* loop through all l and n, nelements = nang * noct */
-			/* weight for each ray is alerady included in sol[][][] */
-			for(n=0; n<N; n++){
-				weightJ = sol[j][i][n];
-				Er += weightJ;
-				
-				for(l=0; l<3; l++)
-					Fr[l] += weightJ * Coefn[j][i][n][l];
-				
-				for(l=0; l<6; l++)
-					Pr[l] += weightJ * Coefnn[j][i][n][l];
-			}
-			
-			/* multiple by 4 pi */
-			Er *= 4.0 * PI;
-			for(l=0; l<3; l++)
-				Fr[l] *= 4.0 * PI;
-			
-			for(l=0; l<6; l++)
-				Pr[l] *= 4.0 * PI;
-			
-			/* Now we have Er, Fr and Pr for this cell */
-			rho = pG->U[0][j+offset][i+offset].d;
-			
-			Vel[0] = pG->U[0][j+offset][i+offset].M1 / rho;
-			Vel[1] = pG->U[0][j+offset][i+offset].M2 / rho;
-			Vel[2] = pG->U[0][j+offset][i+offset].M3 / rho;
-			
-			/* Note that velocity used in the source term is guess vel */
-			
-			for(l=0; l<3; l++)
-				Velguess[l] = pG->Velguess[0][j+offset][i+offset][l];
-			
-		/*	for(l=0; l<3; l++)
-				Kin[l] = 0.5 * rho * SQR(Vel[l]);
-		*/	
-			/* The new gas temperature is in sol[j][i][nelements], the last elements */
-			Sigma = pRG->R[ifr][0][j][i].Sigma[1];
-			
-			/* Only absorption opacity cares about gas temperature */
-			
-			Tgas = sol[j][i][N];
-			Tgas4 = SQR(Tgas) * SQR(Tgas);
-			
-			
-			CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
-			CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
-			CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
-			
-			/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
-			/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-		/*	for(l=0; l<3; l++)
-				DeltaKin[l] = dt * Prat * Sigma * (Velguess[l] * CoFr[l] - SQR(Velguess[l]) * (Tgas4 - Er)/Crat);
-		*/	
 
-			for(l=0; l<3; l++){
-				Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
-				DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
-				
-				
-			/*	Kin[l] += DeltaKin[l];
-				
-				if(Kin[l] >= 0.0){
-					Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
-					Ersource += DeltaKin[l];
-				}else {
-					
-					Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; 
-				 
-					Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
-				}
-			 */
-				
-			}/* end l for three directions */
+    int nDim;
+    
+    nDim = 1;
+	for (l=1; l<3; l++) if (pRG->Nx[l]>1) nDim++;
+    
+    int koff, joff, ioff;
+    ioff = nghost - Radghost;
+
+    if(nDim > 1)
+        joff = ioff;
+    else
+        joff = 0;
+        
+    if(nDim > 2)
+        koff = ioff;
+    else
+        koff = 0;
+
+	
 			
-						
-			/* Add the change of internal energy */
-			Ersource = Tcoef[j][i] * (Tgas - pG->tgas[0][j+offset][i+offset]) + DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
+	/* loop through all l and n, nelements = nang * noct */
+	/* weight for each ray is alerady included in sol[][][] */
+	for(ifr=0; ifr<pRG->nf; ifr++){
+		/* calculate Er and Fr used in the update */
+		Er = 0.0;
+		for(l=0; l<3; l++)
+			Fr[l] = 0.0;
+			
+		for(l=0; l<6; l++)
+			Pr[l] = 0.0;
+	
+		for(n=0; n<N; n++){
+			weightJ = sol[ifr][n];
+			
+			Er += weightJ;
+				
+			for(l=0; l<3; l++)
+				Fr[l] += weightJ * Coefn[n][l];
+				
+			for(l=0; l<6; l++)
+				Pr[l] += weightJ * Coefn[n][3+l];
+		}/* end n */
+			
+	/* multiple by 4 pi */
+		Er *= 4.0 * PI;
+		for(l=0; l<3; l++)
+			Fr[l] *= 4.0 * PI;
+			
+		for(l=0; l<6; l++)
+			Pr[l] *= 4.0 * PI;
+			
+		/* Now we have Er, Fr and Pr for this cell */
+		rho = pG->U[k+koff][j+joff][i+ioff].d;
+			
+		Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
+		Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
+		Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
+			
+		/* Note that velocity used in the source term is guess vel */
+			
+		for(l=0; l<3; l++)
+			Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
 		
+		/* The new gas temperature is in sol[j][i][nelements], the last elements */
+		Sigma = pRG->R[k][j][i][ifr].Sigma[0];
+		SigmaI = pRG->R[k][j][i][ifr].Sigma[1];
 			
-			/* Now put the energy and momentum source term back */	
-			/* This is initialized to be zero before it is called */
-			pG->Radheat[0][j+offset][i+offset] += (pRG->wnu[ifr] * Ersource);
+		/* Only absorption opacity cares about gas temperature */
 			
-			/* Radiation source term for gas pressure alone */
-			pG->Pgsource[0][j+offset][i+offset] += (pRG->wnu[ifr] * Tcoef[j][i] * (Tgas - pG->tgas[0][j+offset][i+offset]) * Gamma_1);
-			
-			for(l=0; l<3; l++)
-				pG->Frsource[0][j+offset][i+offset][l] += (pRG->wnu[ifr] * Msource[l]);
-			
-		}/* end i */
-	}/* end j */
-	
-	
-	
-}
-
-
-
-/* function to calculate the energy and momentum source terms from updated radiation quantities for a particular frequency band ifr*/
-/* the updated sol already include the weight for each ray */
-/* This function only calculate source terms due to absorption opacity */
-/* This is for 3D case */
-
-void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***Tcoef, Real *****Coefn, Real *****Coefnn, Real ****sol)
-{
-	int i, j, k, n, l;
-	int is, ie, js, je, ks, ke;
-	int offset;
-	
-	
-	Real Sigma;
-	Real Er, Ersource, weightJ;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
-	Real dt = pG->dt;
-	Real Tgas, Tgas4;
-	Real rho;
-	
-	offset = nghost - Radghost;
-	
-	is = pRG->is; ie = pRG->ie;
-	js = pRG->js; je = pRG->je;
-	ks = pRG->ks; ke = pRG->ke;
-	
-	for(k=ks; k<=ke; k++){
-		for(j=js; j<=je; j++){
-			for(i=is; i<=ie; i++){
-				/* calculate Er and Fr used in the update */
-				Er = 0.0;
-				for(l=0; l<3; l++)
-					Fr[l] = 0.0;
-			
-				for(l=0; l<6; l++)
-					Pr[l] = 0.0;
-			
-				/* loop through all l and n, nelements = nang * noct */
-				/* weight for each ray is alerady included in sol[][][] */
-				for(n=0; n<N; n++){
-					weightJ = sol[k][j][i][n];
-					Er += weightJ;
-				
-					for(l=0; l<3; l++)
-						Fr[l] += weightJ * Coefn[k][j][i][n][l];
-				
-					for(l=0; l<6; l++)
-						Pr[l] += weightJ * Coefnn[k][j][i][n][l];
-				}
-			
-				/* multiple by 4 pi */
-				Er *= 4.0 * PI;
-				for(l=0; l<3; l++)
-					Fr[l] *= 4.0 * PI;
-			
-				for(l=0; l<6; l++)
-					Pr[l] *= 4.0 * PI;
-			
-				/* Now we have Er, Fr and Pr for this cell */
-				rho = pG->U[k+offset][j+offset][i+offset].d;
-			
-				Vel[0] = pG->U[k+offset][j+offset][i+offset].M1 / rho;
-				Vel[1] = pG->U[k+offset][j+offset][i+offset].M2 / rho;
-				Vel[2] = pG->U[k+offset][j+offset][i+offset].M3 / rho;
-			
-				/* Note that velocity used in the source term is guess vel */
-			
-				for(l=0; l<3; l++)
-					Velguess[l] = pG->Velguess[k+offset][j+offset][i+offset][l];
-				
-				/* The new gas temperature is in sol[j][i][nelements], the last elements */
-				Sigma = pRG->R[ifr][k][j][i].Sigma[1];
-			
-				/* Only absorption opacity cares about gas temperature */
-			
-				Tgas = sol[k][j][i][N];
-				Tgas4 = SQR(Tgas) * SQR(Tgas);
+		Tgas = sol[ifr][N];
+		Tgas4 = SQR(Tgas) * SQR(Tgas);
 			
 			
-				CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
-				CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
-				CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
+		CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
+		CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
+		CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
 			
-				/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
-				/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-				for(l=0; l<3; l++){
-					Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; /* This is actually momentum source term */
-					DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
+		/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
+		/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
+		for(l=0; l<3; l++){
+			Msource[l] =  dt * Prat * SigmaI * CoFr[l] - dt * Prat * Velguess[l] * (Sigma * Tgas4 - SigmaI * Er)/Crat; /* This is actually momentum source term */
+			DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
 					
 					
-					/*	Kin[l] += DeltaKin[l];
-					 
-					 if(Kin[l] >= 0.0){
-					 Msource[l] = sqrt(2.0*rho*Kin[l]) - rho * Vel[l];
-					 Ersource += DeltaKin[l];
-					 }else {
-					 
-					 Msource[l] =  dt * Prat * Sigma * CoFr[l] - dt * Prat * Velguess[l] * Sigma * (Tgas4 - Er)/Crat; 
-					 
-					 Ersource += (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
-					 }
-					 */
+			if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
+                 Msource[l] = -rho * Vel[l];
+                 DeltaKin[l] = 0.5 * rho * Vel[l] * Vel[l];
+        	}
 					
-				}/* end l for three directions */
+		}/* end l for three directions */
 				
 				
-				/* Add the change of internal energy */
-				Ersource = Tcoef[k][j][i] * (Tgas - pG->tgas[k+offset][j+offset][i+offset]) + DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
+		/* Add the change of internal energy */
+		Ersource = Tcoef[ifr][0] * (Tgas - pG->tgas[k+koff][j+joff][i+ioff]) + DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
 			
 			
-				/* Now put the energy and momentum source term back */	
-				/* This is initialized to be zero before it is called */
-				pG->Radheat[k+offset][j+offset][i+offset] += (pRG->wnu[ifr] * Ersource);
+		/* Now put the energy and momentum source term back */	
+		/* This is initialized to be zero before it is called */
+		pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
 				
-				/* Radiation source term for gas pressure alone */
-				pG->Pgsource[k+offset][j+offset][i+offset] += (pRG->wnu[ifr] * Tcoef[k][j][i] * (Tgas - pG->tgas[k+offset][j+offset][i+offset]) * Gamma_1);
+		/* Radiation source term for gas pressure alone */
+		pG->Pgsource[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Tcoef[ifr][0] * (Tgas - pG->tgas[k+koff][j+joff][i+ioff]) * Gamma_1);
 			
-				for(l=0; l<3; l++)
-					pG->Frsource[k+offset][j+offset][i+offset][l] += (pRG->wnu[ifr] * Msource[l]);
+		for(l=0; l<3; l++)
+			pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
 			
-			}/* end i */
-		}/* end j */
-	}/* end k */
+			
+	}/* end ifr */
 	
-	
+	return;
 	
 }
 
@@ -367,9 +241,9 @@ void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***
 /* moments of the radiation are already updated before entering this function */
 /* So no need to calculate the moments again */
 
-void RadSsource(const int ifr, RadGridS *pRG, GridS *pG)
+void RadSsource(RadGridS *pRG, GridS *pG)
 {
-	int i, j, k, l;
+	int i, j, k, l, nf, ifr;
 	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
 	int jl = pRG->js, ju = pRG->je;
 	int kl = pRG->ks, ku = pRG->ke;
@@ -405,60 +279,74 @@ void RadSsource(const int ifr, RadGridS *pRG, GridS *pG)
 		koff = nghost - Radghost;
 	}
 	
+	nf = pRG->nf;
+	
 
 	for(k=kl; k<=ku; k++){
 		for(j=jl; j<=ju; j++){
 			for(i=il; i<=iu; i++){
-				/* calculate Er and Fr used in the update */
-				Er = 4.0 * PI * pRG->R[ifr][k][j][i].J;
-				for(l=0; l<3; l++)
-					Fr[l] = 4.0 * PI * pRG->R[ifr][k][j][i].H[l];
+				for(ifr=0; ifr<nf; ifr++){
 			
-				for(l=0; l<6; l++)
-					Pr[l] = 4.0 * PI * pRG->R[ifr][k][j][i].K[l];
+			
+					/* calculate Er and Fr used in the update */
+					Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
+					for(l=0; l<3; l++)
+						Fr[l] = 4.0 * PI * pRG->R[k][j][i][ifr].H[l];
+			
+					for(l=0; l<6; l++)
+						Pr[l] = 4.0 * PI * pRG->R[k][j][i][ifr].K[l];
 			
 						
-				/* Now we have Er, Fr and Pr for this cell */
-				rho = pG->U[k+koff][j+joff][i+ioff].d;
+					/* Now we have Er, Fr and Pr for this cell */
+					rho = pG->U[k+koff][j+joff][i+ioff].d;
 			
-				Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
-				Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
-				Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
+					Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
+					Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
+					Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
 				
-				for(l=0; l<3; l++)
-					Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
+					for(l=0; l<3; l++)
+						Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
 			
 			
-				/* The new gas temperature is in sol[j][i][nelements], the last elements */
-				Sigma = pRG->R[ifr][k][j][i].Sigma[2];
+					/* The new gas temperature is in sol[j][i][nelements], the last elements */
+					Sigma = pRG->R[k][j][i][ifr].Sigma[2];
 			
-				CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
-				CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
-				CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
+					CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
+					CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
+					CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
 			
-				/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
-				/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
+					/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
+					/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
 					
 
-				/* For scattering opacity, use kinetic energy change to update velocity momentum so that gas temperature is unchanged */
-				for(l=0; l<3; l++){
+					/* For scattering opacity, use kinetic energy change to update velocity momentum so that gas temperature is unchanged */
+					for(l=0; l<3; l++){
 				
-					Msource[l] = dt * Prat * Sigma * CoFr[l]; /* This is actually momentum source term */
-					DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); 
+						Msource[l] = dt * Prat * Sigma * CoFr[l]; /* This is actually momentum source term */
+						DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); 
+						
+						
+						if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
+                 			Msource[l] = -rho * Vel[l];
+                 			DeltaKin[l] = 0.5 * rho * Vel[l] * Vel[l];
+        				}
 					
 														
-				}/* end l for three directions */
+					}/* end l for three directions */
 				
-				Ersource = DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
+					Ersource = DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
 				
 				
 		
-				/* Now put the energy and momentum source term back */	
-				/* This is initialized to be zero before it is called */
-				pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
+					/* Now put the energy and momentum source term back */	
+					/* This is initialized to be zero before it is called */
+					pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
 			
-				for(l=0; l<3; l++)
-					pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
+					for(l=0; l<3; l++)
+						pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
+					
+					
+				}/* End ifr */
 			
 			}/* end i */
 		}/* end j */
@@ -512,7 +400,7 @@ void UpdateOpacity(DomainS *pD)
 				/* ------------------------------------*/
 				/* update the opacity */
 				for(ifr=0; ifr<nf; ifr++) {
-					get_full_opacity(pG,ifr,ig,jg,kg,&(pRG->R[ifr][k][j][i].Sigma[0]));
+					get_full_opacity(pG,ifr,ig,jg,kg,&(pRG->R[k][j][i][ifr].Sigma[0]));
 				}/* end ifr */
 			}/* end i */
 		}/* end j */
@@ -590,17 +478,17 @@ void GetVelguess(DomainS *pD)
 				sigma = 0.0;
 								
 				for(ifr=0; ifr<pRG->nf; ifr++){
-					Er += (pRG->wnu[ifr] * pRG->R[ifr][k][j][i].J);
+					Er += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].J);
 					for(n=0; n<3; n++)
-						Fr[n] += (pRG->wnu[ifr] * pRG->R[ifr][k][j][i].H[n]);
+						Fr[n] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].H[n]);
 					
 					
-					Pr[0] += (pRG->wnu[ifr] * pRG->R[ifr][k][j][i].K[0]);
-					Pr[1] += (pRG->wnu[ifr] * pRG->R[ifr][k][j][i].K[2]);
-					Pr[2] += (pRG->wnu[ifr] * pRG->R[ifr][k][j][i].K[5]);
+					Pr[0] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[0]);
+					Pr[1] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[2]);
+					Pr[2] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[5]);
 					
 					
-					sigma += (pRG->wnu[ifr] * (pRG->R[ifr][k][j][i].Sigma[1]+pRG->R[ifr][k][j][i].Sigma[2]));
+					sigma += (pRG->wnu[ifr] * (pRG->R[k][j][i][ifr].Sigma[1]+pRG->R[k][j][i][ifr].Sigma[2]));
 					
 				}
 				
@@ -636,279 +524,228 @@ void GetVelguess(DomainS *pD)
 
 
 
+
+/* Function to calculate the reduction factor of speed of light due to opacity */
+
+void GetSpeedfactor(DomainS *pD)
+{
+	
+	GridS *pG=(pD->Grid);
+	RadGridS *pRG=(pD->RadGrid);
+	
+	
+	int i, j, k, ifr, nDim, n;
+	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
+	int jl = pRG->js, ju = pRG->je;
+	int kl = pRG->ks, ku = pRG->ke;
+    
+    Real  sigmas, sigmaa, alpha;
+    Real dS[3];
+    dS[0] = pRG->dx1;
+    dS[1] = pRG->dx2;
+    dS[2] = pRG->dx3;
+    
+#ifdef CYLINDRICAL
+	const Real *r=pG->r;
+    int offset = nghost - Radghost;
+#endif
+	
+	
+	nDim = 1;
+	for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
+	
+		
+	/* Including the ghost zones */
+	
+	if(nDim > 1){
+		jl -= Radghost;
+		ju += Radghost;
+		
+    }
+	
+	if(nDim > 2){
+		kl -= Radghost;
+		ku += Radghost;
+
+	}
+	
+
+	
+	
+	for(k=kl; k<=ku; k++){
+		for(j=jl; j<=ju; j++){
+			for(i=il; i<=iu; i++){
+#ifdef CYLINDRICAL
+				/* The scale factor r[i] is the same for each i, for different angles j */
+                dS[2] *= r[i+offset];
+#endif
+				for(ifr=0; ifr<pRG->nf; ifr++){
+                    
+                    sigmas = pRG->R[k][j][i][ifr].Sigma[2];
+					/* The absorption opacity in front of I */
+					sigmaa = pRG->R[k][j][i][ifr].Sigma[1];
+                    
+                    /* for three direction */
+                    for(n=0; n<nDim; n++){
+                        ReduceVelocity(sigmaa+sigmas, dS[n], &alpha);
+                        
+                        pRG->Speedfactor[k][j][i][ifr][n] = alpha;
+                    
+                    }/* end Dim */
+                    
+                }/* end ifr */
+				
+			}/* end i */
+		}/* end j */
+	}/* end k */
+	
+	
+	return;
+}
+
+
 /* sol takes the initial guess, calculated without the velocity dependent terms */
 /* inisol takes the solution at time step n */
 /* Md and RHS are pre-allocated memory */
+/* They are used as temporary memory */
+/* This is for the 3D case */
 
-void Absorption2D(const int N, RadGridS *pRG, Real ***sol, Real ***inisol, Real ***Ma, Real ***Mb, Real ***Mc, Real ***Mdcoef, Real **Tcoef, Real **T4coef, Real *Md, Real *RHS)
+
+void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, int *flag)
 {
 	
-	int i, is, ie;
-	int j, js, je;
+
 	int n;
 	const int MAXIte = 15;
 	int count;
-	const Real TOL = 1.e-12;
+	const Real TOL = 1.e-16;
 	Real Tgas, Tgas3, Tgas4;
 	Real residual;
 	int line=N-1;
+	int ifr;
 	
-	is=pRG->is; ie=pRG->ie;
-	js=pRG->js; je=pRG->je;
+
 	
 	
 	/* Now solve the non-linear set of equations for each cell */
-	for(j=js; j<=je; j++){
-		for(i=is; i<=ie; i++){
+	for(ifr=0; ifr<nf; ifr++){
+		
 			
-			Tgas = sol[j][i][N];
+		Tgas = sol[ifr][N];
+		Tgas3 = SQR(Tgas) * Tgas;
+		Tgas4 = Tgas * Tgas3;
+				
+		*flag = 1;
+			
+			
+		/* First, calculate the RHS for the guess solution */				
+		for(n=0; n<N-1; n++){
+			/* set Md, Md is used to invert the matrix */
+			Md[n] = 4.0 * Mdcoef[ifr][n] * Tgas3;
+				
+			RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]);
+			RHS[n] += (Ma[ifr][n][0] * sol[ifr][n] - Ma[ifr][N-1][0] * sol[ifr][N-1]);
+				
+		}/* end n */
+		/* Now the line N-1 */
+		/* Now line=N-1 */
+		Md[line] = 4.0 * Mdcoef[ifr][line] * Tgas3;
+			
+		RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line];
+		for(n=0; n<N-1; n++){
+			RHS[line] += (Ma[ifr][n][1] * sol[ifr][n]);
+				
+		}
+			
+		/* Now the last line nelements */
+		Md[N] = Tcoef[ifr][0] + 4.0 * Tcoef[ifr][1] * Tgas3;
+		RHS[N] = Tcoef[ifr][0] * (Tgas - inisol[ifr][N]) + Tcoef[ifr][1] * Tgas4;
+		for(n=0; n<N; n++){
+			RHS[N] += (Ma[ifr][n][2] * sol[ifr][n]);
+		}
+			
+		/* now calculate the norm of residual */
+		residual = 0.0;
+		for(n=0; n<=N; n++)
+			residual += SQR(RHS[n]);
+			
+		residual /= (N+1);
+			
+		residual = sqrt(residual);
+		count = 0;
+			
+		/****************************************************/
+		/* Do the iteration */
+		while((residual > TOL) && (count < MAXIte)){
+			count++;
+			/* calculate Inverse(Jacobi) * RHS */
+			AbsorptionMatrix(N, Ma[ifr], Md, RHS);
+				
+			/* The result is stored in RHS */
+			/* Update the guess solution */
+			for(n=0; n<=N; n++){
+				sol[ifr][n] -= RHS[n];
+			}
+				
+		/*------------------------------------------------*/
+			Tgas = sol[ifr][N];
 			Tgas3 = SQR(Tgas) * Tgas;
 			Tgas4 = Tgas * Tgas3;
-			
-			
-			/* First, calculate the RHS for the guess solution */				
+				
+				
+		/* update RHS and Md */
 			for(n=0; n<N-1; n++){
 				/* set Md, Md is used to invert the matrix */
-				Md[n] = 4.0 * Mdcoef[j][i][n] * Tgas3;
-				
-				RHS[n] = Mdcoef[j][i][n] * Tgas4 - (inisol[j][i][n] - inisol[j][i][N-1]);
-				RHS[n] += (Ma[j][i][n] * sol[j][i][n] - Ma[j][i][N-1] * sol[j][i][N-1]);					
-				
+				Md[n] = 4.0 * Mdcoef[ifr][n] * Tgas3;
+					
+				RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]);
+				RHS[n] += (Ma[ifr][n][0] * sol[ifr][n] - Ma[ifr][N-1][0] * sol[ifr][N-1]);
+					
 			}/* end n */
-			/* Now the line N-1 */
-			/* Now line=N-1 */
-			Md[line] = 4.0 * Mdcoef[j][i][line] * Tgas3;
-			
-			RHS[line] = Mdcoef[j][i][line] * Tgas4 + (Ma[j][i][line] + Mb[j][i][line]) * sol[j][i][line] - inisol[j][i][line];
+		/* Now the line N-1 */
+		/* Now line=N-1 */
+			Md[line] = 4.0 * Mdcoef[ifr][line] * Tgas3;				
+			RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line];
 			for(n=0; n<N-1; n++){
-				RHS[line] += (Mb[j][i][n] * sol[j][i][n]);
+				RHS[line] += (Ma[ifr][n][1] * sol[ifr][n]);
+						
+			}
 				
-			}
-			
 			/* Now the last line nelements */
-			Md[N] = Tcoef[j][i] + 4.0 * T4coef[j][i] * Tgas3;
-			RHS[N] = Tcoef[j][i] * (Tgas - inisol[j][i][N]) + T4coef[j][i] * Tgas4;
+			Md[N] = Tcoef[ifr][0] + 4.0 * Tcoef[ifr][1] * Tgas3;
+			RHS[N] = Tcoef[ifr][0] * (Tgas - inisol[ifr][N]) + Tcoef[ifr][1] * Tgas4;
 			for(n=0; n<N; n++){
-				RHS[N] += (Mc[j][i][n] * sol[j][i][n]);
+				RHS[N] += (Ma[ifr][n][2] * sol[ifr][n]);
 			}
-			
+				
+			/*------------------------------------------------*/
+			/* update the Residual */
 			/* now calculate the norm of residual */
 			residual = 0.0;
 			for(n=0; n<=N; n++)
 				residual += SQR(RHS[n]);
-			
+				
 			residual /= (N+1);
-			
+				
 			residual = sqrt(residual);
-			count = 0;
+				
+		}
+				
+		  /* When matrix does not converge, do not add radiation source term */
+		 if(residual != residual){
+            for(n=0; n<=N; n++){
+                sol[ifr][n] = inisol[ifr][n];
+         	}
+		 	*flag = 0;
+        }
 			
-			/****************************************************/
-			/* Do the iteration */
-			while((residual > TOL) && (count < MAXIte)){
-				count++;
-				/* calculate Inverse(Jacobi) * RHS */
-				AbsorptionMatrix(N, Ma[j][i], Mb[j][i], Mc[j][i], Md, RHS);
-				
-				/* The result is stored in RHS */
-				/* Update the guess solution */
-				for(n=0; n<=N; n++){
-					sol[j][i][n] -= RHS[n];	
-				}
-				
-				/*------------------------------------------------*/
-				Tgas = sol[j][i][N];
-				Tgas3 = SQR(Tgas) * Tgas;
-				Tgas4 = Tgas * Tgas3;
-				
-				
-				/* update RHS and Md */
-				for(n=0; n<N-1; n++){
-					/* set Md, Md is used to invert the matrix */
-					Md[n] = 4.0 * Mdcoef[j][i][n] * Tgas3;
-					
-					RHS[n] = Mdcoef[j][i][n] * Tgas4 - (inisol[j][i][n] - inisol[j][i][N-1]);
-					RHS[n] += (Ma[j][i][n] * sol[j][i][n] - Ma[j][i][N-1] * sol[j][i][N-1]);					
-					
-				}/* end n */
-				/* Now the line N-1 */
-				/* Now line=N-1 */
-				Md[line] = 4.0 * Mdcoef[j][i][line] * Tgas3;				
-				RHS[line] = Mdcoef[j][i][line] * Tgas4 + (Ma[j][i][line] + Mb[j][i][line]) * sol[j][i][line] - inisol[j][i][line];
-				for(n=0; n<N-1; n++){
-					RHS[line] += (Mb[j][i][n] * sol[j][i][n]);
-					
-				}
-				
-				/* Now the last line nelements */
-				Md[N] = Tcoef[j][i] + 4.0 * T4coef[j][i] * Tgas3;
-				RHS[N] = Tcoef[j][i] * (Tgas - inisol[j][i][N]) + T4coef[j][i] * Tgas4;
-				for(n=0; n<N; n++){
-					RHS[N] += (Mc[j][i][n] * sol[j][i][n]);
-				}
-				
-				/*------------------------------------------------*/
-				/* update the Residual */
-				/* now calculate the norm of residual */
-				residual = 0.0;
-				for(n=0; n<=N; n++)
-					residual += SQR(RHS[n]);
-				
-				residual /= (N+1);
-				
-				residual = sqrt(residual);
-				
-			}
-			
-			/* Now the solution is stored in sol[j][i] */
-			if(residual > TOL)
-				printf("Final residual: %e Iterations: %d\n",residual,count);
+		/* Now the solution is stored in sol[j][i] */
+		if(residual > TOL)
+			printf("Final residual: %e Iterations: %d\n",residual,count);
 			
 			
-		}/* end i */
-	}/* end j */
-	
-	
-}
-
-
-
-
-
-/* sol takes the initial guess, calculated without the velocity dependent terms */
-/* inisol takes the solution at time step n */
-/* Md and RHS are pre-allocated memory */
-/* This is for the 3D case */
-
-void Absorption3D(const int N, RadGridS *pRG, Real ****sol, Real ****inisol, Real ****Ma, Real ****Mb, Real ****Mc, Real ****Mdcoef, Real ***Tcoef, Real ***T4coef, Real *Md, Real *RHS)
-{
-	
-	int i, is, ie;
-	int j, js, je;
-	int k, ks, ke;
-	int n;
-	const int MAXIte = 15;
-	int count;
-	const Real TOL = 1.e-10;
-	Real Tgas, Tgas3, Tgas4;
-	Real residual;
-	int line=N-1;
-	
-	is=pRG->is; ie=pRG->ie;
-	js=pRG->js; je=pRG->je;
-	ks=pRG->ks; ke=pRG->ke;
-	
-	
-	/* Now solve the non-linear set of equations for each cell */
-	for(k=ks; k<=ke; k++){
-		for(j=js; j<=je; j++){
-			for(i=is; i<=ie; i++){
 			
-				Tgas = sol[k][j][i][N];
-				Tgas3 = SQR(Tgas) * Tgas;
-				Tgas4 = Tgas * Tgas3;
-			
-			
-				/* First, calculate the RHS for the guess solution */				
-				for(n=0; n<N-1; n++){
-					/* set Md, Md is used to invert the matrix */
-					Md[n] = 4.0 * Mdcoef[k][j][i][n] * Tgas3;
-				
-					RHS[n] = Mdcoef[k][j][i][n] * Tgas4 - (inisol[k][j][i][n] - inisol[k][j][i][N-1]);
-					RHS[n] += (Ma[k][j][i][n] * sol[k][j][i][n] - Ma[k][j][i][N-1] * sol[k][j][i][N-1]);					
-				
-				}/* end n */
-				/* Now the line N-1 */
-				/* Now line=N-1 */
-				Md[line] = 4.0 * Mdcoef[k][j][i][line] * Tgas3;
-			
-				RHS[line] = Mdcoef[k][j][i][line] * Tgas4 + (Ma[k][j][i][line] + Mb[k][j][i][line]) * sol[k][j][i][line] - inisol[k][j][i][line];
-				for(n=0; n<N-1; n++){
-					RHS[line] += (Mb[k][j][i][n] * sol[k][j][i][n]);
-				
-				}
-			
-				/* Now the last line nelements */
-				Md[N] = Tcoef[k][j][i] + 4.0 * T4coef[k][j][i] * Tgas3;
-				RHS[N] = Tcoef[k][j][i] * (Tgas - inisol[k][j][i][N]) + T4coef[k][j][i] * Tgas4;
-				for(n=0; n<N; n++){
-					RHS[N] += (Mc[k][j][i][n] * sol[k][j][i][n]);
-				}
-			
-				/* now calculate the norm of residual */
-				residual = 0.0;
-				for(n=0; n<=N; n++)
-					residual += SQR(RHS[n]);
-			
-				residual /= (N+1);
-			
-				residual = sqrt(residual);
-				count = 0;
-			
-			/****************************************************/
-			/* Do the iteration */
-				while((residual > TOL) && (count < MAXIte)){
-					count++;
-					/* calculate Inverse(Jacobi) * RHS */
-					AbsorptionMatrix(N, Ma[k][j][i], Mb[k][j][i], Mc[k][j][i], Md, RHS);
-				
-					/* The result is stored in RHS */
-					/* Update the guess solution */
-					for(n=0; n<=N; n++){
-						sol[k][j][i][n] -= RHS[n];	
-					}
-				
-					/*------------------------------------------------*/
-					Tgas = sol[k][j][i][N];
-					Tgas3 = SQR(Tgas) * Tgas;
-					Tgas4 = Tgas * Tgas3;
-				
-				
-					/* update RHS and Md */
-					for(n=0; n<N-1; n++){
-						/* set Md, Md is used to invert the matrix */
-						Md[n] = 4.0 * Mdcoef[k][j][i][n] * Tgas3;
-					
-						RHS[n] = Mdcoef[k][j][i][n] * Tgas4 - (inisol[k][j][i][n] - inisol[k][j][i][N-1]);
-						RHS[n] += (Ma[k][j][i][n] * sol[k][j][i][n] - Ma[k][j][i][N-1] * sol[k][j][i][N-1]);					
-					
-					}/* end n */
-					/* Now the line N-1 */
-					/* Now line=N-1 */
-					Md[line] = 4.0 * Mdcoef[k][j][i][line] * Tgas3;				
-					RHS[line] = Mdcoef[k][j][i][line] * Tgas4 + (Ma[k][j][i][line] + Mb[k][j][i][line]) * sol[k][j][i][line] - inisol[k][j][i][line];
-					for(n=0; n<N-1; n++){
-						RHS[line] += (Mb[k][j][i][n] * sol[k][j][i][n]);
-						
-					}
-				
-					/* Now the last line nelements */
-					Md[N] = Tcoef[k][j][i] + 4.0 * T4coef[k][j][i] * Tgas3;
-					RHS[N] = Tcoef[k][j][i] * (Tgas - inisol[k][j][i][N]) + T4coef[k][j][i] * Tgas4;
-					for(n=0; n<N; n++){
-						RHS[N] += (Mc[k][j][i][n] * sol[k][j][i][n]);
-					}
-				
-					/*------------------------------------------------*/
-					/* update the Residual */
-					/* now calculate the norm of residual */
-					residual = 0.0;
-					for(n=0; n<=N; n++)
-						residual += SQR(RHS[n]);
-				
-					residual /= (N+1);
-				
-					residual = sqrt(residual);
-				
-				}
-			
-				/* Now the solution is stored in sol[j][i] */
-				if(residual > TOL)
-					printf("Final residual: %e Iterations: %d\n",residual,count);
-			
-			
-			}/* end i */
-		}/* end j */
-	}/* end k */
+	}/* end ifr */
 	
 	
 }

@@ -129,9 +129,10 @@ void BackEuler_2d(MeshS *pM)
 
 	Real velocity_x, velocity_y, T4, pressure, density, temperature, Fr0x, Fr0y;
 	Real vxi0, vxi1, vyj0, vyj1, vzk0, vzk1,dvxdx,dvydy,dvzdz;
-	Real AdvFx, AdvFy, f11, f22, f21;
+	Real f11, f22, f21;
 	Real Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF;
 	Real dErdx, dErdy, divEr, limiter;
+    Real AdvFx[2], AdvFy[2];
 
 	Real Sigma[NOPACITY];
 
@@ -255,10 +256,10 @@ void BackEuler_2d(MeshS *pM)
 				FLD_limiter(divEr, pG->U[ks][j][i].Er, Sigma_sF + Sigma_aF, &(pMat->Ugas[Matk][Matj][Mati].lambda));
 
 				
-				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, &AdvFx, &AdvFy);
+				 Rad_Advection_Flux2D(pD, i, j, ks, 1.0, AdvFx, AdvFy);
 
 
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + (AdvFx + AdvFy) + dt * Sigma_aP * T4 * Crat * Eratio;
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0])) + dt * Sigma_aP * T4 * Crat * Eratio;
 				
 
 
@@ -1097,6 +1098,10 @@ void Inner_product2D(MatrixS *pMat, Real ***vector1, Real ***vector2, Real *resu
 
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 {
+    
+#ifdef MPI_PARALLEL
+	pMat_coarse->Comm_Domain = pMat->Comm_Domain;
+#endif
 
 	pMat_coarse->dx1 = 2.0 * pMat->dx1;
 	pMat_coarse->dx2 = 2.0 * pMat->dx2;
@@ -1239,6 +1244,11 @@ void BackEuler_init_2d(MeshS *pM)
 
 	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
+    
+
+#ifdef MPI_PARALLEL
+    pMat->Comm_Domain = pD->Comm_Domain;
+#endif
 
 
 	/* allocate memory at each level */

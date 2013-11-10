@@ -49,7 +49,7 @@ VDFun_t init_fullradiation(MeshS *pM)
   RadGridS *pRG;
   int nl,nd,myL,myM,myN;
   int i,j,k,l,m,n,n1, n2, n3, n1z, n2z, n3z, nmu1, nmu2;
-  int nang, nmu, noct,np, iang, ip;
+  int nang, nmu, noct,np, iang, ip, nelements, Mi;
 
   Real phi, sintheta;
 
@@ -116,6 +116,8 @@ VDFun_t init_fullradiation(MeshS *pM)
 			  
 		  pRG->noct = 8;
       }
+      
+      
 
 /* get (l,m,n) coordinates of Grid being updated on this processor */
 
@@ -205,24 +207,30 @@ VDFun_t init_fullradiation(MeshS *pM)
       
 
 /*  Allocate memory for array of RadS */
-      pRG->R = (RadS ****)calloc_4d_array(pRG->nf,n3z,n2z,n1z,sizeof(RadS));
+      pRG->R = (RadS ****)calloc_4d_array(n3z,n2z,n1z,pRG->nf,sizeof(RadS));
       if (pRG->R == NULL) goto on_error1;
+        
+    /* Allocate memory for reduction factor of speed of light */
+    pRG->Speedfactor = (Real *****)calloc_5d_array(n3z,n2z,n1z,pRG->nf,3,sizeof(Real));
+        if (pRG->Speedfactor == NULL) goto on_error16;
 
 /* Allocate memory for intensities, angles and weights for angular quadratures */
 
       nmu = pRG->nmu;
       nang = pRG->nang;
       noct = pRG->noct;
+      
+      nelements = pRG->noct * pRG->nang;
 
-      pRG->mu = (Real ******)calloc_6d_array(noct,nang,n3z,n2z,n1z,3,sizeof(Real));
+      pRG->mu = (Real *****)calloc_5d_array(n3z,n2z,n1z,nelements, 3,sizeof(Real));
       if (pRG->mu == NULL) goto on_error2;
 
 #ifdef CYLINDRICAL
-      pRG->Rphimu = (Real ******)calloc_6d_array(noct,nang,n3z,n2z,n1z,3,sizeof(Real));
+      pRG->Rphimu = (Real *****)calloc_5d_array(n3z,n2z,n1z,nelements,3,sizeof(Real));
       if (pRG->Rphimu == NULL) goto on_error2_2;	
 #endif
 
-      pRG->wmu = (Real ****)calloc_4d_array(nang,n3z,n2z,n1z,sizeof(Real));
+      pRG->wmu = (Real ****)calloc_4d_array(n3z,n2z,n1z,nelements,sizeof(Real));
       if (pRG->wmu == NULL) goto on_error3;     
 
 
@@ -236,13 +244,15 @@ VDFun_t init_fullradiation(MeshS *pM)
 		  gauleg(-1.0, 1.0, mutmp1d, wtmp, 2*nmu);
 
 	 
-		  for(i=nmu; i<2*nmu; i++) {
-			  for(j=0; j<n1z; j++){	
-				  pRG->wmu[i-nmu][0][0][j] = 0.5 * wtmp[i];
-				  pRG->mu[0][i-nmu][0][0][j][0] = mutmp1d[i];
-				  pRG->mu[1][i-nmu][0][0][j][0] = -mutmp1d[i];
-			  }/* end j */
-		  }/* end i */
+	 	  for(j=0; j<n1z; j++){	
+		  	 for(i=nmu; i<2*nmu; i++) {			  
+				  pRG->wmu[0][0][j][(i-nmu)] = 0.5 * wtmp[i];
+				  pRG->wmu[0][0][j][nmu] = 0.5 * wtmp[i];
+				  pRG->mu[0][0][j][i-nmu][0] = mutmp1d[i];
+				  pRG->mu[0][0][j][i][0] = -mutmp1d[i];
+			 }/* end i, angles */	  
+		  }/* end j, grid cells  */
+		  
 		  free_1d_array(wtmp);
 		  free_1d_array(mutmp1d);
       } else {
@@ -351,109 +361,117 @@ VDFun_t init_fullradiation(MeshS *pM)
 					InverseMatrix(pmat,nmu-1,pinv);
 /* Solve for and assign weights for each permutation family */
 					MatrixMult(pinv,wtmp,nmu-1,nmu-1,wpf);
-					for (i=0; i<nang; i++){
-						for(n3=0; n3<n3z; n3++)
-							for(n2=0; n2<n2z; n2++)
-								for(n1=0; n1<n1z; n1++){ 
-									pRG->wmu[i][n3][n2][n1] = wpf[plab[i]];
-		
-								} /* end n1, n2, n3 */
-					}/* end nang */
+					for(n3=0; n3<n3z; n3++)
+						for(n2=0; n2<n2z; n2++)
+							for(n1=0; n1<n1z; n1++){ 
+								for(l=0; l<noct; l++){
+									for (i=0; i<nang; i++){
+										pRG->wmu[n3][n2][n1][l*nang+i] = wpf[plab[i]];
+									}/* end nang */
+								}/* end noct */
+							} /* end n1, n2, n3 */
+					
 				} else { 
 					for(n3=0; n3<n3z; n3++)
 						for(n2=0; n2<n2z; n2++)
 							for(n1=0; n1<n1z; n1++){ 
-								pRG->wmu[0][n3][n2][n1] = 1.0;
+								for(l=0; l<noct; l++){
+									pRG->wmu[n3][n2][n1][l] = 1.0;
+								}/* end l */
 							}/* end n1, n2, n3 */
 				}/* end nmu > 1 */
 			} else {
 /* Use equal weights for all angles */
-				for (i=0; i<nang; i++)
-					for(n3=0; n3<n3z; n3++)
-						for(n2=0; n2<n2z; n2++)
-							for(n1=0; n1<n1z; n1++){ 		
-								pRG->wmu[i][n3][n2][n1] = 1.0/(Real)nang;
-							}	
+				for(n3=0; n3<n3z; n3++)
+					for(n2=0; n2<n2z; n2++)
+						for(n1=0; n1<n1z; n1++){ 
+							for(l=0; l<noct; l++){		
+								for (i=0; i<nang; i++){
+									pRG->wmu[n3][n2][n1][l*nang+i] = 1.0/(Real)nang;
+								}
+							}/* end l */
+						}/* end n */	
 			}/* end nmu > 6 */
 
 /*  assign angles to RadGrid elements */
 			if (nDim == 2) {
-				for (i=0; i<nang; i++) {
-					for(n2=0; n2<n2z; n2++){
-						for(n1=0; n1<n1z; n1++){
-							for (j=0; j<2; j++) {
-								for (k=0; k<2; k++) {		
-									l=2*j+k;
+				for(n2=0; n2<n2z; n2++){
+					for(n1=0; n1<n1z; n1++){
+						for (j=0; j<2; j++) {
+							for (k=0; k<2; k++) {
+								l=2*j+k;
+								for (i=0; i<nang; i++) {									
+									Mi = l*nang + i;
 									if (k == 0)
-										pRG->mu[l][i][0][n2][n1][0] =  mutmp[i][0];
+										pRG->mu[0][n2][n1][Mi][0] =  mutmp[i][0];
 									else
-										pRG->mu[l][i][0][n2][n1][0] = -mutmp[i][0];
+										pRG->mu[0][n2][n1][Mi][0] = -mutmp[i][0];
 									if (j == 0)
-										pRG->mu[l][i][0][n2][n1][1] =  mutmp[i][2];
+										pRG->mu[0][n2][n1][Mi][1] =  mutmp[i][2];
 									else
-										pRG->mu[l][i][0][n2][n1][1] = -mutmp[i][2];
+										pRG->mu[0][n2][n1][Mi][1] = -mutmp[i][2];
 	
               /* setup the angular cosins for the cylindrical coordinate */
 #ifdef CYLINDRICAL
 									cc_pos(pG,n1+offset,n2+offset,0,&x1,&x2,&x3);
-									convert_angle(x2,pRG->mu[l][i][0][n2][n1][0],pRG->mu[l][i][0][n2][n1][1],
-												&(pRG->Rphimu[l][i][0][n2][n1][0]),&(pRG->Rphimu[l][i][0][n2][n1][1]));
+									convert_angle(x2,pRG->mu[0][n2][n1][Mi][0],pRG->mu[0][n2][n1][Mi][1],
+												&(pRG->Rphimu[0][n2][n1][Mi][0]),&(pRG->Rphimu[0][n2][n1][Mi][1]));
 
-									pRG->Rphimu[l][i][0][n2][n1][2] = pRG->mu[l][i][0][n2][n1][2];
+									pRG->Rphimu[0][n2][n1][Mi][2] = pRG->mu[0][n2][n1][Mi][2];
 #endif
 
-		    
-								}/* end k */
-							}/* end j */
+		    						pRG->wmu[0][n2][n1][Mi] *= 0.25;
+	
+								}/* end nang */
+							}/* end k */
+						}/* end j */
 		
-							pRG->wmu[i][0][n2][n1] *= 0.25;
-		
-						}/* end n1 */
-					} /* end n2*/
-				}/* end nang */
+					}/* end n1 */
+				} /* end n2*/
+				
 			} else if (nDim == 3) {
-				for(i=0; i<nang; i++){					
-					for(n3=0; n3<n3z; n3++){
-						for(n2=0; n2<n2z; n2++){
-							for(n1=0; n1<n1z; n1++){
-								for (j=0; j<2; j++) {
-									for (k=0; k<2; k++) {
-										for (l=0; l<2; l++) {
-			
-
-											m=4*j+2*k+l;
+								
+				for(n3=0; n3<n3z; n3++){
+					for(n2=0; n2<n2z; n2++){
+						for(n1=0; n1<n1z; n1++){
+							for (j=0; j<2; j++) {
+								for (k=0; k<2; k++) {
+									for (l=0; l<2; l++) {
+										m=4*j+2*k+l;
+										for(i=0; i<nang; i++){	
+											Mi = m*nang + i;
+											
 											if (l == 0)
-												pRG->mu[m][i][n3][n2][n1][0] =  mutmp[i][0];
+												pRG->mu[n3][n2][n1][Mi][0] =  mutmp[i][0];
 											else
-												pRG->mu[m][i][n3][n2][n1][0] = -mutmp[i][0];
+												pRG->mu[n3][n2][n1][Mi][0] = -mutmp[i][0];
 											if (k == 0)
-												pRG->mu[m][i][n3][n2][n1][1] =  mutmp[i][1];
+												pRG->mu[n3][n2][n1][Mi][1] =  mutmp[i][1];
 											else
-												pRG->mu[m][i][n3][n2][n1][1] = -mutmp[i][1];
+												pRG->mu[n3][n2][n1][Mi][1] = -mutmp[i][1];
 											if (j == 0)
-												pRG->mu[m][i][n3][n2][n1][2] =  mutmp[i][2];
+												pRG->mu[n3][n2][n1][Mi][2] =  mutmp[i][2];
 											else
-												pRG->mu[m][i][n3][n2][n1][2] = -mutmp[i][2];
+												pRG->mu[n3][n2][n1][Mi][2] = -mutmp[i][2];
 
 		/* setup the angular cosins for the cylindrical coordinate */
 #ifdef CYLINDRICAL
 											cc_pos(pG,n1+offset,n2+offset,n3+offset,&x1,&x2,&x3);
-											convert_angle(x2,pRG->mu[m][i][n3][n2][n1][0],pRG->mu[m][i][n3][n2][n1][1],
-														  &(pRG->Rphimu[m][i][n3][n2][n1][0]),&(pRG->Rphimu[m][i][n3][n2][n1][1]));
+											convert_angle(x2,pRG->mu[n3][n2][n1][Mi][0],pRG->mu[n3][n2][n1][Mi][1],
+														  &(pRG->Rphimu[n3][n2][n1][Mi][0]),&(pRG->Rphimu[n3][n2][n1][Mi][1]));
 
-											pRG->Rphimu[m][i][n3][n2][n1][2] = pRG->mu[m][i][n3][n2][n1][2];
+											pRG->Rphimu[n3][n2][n1][Mi][2] = pRG->mu[n3][n2][n1][Mi][2];
 #endif		
 			
-	      
-										}/* end l */
-									}/* end k */
-								}/* end j */
-								pRG->wmu[i][n3][n2][n1] *= 0.125;
-			    
-							}/* end n1 */
-						}/* end n2 */
-					}/* end n3 */
-				}/* end i */
+	      									pRG->wmu[n3][n2][n1][Mi] *= 0.125;
+										}/* end i */
+									}/* end l */
+								}/* end k */
+							}/* end j */							
+						}/* end n1 */
+					}/* end n2 */
+				}/* end n3 */
+				
 			}/* end nDIM = 3 */
 /* deallocate temporary arrays */
 			free_1d_array(wpf);
@@ -470,90 +488,94 @@ VDFun_t init_fullradiation(MeshS *pM)
 		else {
 			/* For this scheme, uniformly devide azimuthal phi and polidal angle sintheta */
 			if (nDim == 2) {
-				for (i=0; i<nang; i++) {
-					phi = (0.5 + i) * 0.5 * PI/nang;
-					
-					for(n2=0; n2<n2z; n2++){
-						for(n1=0; n1<n1z; n1++){
-							for (j=0; j<2; j++) {
-								for (k=0; k<2; k++) {		
-									l=2*j+k;
+			
+				for(n2=0; n2<n2z; n2++){
+					for(n1=0; n1<n1z; n1++){
+						for (j=0; j<2; j++) {
+							for (k=0; k<2; k++) {		
+								l=2*j+k;
+								for (i=0; i<nang; i++) {
+									phi = (0.5 + i) * 0.5 * PI/nang;
+									Mi = l*nang + i;
+									
 									if (k == 0)
-										pRG->mu[l][i][0][n2][n1][0] =  cos(phi);
+										pRG->mu[0][n2][n1][Mi][0] =  cos(phi);
 									else
-										pRG->mu[l][i][0][n2][n1][0] = -cos(phi);
+										pRG->mu[0][n2][n1][Mi][0] = -cos(phi);
 									if (j == 0)
-										pRG->mu[l][i][0][n2][n1][1] =  sin(phi);
+										pRG->mu[0][n2][n1][Mi][1] =  sin(phi);
 									else
-										pRG->mu[l][i][0][n2][n1][1] = -sin(phi);
+										pRG->mu[0][n2][n1][Mi][1] = -sin(phi);
 									
 									/* setup the angular cosins for the cylindrical coordinate */
 #ifdef CYLINDRICAL
 									cc_pos(pG,n1+offset,n2+offset,0,&x1,&x2,&x3);
-									convert_angle(x2,pRG->mu[l][i][0][n2][n1][0],pRG->mu[l][i][0][n2][n1][1],
-												  &(pRG->Rphimu[l][i][0][n2][n1][0]),&(pRG->Rphimu[l][i][0][n2][n1][1]));
+									convert_angle(x2,pRG->mu[0][n2][n1][Mi][0],pRG->mu[0][n2][n1][Mi][1],
+												  &(pRG->Rphimu[0][n2][n1][Mi][0]),&(pRG->Rphimu[0][n2][n1][Mi][1]));
 									
-									pRG->Rphimu[l][i][0][n2][n1][2] = pRG->mu[l][i][0][n2][n1][2];
+									pRG->Rphimu[0][n2][n1][Mi][2] = pRG->mu[0][n2][n1][Mi][2];
 #endif
 									
+									pRG->wmu[0][n2][n1][Mi] = 0.25 * 1.0/(nang);
 									
-								}/* end k */
-							}/* end j */
+								}/* end nang */
+							}/* end k */
+						}/* end j */
+						
+						
 							
-							pRG->wmu[i][0][n2][n1] = 0.25 * 1.0/(nang);
-							
-						}/* end n1 */
-					} /* end n2*/
-				}/* end nang */
+					}/* end n1 */
+				} /* end n2*/
+				
 			} else if (nDim == 3) {				
-				for(nmu1=0; nmu1<nmu; nmu1++){	
-				for(nmu2=0; nmu2<nmu; nmu2++){
-						i = nmu1 * nmu + nmu2;
-						/* notice that nang = nmu * nmu in 3D */
-						phi = (0.5 + nmu2) * 0.5 * PI/(nmu);
-						sintheta = (0.5 + nmu1) * 1.0/(nmu);
-					for(n3=0; n3<n3z; n3++){
-						for(n2=0; n2<n2z; n2++){
-							for(n1=0; n1<n1z; n1++){
-								for (j=0; j<2; j++) {
-									for (k=0; k<2; k++) {
-										for (l=0; l<2; l++) {
-											
-											
+				for(n3=0; n3<n3z; n3++){
+					for(n2=0; n2<n2z; n2++){
+						for(n1=0; n1<n1z; n1++){
+							for (j=0; j<2; j++) {
+								for (k=0; k<2; k++) {
+									for (l=0; l<2; l++) {				
 											m=4*j+2*k+l;
+										for(nmu1=0; nmu1<nmu; nmu1++){	
+										for(nmu2=0; nmu2<nmu; nmu2++){
+											i = nmu1 * nmu + nmu2;
+											/* notice that nang = nmu * nmu in 3D */
+											phi = (0.5 + nmu2) * 0.5 * PI/(nmu);
+											sintheta = (0.5 + nmu1) * 1.0/(nmu);
+											Mi = m*nang + i;
+												
 											if (l == 0)
-												pRG->mu[m][i][n3][n2][n1][0] =  sqrt(1.0-SQR(sintheta)) * cos(phi);
+												pRG->mu[n3][n2][n1][Mi][0] =  sqrt(1.0-SQR(sintheta)) * cos(phi);
 											else
-												pRG->mu[m][i][n3][n2][n1][0] = -sqrt(1.0-SQR(sintheta)) * cos(phi);
+												pRG->mu[n3][n2][n1][Mi][0] = -sqrt(1.0-SQR(sintheta)) * cos(phi);
 											if (k == 0)
-												pRG->mu[m][i][n3][n2][n1][1] =  sqrt(1.0-SQR(sintheta)) * sin(phi);
+												pRG->mu[n3][n2][n1][Mi][1] =  sqrt(1.0-SQR(sintheta)) * sin(phi);
 											else
-												pRG->mu[m][i][n3][n2][n1][1] = -sqrt(1.0-SQR(sintheta)) * sin(phi);
+												pRG->mu[n3][n2][n1][Mi][1] = -sqrt(1.0-SQR(sintheta)) * sin(phi);
 											if (j == 0)
-												pRG->mu[m][i][n3][n2][n1][2] =  sintheta;
+												pRG->mu[n3][n2][n1][Mi][2] =  sintheta;
 											else
-												pRG->mu[m][i][n3][n2][n1][2] = -sintheta;
+												pRG->mu[n3][n2][n1][Mi][2] = -sintheta;
 											
 											/* setup the angular cosins for the cylindrical coordinate */
 #ifdef CYLINDRICAL
 											cc_pos(pG,n1+offset,n2+offset,n3+offset,&x1,&x2,&x3);
-											convert_angle(x2,pRG->mu[m][i][n3][n2][n1][0],pRG->mu[m][i][n3][n2][n1][1],
-														  &(pRG->Rphimu[m][i][n3][n2][n1][0]),&(pRG->Rphimu[m][i][n3][n2][n1][1]));
+											convert_angle(x2,pRG->mu[n3][n2][n1][Mi][0],pRG->mu[n3][n2][n1][Mi][1],
+														  &(pRG->Rphimu[n3][n2][n1][Mi][0]),&(pRG->Rphimu[n3][n2][n1][Mi][1]));
 											
-											pRG->Rphimu[m][i][n3][n2][n1][2] = pRG->mu[m][i][n3][n2][n1][2];
+											pRG->Rphimu[n3][n2][n1][Mi][2] = pRG->mu[n3][n2][n1][Mi][2];
 #endif		
 											
+											pRG->wmu[n3][n2][n1][Mi] = 0.125 * 1.0/(nang);
 											
-										}/* end l */
-									}/* end k */
-								}/* end j */
-								pRG->wmu[i][n3][n2][n1] = 0.125 * 1.0/(nang);
-								
-							}/* end n1 */
-						}/* end n2 */
-					}/* end n3 */
-				}/* end nmu1 */
-				}/* end num2 */	
+										}/* end nmu1 */
+										}/* end num2 */	
+									}/* end l */
+								}/* end k */
+							}/* end j */				
+						}/* end n1 */
+					}/* end n2 */
+				}/* end n3 */
+				
 			}/* end nDIM = 3 */		
 			
 			
@@ -564,9 +586,11 @@ VDFun_t init_fullradiation(MeshS *pM)
 
 
 
-	pRG->imu = (Real ******)calloc_6d_array(pRG->nf,noct,nang,n3z,n2z,n1z,sizeof(Real));
+	pRG->imu = (Real *****)calloc_5d_array(n3z,n2z,n1z,pRG->nf,nelements,sizeof(Real));
 	if (pRG->imu == NULL) goto on_error15;
 /* The heating and cooling rate for each I */
+
+
 
     
 /* Allocate memory for frequency and quadrature arrays */ 
@@ -659,14 +683,14 @@ VDFun_t init_fullradiation(MeshS *pM)
 
 /*--- Error messages ---------------------------------------------------------*/
 
-
-
+on_error16:
+    free_5d_array(pRG->Speedfactor);
  on_error22:
   free_1d_array(pRG->wnu);  
  on_error21:
   free_1d_array(pRG->nu);
  on_error15:
-  free_6d_array(pRG->imu);
+  free_5d_array(pRG->imu);
  on_error14:
   if (nDim > 1) free_1d_array(wpf);
  on_error13:
@@ -692,10 +716,10 @@ VDFun_t init_fullradiation(MeshS *pM)
  on_error3:
   free_4d_array(pRG->wmu);
  on_error2:
-  free_6d_array(pRG->mu);
+  free_5d_array(pRG->mu);
 #ifdef CYLINDRICAL
  on_error2_2:
-  free_6d_array(pRG->Rphimu);
+  free_5d_array(pRG->Rphimu);
 #endif
  on_error1:
   free_4d_array(pRG->R);
@@ -741,13 +765,13 @@ void radgrid_destruct(RadGridS *pRG)
 {
   if (pRG->R != NULL) free_4d_array(pRG->R);  
   if (pRG->wmu != NULL) free_4d_array(pRG->wmu);
-  if (pRG->mu != NULL) free_6d_array(pRG->mu);
+  if (pRG->mu != NULL) free_5d_array(pRG->mu);
 #ifdef CYLINDRICAL
-  if (pRG->Rphimu != NULL) free_6d_array(pRG->Rphimu);
+  if (pRG->Rphimu != NULL) free_5d_array(pRG->Rphimu);
 #endif
   if (pRG->wnu != NULL) free_1d_array(pRG->wnu);
   if (pRG->nu != NULL) free_1d_array(pRG->nu);
-  if (pRG->imu != NULL) free_6d_array(pRG->imu);
+  if (pRG->imu != NULL) free_5d_array(pRG->imu);
 
   return;
 }

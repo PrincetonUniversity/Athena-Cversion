@@ -49,8 +49,8 @@ endif
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
-  FFTWLIB = -L/u/yanfei/Tools/FFTW/fftw-3/lib -lfftw3
-  FFTWINC = -I/u/yanfei/Tools/FFTW/fftw-3/include
+  FFTWLIB = -L/Users/YanFei/Tools/FFTW/fftw-3/lib -lfftw3
+  FFTWINC = -I/Users/YanFei/Tools/FFTW/fftw-3/include
 endif
 
 
@@ -68,6 +68,11 @@ endif
 #    ophir> make all MACHINE=ophir
 # New machines can be added to ifeq blocks below.
 
+ifeq ($(MACHINE),stampede)
+  CC = mpicc
+  LDR = mpicc
+  OPT = -xhost -O3
+else
 ifeq ($(MACHINE),kraken)
   CC = cc
   LDR = cc
@@ -138,6 +143,7 @@ ifeq ($(MACHINE),sunnyvale)
   MPILIB = -lmpi
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif

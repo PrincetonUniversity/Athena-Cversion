@@ -580,14 +580,15 @@ void integrate_2d_vl(DomainS *pD)
 
 /*----Add radiation source terms to half time step -------------------------*/
 #ifdef FULL_RADIATION_TRANSFER
-    for (j=jl; j<=ju; j++) {
+/* Add source term at half time step like this can cause instability */
+/*    for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         Uhalf[j][i].M1 += (0.5 * pG->Frsource[ks][j][i][0]);
         Uhalf[j][i].M2 += (0.5 * pG->Frsource[ks][j][i][1]);
         Uhalf[j][i].E += (0.5 * pG->Radheat[ks][j][i]);
       }
     }
-
+*/
 #endif
 
 /*=== STEP 7: Compute second-order L/R x1-interface states ===================*/

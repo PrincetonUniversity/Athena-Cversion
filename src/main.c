@@ -704,7 +704,10 @@ int main(int argc, char *argv[])
 		/* Get the gas temperature */
         	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
 			/* get the estimate velocity at half time step */
+ 
 			GetVelguess(&(Mesh.Domain[nl][nd]));
+            /* Also get the reduce factor for speed of light */
+            GetSpeedfactor(&(Mesh.Domain[nl][nd]));
 			
 			FullRT(&(Mesh.Domain[nl][nd]));		
 

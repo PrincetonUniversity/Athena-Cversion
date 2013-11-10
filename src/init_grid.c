@@ -332,7 +332,7 @@ void init_grid(MeshS *pM)
 	  pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
 	  if (pG->Frsource == NULL) goto on_error28;
 	  pG->Velguess = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
-	  if (pG->Velguess == NULL) goto on_error29;	
+	  if (pG->Velguess == NULL) goto on_error29;
 		
 #endif
 
@@ -1525,7 +1525,7 @@ G3.ijkl[2],G3.ijkr[2]);
  on_error28:
     free_4d_array(pG->Frsource);
  on_error29:	
-    free_4d_array(pG->Velguess); 	
+    free_4d_array(pG->Velguess);
  on_error21:
     free_3d_array(pG->Radheat);
 #endif

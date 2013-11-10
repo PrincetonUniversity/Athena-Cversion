@@ -32,6 +32,8 @@ static int ioff;
 static int joff;
 static int koff;
 
+
+
 #ifdef MPI_PARALLEL
 /* MPI send and receive buffers */
 static double **send_buf = NULL, **recv_buf = NULL;
@@ -950,11 +952,11 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
 	
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	
 	for(k=ks; k<=ke; k++){
@@ -977,22 +979,23 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
   
 
 
-for(ifr=0; ifr<nf; ifr++) {
 
-    for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-		   for(j=js; j<=je; j++){
-	          for(i=1; i<=Radghost; i++){
+
+
+    for(k=ks; k<=ke; k++){
+	   for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+	          for(ifr=0; ifr<nf; ifr++) {
+		          for(Mi=0; Mi<N; Mi++){
 	
-				  pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];			
-			
-			  }/* end i */
-		  }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-   }/* end ifr */
+					  pRG->imu[k][j][is-i][ifr][Mi] = pRG->imu[k][j][is][ifr][Mi];			
+				   }
+			   }/* end ifr */
+			}/* end i */
+		}/* end J */
+    } /* End k */
+
+
 	  
 
 
@@ -1008,11 +1011,10 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
@@ -1034,22 +1036,21 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
-  
-    for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
-	      for(i=1; i<=Radghost; i++){
-	
-			pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];			
 
+  
+  
+	for(k=ks; k<=ke; k++){
+        for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+			for(ifr=0; ifr<nf; ifr++) {
+				for(Mi=0; Mi<N; Mi++){
+					pRG->imu[k][j][ie+i][ifr][Mi] = pRG->imu[k][j][ie][ifr][Mi];			
+				}/* Mi */
+			}/* ifr */
 	      }/* end i */
-       	    }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-   }/* end ifr */
+       	}/* end J */
+    } /* End k */
+
 	  
 
 
@@ -1063,11 +1064,10 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -1088,19 +1088,18 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-  for(ifr=0; ifr<nf; ifr++) {
-     for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	      for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
-	          for(i=is-Radghost; i<=ie+Radghost; i++){	
-				  pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];			
-			  }/* end i */
-			}/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-  }/* end ifr */
+   for(k=ks; k<=ke; k++){
+	   for(j=1; j<=Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){	
+	         for(ifr=0; ifr<nf; ifr++) {
+	            for(Mi=0; Mi<N; Mi++){
+				  pRG->imu[k][js-j][i][ifr][Mi] = pRG->imu[k][js][i][ifr][Mi];	
+				}/* Mi */
+			 }/* ifr */		
+		   }/* end i */
+		}/* end J */
+     } /* End k */
+
 
   return;
 }
@@ -1112,11 +1111,10 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -1137,20 +1135,21 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-for(ifr=0; ifr<nf; ifr++) {
 
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
+
+
+	for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
 	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][je][i];			
-	   	}/* end i */
-       	     }/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-}/* end ifr */
+		       for(ifr=0; ifr<nf; ifr++) {
+	       			for(Mi=0; Mi<N; Mi++){
+						pRG->imu[k][je+j][i][ifr][Mi] = pRG->imu[k][je][i][ifr][Mi];
+					}/* Mi */	
+				}/* ifr */		
+	   		}/* end i */
+       	 }/* end J */
+     } /* End k */
+
 
   return;
 }
@@ -1162,10 +1161,10 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	
 	for(k=1; k<=Radghost; k++){
@@ -1187,20 +1186,20 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ks][j][i];			
-		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
-	 
+
+
+	for(k=1; k<=Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){
+		     for(ifr=0; ifr<nf; ifr++) {
+	         	for(Mi=0; Mi<N; Mi++){
+					pRG->imu[ks-k][j][i][ifr][Mi] = pRG->imu[ks][j][i][ifr][Mi];			
+				}/* Mi */
+			 }/* ifr */
+		  }/* end i */
+       	}/* end J */
+    } /* End k */
+
 
   return;
 }
@@ -1212,10 +1211,10 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	for(k=1; k<=Radghost; k++){
 		for(j=js-Radghost; j<=je+Radghost; j++){
@@ -1236,20 +1235,21 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-for(ifr=0; ifr<nf; ifr++) {
- 
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ke][j][i];			
+
+
+	for(k=1; k<=Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){
+	         for(ifr=0; ifr<nf; ifr++) {
+		         for(Mi=0; Mi<N; Mi++){
+					pRG->imu[ke+k][j][i][ifr][Mi] = pRG->imu[ke][j][i][ifr][Mi];			
+				
+				}
+			}
 		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
+       }/* end J */
+    } /* End k */
+
 	 
 
   return;
@@ -1267,11 +1267,10 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   /* set the angle independent values */
 	
 	
@@ -1294,21 +1293,20 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
-	      for(i=1; i<=Radghost; i++){
-	
-			pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][ie-(i-1)];			
 
+
+	for(k=ks; k<=ke; k++){
+       for(j=js; j<=je; j++){
+	      for(i=1; i<=Radghost; i++){
+		      for(ifr=0; ifr<nf; ifr++) {
+	      		 for(Mi=0; Mi<N; Mi++){
+					pRG->imu[k][j][is-i][ifr][Mi] = pRG->imu[k][j][ie-(i-1)][ifr][Mi];			
+				 }
+			  } 	
 	      }/* end i */
-       	    }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-   }/* end ifr */
+       	}/* end J */
+    } /* End k */
+
 	  
 
 
@@ -1325,11 +1323,10 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;
 	
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
@@ -1350,23 +1347,18 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
-
-  
-    for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
+   for(k=ks; k<=ke; k++){
+	    for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
-	
-			pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][is+(i-1)];			
+			for(ifr=0; ifr<nf; ifr++) {
+				for(Mi=0; Mi<N; Mi++){
+					pRG->imu[k][j][ie+i][ifr][Mi] = pRG->imu[k][j][is+(i-1)][ifr][Mi];			
+				}
+			}
+	     }/* end i */
+      }/* end J */
+    } /* End k */
 
-	      }/* end i */
-       	    }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-   }/* end ifr */
 	  
   return;
 }
@@ -1380,11 +1372,10 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -1405,20 +1396,19 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
 
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
+
+	for(k=ks; k<=ke; k++){
+       for(j=1; j<=Radghost; j++){
 	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][je-(j-1)][i];			
-	   	}/* end i */
-       	     }/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-}/* end ifr */
+		       for(ifr=0; ifr<nf; ifr++) {
+	    		   for(Mi=0; Mi<N; Mi++){
+						pRG->imu[k][js-j][i][ifr][Mi] = pRG->imu[k][je-(j-1)][i][ifr][Mi];	
+					}
+				}		
+	   		}/* end i */
+      	}/* end J */
+     } /* End k */
 
   return;
 }
@@ -1432,11 +1422,10 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -1456,19 +1445,19 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-for(ifr=0; ifr<nf; ifr++) {
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
+
+
 	 for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
-	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][js+(j-1)][i];			
-	   	}/* end i */
-       	     }/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-}/* end ifr */
+       	for(j=1; j<=Radghost; j++){
+	 		for(i=is-Radghost; i<=ie+Radghost; i++){	
+	       		for(ifr=0; ifr<nf; ifr++) {
+	       			for(Mi=0; Mi<N; Mi++){
+						pRG->imu[k][je+j][i][ifr][Mi] = pRG->imu[k][js+(j-1)][i][ifr][Mi];	
+					}
+				}		
+	   		}/* end i */
+       	 }/* end J */
+     } /* End k */
 
 
   return;
@@ -1484,11 +1473,10 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
-	
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;		
 	
 	for(k=1; k<=Radghost; k++){
 		for(j=js-Radghost; j<=je+Radghost; j++){
@@ -1509,21 +1497,22 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
+
 	
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
+
+	for(k=1; k<=Radghost; k++){
 		 for(j=js-Radghost; j<=je+Radghost; j++){
 	         for(i=is-Radghost; i<=ie+Radghost; i++){
-				 pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ke-(k-1)][j][i];			
+	         	for(ifr=0; ifr<nf; ifr++) {
+	         		for(Mi=0; Mi<N; Mi++){
+				 		pRG->imu[ks-k][j][i][ifr][Mi] = pRG->imu[ke-(k-1)][j][i][ifr][Mi];			
+					}
+				}
+					
 			}/* end i */
-			}/* end J */
-		} /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
-	 
+		}/* end J */
+	} /* End k */
+
 
   return;
 }
@@ -1538,10 +1527,10 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
-  int i, j, k, l, n, ifr;
+  int i, j, k, ifr, l;
+  int Mi;
+  int N = pRG->nang * pRG->noct;	
 	
 	
 	for(k=1; k<=Radghost; k++){
@@ -1563,20 +1552,20 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
-		 for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-				 pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ks+(k-1)][j][i];			
+
+  for(k=1; k<=Radghost; k++){
+	 for(j=js-Radghost; j<=je+Radghost; j++){
+	    for(i=is-Radghost; i<=ie+Radghost; i++){
+	       for(ifr=0; ifr<nf; ifr++) {
+	         for(Mi=0; Mi<N; Mi++){
+				 pRG->imu[ke+k][j][i][ifr][Mi] = pRG->imu[ks+(k-1)][j][i][ifr][Mi];			
+		
+				}
+			}
 		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
-	 
+       }/* end J */
+   } /* End k */
+
 
 
 
@@ -1593,43 +1582,57 @@ static void Rotate90_ix2_fullrad(RadGridS *pRG)
 	int is = pRG->is, ie = pRG->ie;
 	int js = pRG->js;
 	int ks = pRG->ks, ke = pRG->ke;
-	int nang = pRG->nang;
 	int nf = pRG->nf;
 	int i, j, k, n, ifr;
 	Real swap;
+	int Mi1, Mi2;
+	int nang = pRG->nang; 	
 	
 	
-	for(ifr=0; ifr<nf; ifr++) {		
-		for(n=0; n<nang; n++){
-			for(k=ks; k<=ke; k++){
-				for(j=1; j<=Radghost; j++){
-					for(i=is-Radghost; i<=ie+Radghost; i++){
+
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				for(ifr=0; ifr<nf; ifr++) {	
+					for(n=0; n<nang; n++){
 						/* Swap l = 0 && l =1, l=2 and l=3 */
-						swap = pRG->imu[ifr][0][n][k][js-j][i];
-						pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][1][n][k][js-j][i];
-						pRG->imu[ifr][1][n][k][js-j][i] = swap;
+						Mi1 = n;
+						Mi2 = 1*nang + n;
+						swap = pRG->imu[k][js-j][i][ifr][Mi1];
+						pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+						pRG->imu[k][js-j][i][ifr][Mi2] = swap;
 						
-						swap = pRG->imu[ifr][2][n][k][js-j][i];
-						pRG->imu[ifr][2][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
-						pRG->imu[ifr][3][n][k][js-j][i] = swap;
+						Mi1 = 2*nang + n;
+						Mi2 = 3*nang + n;
+						
+						swap = pRG->imu[k][js-j][i][ifr][Mi1];
+						pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+						pRG->imu[k][js-j][i][ifr][Mi2] = swap;
 						
 						/* If for 3D */ 
 						/* swap l ==4 && l==5, l==6 and l==7 */
 						if(pRG->noct > 4){
-							swap = pRG->imu[ifr][4][n][k][js-j][i];
-							pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][5][n][k][js-j][i];
-							pRG->imu[ifr][5][n][k][js-j][i] = swap;
+							Mi1 = 4*nang + n;
+							Mi2 = 5*nang + n;
 							
-							swap = pRG->imu[ifr][6][n][k][js-j][i];
-							pRG->imu[ifr][6][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
-							pRG->imu[ifr][7][n][k][js-j][i] = swap;
+							swap = pRG->imu[k][js-j][i][ifr][Mi1];
+							pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+							pRG->imu[k][js-j][i][ifr][Mi2] = swap;
+							
+							Mi1 = 6*nang + n;
+							Mi2 = 7*nang + n;
+							swap = pRG->imu[k][js-j][i][ifr][Mi1];
+							pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+							pRG->imu[k][js-j][i][ifr][Mi2] = swap;
 						}
 						
-					}/* end i */
-				}/* end J */
-			} /* End k */
-		}/* end nang */ 
-	}/* end ifr */
+									
+					}/* end nang */
+				}/* end ifr */ 		
+			}/* end i */
+		}/* end J */
+	} /* End k */
+
 	
 	return;
 }
@@ -1647,40 +1650,49 @@ static void Rotate90_ox2_fullrad(RadGridS *pRG)
 	int nf = pRG->nf;
 	int i, j, k, n, ifr;
 	Real swap;
+	int Mi1, Mi2;
 	
-	
-	for(ifr=0; ifr<nf; ifr++) {		
-		for(n=0; n<nang; n++){
-			for(k=ks; k<=ke; k++){
-				for(j=1; j<=Radghost; j++){
-					for(i=is-Radghost; i<=ie+Radghost; i++){
-						/* Swap l = 0 && l =1 , l==2 and l ==3*/
-						swap = pRG->imu[ifr][0][n][k][je+j][i];
-						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][1][n][k][je+j][i];
-						pRG->imu[ifr][1][n][k][je+j][i] = swap;
+
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){			
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				for(ifr=0; ifr<nf; ifr++) {		
+					for(n=0; n<nang; n++){
+						Mi1 = n;
+						Mi2 = 1*nang + n;
+						swap = pRG->imu[k][je+j][i][ifr][Mi1];
+						pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+						pRG->imu[k][je+j][i][ifr][Mi2] = swap;
 						
-						swap = pRG->imu[ifr][2][n][k][je+j][i];
-						pRG->imu[ifr][2][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
-						pRG->imu[ifr][3][n][k][je+j][i] = swap;
+						Mi1 = 2*nang + n;
+						Mi2 = 3*nang + n;
 						
+						swap = pRG->imu[k][je+j][i][ifr][Mi1];
+						pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+						pRG->imu[k][je+j][i][ifr][Mi2] = swap;
+						
+						/* If for 3D */ 
 						/* swap l ==4 && l==5, l==6 and l==7 */
 						if(pRG->noct > 4){
-							swap = pRG->imu[ifr][4][n][k][je+j][i];
-							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][5][n][k][je+j][i];
-							pRG->imu[ifr][5][n][k][je+j][i] = swap;
+							Mi1 = 4*nang + n;
+							Mi2 = 5*nang + n;
 							
-							swap = pRG->imu[ifr][6][n][k][je+j][i];
-							pRG->imu[ifr][6][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
-							pRG->imu[ifr][7][n][k][je+j][i] = swap;
+							swap = pRG->imu[k][je+j][i][ifr][Mi1];
+							pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+							pRG->imu[k][je+j][i][ifr][Mi2] = swap;
 							
-						}
-						
-					}/* end i */
-				}/* end J */
-			} /* End k */
-		}/* end nang */ 
-	}/* end ifr */
-	
+							Mi1 = 6*nang + n;
+							Mi2 = 7*nang + n;
+							swap = pRG->imu[k][je+j][i][ifr][Mi1];
+							pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+							pRG->imu[k][je+j][i][ifr][Mi2] = swap;
+						}					
+					}/* end nang */ 
+				}/* end ifr */
+			}/* end i */
+		}/* end J */
+	} /* End k */
+
 	
 	
 	return;
@@ -1703,40 +1715,54 @@ static void Rotate180_ix2_fullrad(RadGridS *pRG)
 	int nf = pRG->nf;
 	int i, j, k, n, ifr;
 	Real swap;
+	int Mi1, Mi2;
 	
 	
-	for(ifr=0; ifr<nf; ifr++) {		
-			for(n=0; n<nang; n++){
-				for(k=ks; k<=ke; k++){
-					for(j=1; j<=Radghost; j++){
-						for(i=is-Radghost; i<=ie+Radghost; i++){
-							/* Swap l = 0 && l =2, l=1 and l=3 */
-							swap = pRG->imu[ifr][0][n][k][js-j][i];
-							pRG->imu[ifr][0][n][k][js-j][i] = pRG->imu[ifr][2][n][k][js-j][i];
-							pRG->imu[ifr][2][n][k][js-j][i] = swap;
-
-							swap = pRG->imu[ifr][1][n][k][js-j][i];
-                                                        pRG->imu[ifr][1][n][k][js-j][i] = pRG->imu[ifr][3][n][k][js-j][i];
-                                                        pRG->imu[ifr][3][n][k][js-j][i] = swap;
+	
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				for(ifr=0; ifr<nf; ifr++) {	
+					for(n=0; n<nang; n++){
+						/* Swap l = 0 && l =1, l=2 and l=3 */
+						Mi1 = n;
+						Mi2 = 2*nang + n;
+						swap = pRG->imu[k][js-j][i][ifr][Mi1];
+						pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+						pRG->imu[k][js-j][i][ifr][Mi2] = swap;
+						
+						Mi1 = 1*nang + n;
+						Mi2 = 3*nang + n;
+						
+						swap = pRG->imu[k][js-j][i][ifr][Mi1];
+						pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+						pRG->imu[k][js-j][i][ifr][Mi2] = swap;
+						
+						/* If for 3D */ 
+						/* swap l ==4 && l==5, l==6 and l==7 */
+						if(pRG->noct > 4){
+							Mi1 = 4*nang + n;
+							Mi2 = 6*nang + n;
 							
-							/* If for 3D */ 
-							/* swap l ==4 && l==6, l==5 and l==7 */
-							if(pRG->noct > 4){
-								swap = pRG->imu[ifr][4][n][k][js-j][i];
-								pRG->imu[ifr][4][n][k][js-j][i] = pRG->imu[ifr][6][n][k][js-j][i];
-								pRG->imu[ifr][6][n][k][js-j][i] = swap;
-
-								swap = pRG->imu[ifr][5][n][k][js-j][i];
-                                                                pRG->imu[ifr][5][n][k][js-j][i] = pRG->imu[ifr][7][n][k][js-j][i];
-                                                                pRG->imu[ifr][7][n][k][js-j][i] = swap;
-							}
+							swap = pRG->imu[k][js-j][i][ifr][Mi1];
+							pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+							pRG->imu[k][js-j][i][ifr][Mi2] = swap;
 							
-						}/* end i */
-					}/* end J */
-				} /* End k */
-			}/* end nang */ 
-	}/* end ifr */
-	
+							Mi1 = 5*nang + n;
+							Mi2 = 7*nang + n;
+							swap = pRG->imu[k][js-j][i][ifr][Mi1];
+							pRG->imu[k][js-j][i][ifr][Mi1] = pRG->imu[k][js-j][i][ifr][Mi2];
+							pRG->imu[k][js-j][i][ifr][Mi2] = swap;
+						}
+						
+									
+					}/* end nang */
+				}/* end ifr */ 		
+			}/* end i */
+		}/* end J */
+	} /* End k */
+
+
 	return;
 }
 
@@ -1753,42 +1779,50 @@ static void Rotate180_ox2_fullrad(RadGridS *pRG)
 	int nf = pRG->nf;
 	int i, j, k, n, ifr;
 	Real swap;
+	int Mi1, Mi2;
 	
-	
-	for(ifr=0; ifr<nf; ifr++) {		
-		for(n=0; n<nang; n++){
-			for(k=ks; k<=ke; k++){
-				for(j=1; j<=Radghost; j++){
-					for(i=is-Radghost; i<=ie+Radghost; i++){
-						/* Swap l = 0 && l =2 , l==1 and l ==3*/
-						swap = pRG->imu[ifr][0][n][k][je+j][i];
-						pRG->imu[ifr][0][n][k][je+j][i] = pRG->imu[ifr][2][n][k][je+j][i];
-						pRG->imu[ifr][2][n][k][je+j][i] = swap;
 
-						swap = pRG->imu[ifr][1][n][k][je+j][i];
-                                                pRG->imu[ifr][1][n][k][je+j][i] = pRG->imu[ifr][3][n][k][je+j][i];
-                                                pRG->imu[ifr][3][n][k][je+j][i] = swap;
-
-						/* swap l ==4 && l==6, l==5 and l==7 */
-						if(pRG->noct > 4){
-							swap = pRG->imu[ifr][4][n][k][je+j][i];
-							pRG->imu[ifr][4][n][k][je+j][i] = pRG->imu[ifr][6][n][k][je+j][i];
-							pRG->imu[ifr][6][n][k][je+j][i] = swap;
-
-							swap = pRG->imu[ifr][5][n][k][je+j][i];
-                                                        pRG->imu[ifr][5][n][k][je+j][i] = pRG->imu[ifr][7][n][k][je+j][i];
-                                                        pRG->imu[ifr][7][n][k][je+j][i] = swap;
-
-						}
+	for(k=ks; k<=ke; k++){
+		for(j=1; j<=Radghost; j++){			
+			for(i=is-Radghost; i<=ie+Radghost; i++){
+				for(ifr=0; ifr<nf; ifr++) {		
+					for(n=0; n<nang; n++){
+						Mi1 = n;
+						Mi2 = 2*nang + n;
+						swap = pRG->imu[k][je+j][i][ifr][Mi1];
+						pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+						pRG->imu[k][je+j][i][ifr][Mi2] = swap;
 						
-					}/* end i */
-				}/* end J */
-			} /* End k */
-		}/* end nang */ 
-	}/* end ifr */
+						Mi1 = 1*nang + n;
+						Mi2 = 3*nang + n;
+						
+						swap = pRG->imu[k][je+j][i][ifr][Mi1];
+						pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+						pRG->imu[k][je+j][i][ifr][Mi2] = swap;
+						
+						/* If for 3D */ 
+						/* swap l ==4 && l==5, l==6 and l==7 */
+						if(pRG->noct > 4){
+							Mi1 = 4*nang + n;
+							Mi2 = 6*nang + n;
+							
+							swap = pRG->imu[k][je+j][i][ifr][Mi1];
+							pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+							pRG->imu[k][je+j][i][ifr][Mi2] = swap;
+							
+							Mi1 = 5*nang + n;
+							Mi2 = 7*nang + n;
+							swap = pRG->imu[k][je+j][i][ifr][Mi1];
+							pRG->imu[k][je+j][i][ifr][Mi1] = pRG->imu[k][je+j][i][ifr][Mi2];
+							pRG->imu[k][je+j][i][ifr][Mi2] = swap;
+						}					
+					}/* end nang */ 
+				}/* end ifr */
+			}/* end i */
+		}/* end J */
+	} /* End k */
 
-	
-	
+
 	return;
 }
 
@@ -1811,7 +1845,7 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 #ifdef CYLINDRICAL
   Real  miux, miuy;
 #endif
-	
+  int Mi;	
 	
 	/* In principle, the source terms should be recalculated */
 	/* here just copy from last active zones for safety */
@@ -1833,45 +1867,47 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */
 
 	
-for(ifr=0; ifr<nf; ifr++) {
 
 
- for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
+
+	for(k=ks; k<=ke; k++){
+       for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
+	      	for(ifr=0; ifr<nf; ifr++) {
+	      		for(l=0; l<noct; l++){
+      			for(n=0; n<nang; n++){
+      				Mi = l*nang + n;
 #ifdef CYLINDRICAL
-			miux = pRG->Rphimu[l][n][k][j][is-i][0]; 
-			miuy = pRG->Rphimu[l][n][k][j][is-i][1];
+					miux = pRG->Rphimu[k][j][is-i][Mi][0]; 
+					miuy = pRG->Rphimu[k][j][is-i][Mi][1];
 
-			if(miux > 0.0){
-				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;  
-			}else {
-				pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];
-			}
+					if(miux > 0.0){
+						pRG->imu[k][j][is-i][ifr][Mi] = 0.0;  
+					}else {
+						pRG->imu[k][j][is-i][ifr][Mi] = pRG->imu[k][j][is][ifr][Mi];
+					}
 				
 #else
 			  
-			if((l == 1) || (l == 3) || (l == 5) || (l == 7)){
-				pRG->imu[ifr][l][n][k][j][is-i] = pRG->imu[ifr][l][n][k][j][is];
-			}	
-			else{
-				pRG->imu[ifr][l][n][k][j][is-i] = 0.0;
-			}	
+					if((l == 1) || (l == 3) || (l == 5) || (l == 7)){
+						pRG->imu[k][j][is-i][ifr][Mi] = pRG->imu[k][j][is][ifr][Mi];
+					}	
+					else{
+						pRG->imu[k][j][is-i][ifr][Mi] = 0.0;
+					}	
 #endif			  
 		/*	This needs to be re-calculated based on local specific intensity */
 		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
 		*/
+		
+				}/* end n */
+                }/* end l */
+			}/* end ifr */
 
 	      }/* end i */
-       	    }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-	
-   }/* end ifr */
-	  
+       	}/* end J */
+    } /* End k */
+
 
 
   return;
@@ -1891,7 +1927,7 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 #ifdef CYLINDRICAL
 	Real miux, miuy;
 #endif	
-
+  int Mi;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=js; j<=je; j++){
@@ -1911,47 +1947,44 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-for(ifr=0; ifr<nf; ifr++) {
 
-
- for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-        for(k=ks; k<=ke; k++){
-     	    for(j=js; j<=je; j++){
+  for(k=ks; k<=ke; k++){
+	   for(j=js; j<=je; j++){
 	      for(i=1; i<=Radghost; i++){
+	      	for(ifr=0; ifr<nf; ifr++) {
+ 				for(l=0; l<noct; l++){
+      				for(n=0; n<nang; n++){
+	      				Mi = l*nang + n;
 #ifdef CYLINDRICAL
-			  miux = pRG->Rphimu[l][n][k][j][ie+i][0]; 
-			  miuy = pRG->Rphimu[l][n][k][j][ie+i][1];
-			  if(miux < 0.0){
-				  pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;  
-			  }else {
-				  pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];
-			  }
+			  			miux = pRG->Rphimu[k][j][ie+i][Mi][0]; 
+			  			miuy = pRG->Rphimu[k][j][ie+i][Mi][1];
+			  			if(miux < 0.0){
+				  			pRG->imu[k][j][ie+i][ifr][Mi] = 0.0;  
+			  			}else {
+				  			pRG->imu[k][j][ie+i][ifr][Mi] = pRG->imu[k][j][ie][ifr][Mi];
+			  			}
 			  
 #else			  
-			if((l == 0) || (l == 2) || (l == 4) || (l == 6)){
-				pRG->imu[ifr][l][n][k][j][ie+i] = pRG->imu[ifr][l][n][k][j][ie];
-			}	
-			else{
-				pRG->imu[ifr][l][n][k][j][ie+i] = 0.0;
-			}
+						if((l == 0) || (l == 2) || (l == 4) || (l == 6)){
+							pRG->imu[k][j][ie+i][ifr][Mi] = pRG->imu[k][j][ie][ifr][Mi];
+						}	
+						else{
+							pRG->imu[k][j][ie+i][ifr][Mi] = 0.0;
+						}
 			  
 #endif
 		/*	This needs to be re-calculated based on local specific intensity */
 		/*	pRG->heatcool[ifr][l][n][k][j][is-i] = pRG->heatcool[ifr][l][n][k][j][is];
 		*/
-
-	      }/* end i */
-       	    }/* end J */
-         } /* End k */
-       }  /* end nang */
-     }/* end noctant */
-
-
+		
+						}  /* end nang */
+    		 		}		/* end noctant */
+				}/* end ifr */
+			}/* end i */
+       }/* end J */
+    } /* End k */
+       
   
-   
-   }/* end ifr */
-	  
 
 
   return;
@@ -1967,7 +2000,7 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-	
+  int Mi;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -1986,27 +2019,29 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */
 	
 
-
-for(ifr=0; ifr<nf; ifr++) {
-
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
-	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			if((l == 2) || (l == 3) || (l == 6) || (l == 7)){
-				pRG->imu[ifr][l][n][k][js-j][i] = pRG->imu[ifr][l][n][k][js][i];
-			}
-			else{
-				pRG->imu[ifr][l][n][k][js-j][i] = 0.0;
-			}			
+ for(k=ks; k<=ke; k++){
+   for(j=1; j<=Radghost; j++){
+      for(i=is-Radghost; i<=ie+Radghost; i++){	
+		for(ifr=0; ifr<nf; ifr++) {
+   			for(l=0; l<noct; l++){
+      			for(n=0; n<nang; n++){
+					Mi = l*nang + n;
+					
+					if((l == 2) || (l == 3) || (l == 6) || (l == 7)){
+						pRG->imu[k][js-j][i][ifr][Mi] = pRG->imu[k][js][i][ifr][Mi];
+					}
+					else{
+						pRG->imu[k][js-j][i][ifr][Mi] = 0.0;
+					}			
+ 			
+ 			   }/* end nang */
+    		}/* end noctant */  
+		}/* end ifr */
  
-	   	}/* end i */
-       	     }/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-}/* end ifr */
+	   }/* end i */
+    }/* end J */
+ } /* End k */
+
 
   return;
 }
@@ -2023,6 +2058,7 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+  int Mi;	
 	
 	for(k=ks; k<=ke; k++){
 		for(j=1; j<=Radghost; j++){
@@ -2041,27 +2077,28 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
 		}/* end J */
 	} /* End k */
 	
-
-for(ifr=0; ifr<nf; ifr++) {
-
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
-       	    for(j=1; j<=Radghost; j++){
-	       for(i=is-Radghost; i<=ie+Radghost; i++){	
-			if((l == 0) || (l == 1) || (l == 4) || (l == 5)){
-				pRG->imu[ifr][l][n][k][je+j][i] = pRG->imu[ifr][l][n][k][je][i];
-			}
-			else{
-				pRG->imu[ifr][l][n][k][je+j][i] = 0.0;
-			}			
+ for(k=ks; k<=ke; k++){
+  	for(j=1; j<=Radghost; j++){
+		for(i=is-Radghost; i<=ie+Radghost; i++){	
+			for(ifr=0; ifr<nf; ifr++) {
+   				for(l=0; l<noct; l++){
+      				for(n=0; n<nang; n++){
+						Mi = l*nang + n;
+						if((l == 0) || (l == 1) || (l == 4) || (l == 5)){
+							pRG->imu[k][je+j][i][ifr][Mi] = pRG->imu[k][je][i][ifr][Mi];
+						}
+						else{
+							pRG->imu[k][je+j][i][ifr][Mi] = 0.0;
+						}	
+						
+			       }/* end nang */
+    			}/* end noctant */  
+			}/* end ifr */			
  
-	   	}/* end i */
-       	     }/* end J */
-     	 } /* End k */
-       }/* end nang */
-    }/* end noctant */  
-}/* end ifr */
+	   		}/* end i */
+    	}/* end J */
+  	} /* End k */
+
 
   return;
 }
@@ -2078,6 +2115,7 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
+  int Mi;
 	
 	
 	for(k=1; k<=Radghost; k++){
@@ -2097,28 +2135,28 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */
 	
 	
-
-
-for(ifr=0; ifr<nf; ifr++) {
-    
- 
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			if((l == 4) || (l == 5) || (l == 6) || (l == 7)){
-				pRG->imu[ifr][l][n][ks-k][j][i] = pRG->imu[ifr][l][n][ks][j][i];
-			}
-			else{			
-				pRG->imu[ifr][l][n][ks-k][j][i] = 0.0;
-			}
+  for(k=1; k<=Radghost; k++){
+     for(j=js-Radghost; j<=je+Radghost; j++){
+	    for(i=is-Radghost; i<=ie+Radghost; i++){
+			for(ifr=0; ifr<nf; ifr++) {  
+    			for(l=0; l<noct; l++){
+					for(n=0; n<nang; n++){
+						Mi = l*nang + n;
+	
+						if((l == 4) || (l == 5) || (l == 6) || (l == 7)){
+							pRG->imu[ks-k][j][i][ifr][Mi] = pRG->imu[ks][j][i][ifr][Mi];
+						}
+						else{			
+							pRG->imu[ks-k][j][i][ifr][Mi] = 0.0;
+						}
+		 		
+		 		    }/* end nang */
+  				}/* end noctant */
+			}/* end ifr */
 		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
+	   }/* end J */
+   } /* End k */
+
 	 
 
   return;
@@ -2137,7 +2175,7 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
-	
+  int Mi;
 	
 	for(k=1; k<=Radghost; k++){
 		for(j=js-Radghost; j<=je+Radghost; j++){
@@ -2157,27 +2195,28 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-for(ifr=0; ifr<nf; ifr++) {
-    
- 
-    for(l=0; l<noct; l++){
-	for(n=0; n<nang; n++){
-	   for(k=1; k<=Radghost; k++){
-       	      for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-			if((l == 0) || (l == 1) || (l == 2) || (l == 3)){
-				pRG->imu[ifr][l][n][ke+k][j][i] = pRG->imu[ifr][l][n][ke][j][i];
-			}
-			else{			
-				pRG->imu[ifr][l][n][ke+k][j][i] = 0.0;
-			}
+	for(k=1; k<=Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){         
+			for(ifr=0; ifr<nf; ifr++) {
+    			for(l=0; l<noct; l++){
+					for(n=0; n<nang; n++){
+						Mi = l*nang + n;
+						
+						if((l == 0) || (l == 1) || (l == 2) || (l == 3)){
+							pRG->imu[ke+k][j][i][ifr][Mi] = pRG->imu[ke][j][i][ifr][Mi];
+						}
+						else{			
+							pRG->imu[ke+k][j][i][ifr][Mi] = 0.0;
+						}
+			
+					}/* end nang */
+  				}/* end noctant */
+			}/* end ifr */
 		 }/* end i */
-       	      }/* end J */
-    	   } /* End k */
-    }/* end nang */
-  }/* end noctant */
-}/* end ifr */
-	 
+       	}/* end J */
+    } /* End k */
+
 
   return;
 }
@@ -2273,10 +2312,11 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+    
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -2297,21 +2337,19 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
 	
 
-  for(ifr=0; ifr<nf; ifr++) {			
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-       	      for(j=js; j<=je; j++){
-	   	 for(i=is; i<=is+(Radghost-1); i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];		
+  for(k=ks; k<=ke; k++){
+      for(j=js; j<=je; j++){
+        for(i=is; i<=is+(Radghost-1); i++){
+              for(ifr=0; ifr<nf; ifr++) {
+                  for(Mi=0; Mi<N; Mi++){
+                      *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
 
+                  }
+              }
 	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
+        }/* end J */
+    } /* End k */
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
 	   
 
 
@@ -2328,10 +2366,11 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+    
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -2351,20 +2390,20 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-       	      for(j=js; j<=je; j++){
-	   	 for(i=ie-(Radghost-1); i<=ie; i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+    for(k=ks; k<=ke; k++){
+       for(j=js; j<=je; j++){
+	   	 for(i=ie-(Radghost-1); i<=ie; i++){
+            for(ifr=0; ifr<nf; ifr++) {
+               for(Mi=0; Mi<N; Mi++){
+                   *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
+                }
+            }
+        }/* end i */
+       }/* end J */
+    } /* End k */
+
+    
 	   
 
   return;
@@ -2379,10 +2418,12 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+  
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -2403,20 +2444,19 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-  for(ifr=0; ifr<nf; ifr++) {
-	  for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-       	     for(j=js; j<=js+(Radghost-1); j++){
-	        for(i=is-Radghost; i<=ie+Radghost; i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+    for(k=ks; k<=ke; k++){
+        for(j=js; j<=js+(Radghost-1); j++){
+	       for(i=is-Radghost; i<=ie+Radghost; i++){
+              for(ifr=0; ifr<nf; ifr++) {
+                 for(Mi=0; Mi<N; Mi++){
+                        *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
+                 }
+              }
+	      }/* end i */
+        }/* end J */
+    } /* End k */
+
 	   
   return;
 }
@@ -2430,10 +2470,12 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+ 
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -2456,20 +2498,20 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
 
 
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-		 for(j=je-(Radghost-1); j<=je; j++){
-	   	 for(i=is-Radghost; i<=ie+Radghost; i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-		  }/* end i */
-	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+    for(k=ks; k<=ke; k++){
+        for(j=je-(Radghost-1); j<=je; j++){
+            for(i=is-Radghost; i<=ie+Radghost; i++){
+               for(ifr=0; ifr<nf; ifr++) {
+                   for(Mi=0; Mi<N; Mi++){
+                       *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
+                   }
+               }
+            }/* end i */
+        }/* end J */
+    } /* End k */
+
+
 	
 
   return;
@@ -2485,10 +2527,12 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;;
   int ks = pRG->ks;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+    
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
@@ -2509,21 +2553,19 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ks+(Radghost-1); k++){
-              for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
+    for(k=ks; k<=ks+(Radghost-1); k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){
+             for(ifr=0; ifr<nf; ifr++) {
+                 for (Mi=0; Mi<N; Mi++) {
+                      *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
+                 }
+             }
+           }/* end i */
+   	   }/* end J */
+   	} /* End k */
 
-	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
 	
 
   return;
@@ -2538,10 +2580,12 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;
   int js = pRG->js, je = pRG->je;;
   int ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+    
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
@@ -2562,20 +2606,21 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 	
 
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ke-(Radghost-1); k<=ke; k++){
-              for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){
-		    *(pSnd++) = pRG->imu[ifr][l][n][k][j][i];
-	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+
+    for(k=ke-(Radghost-1); k<=ke; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){
+              for(ifr=0; ifr<nf; ifr++) {
+                 for(Mi=0; Mi<N; Mi++){
+                    *(pSnd++) = pRG->imu[k][j][i][ifr][Mi];
+                 }
+              }
+	      }/* end i */
+        }/* end J */
+    } /* End k */
+
+
 	
   return;
 }
@@ -2590,10 +2635,12 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+    
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -2613,27 +2660,24 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */	
 	
 	
+    for(k=ks; k<=ke; k++){
+        for(j=js; j<=je; j++){
+            for(i=is-Radghost; i<=is-1; i++){
+                for(ifr=0; ifr<nf; ifr++){
+                    for(Mi=0; Mi<N; Mi++){
+                         pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                        
+                    }/* end Mi */
+                }/* end ifr */
+            }/* end i */
+        }/* end j */
+    }/* end k */
+    
 
-  for(ifr=0; ifr<nf; ifr++) {
-	for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-		 for(j=js; j<=je; j++){
-		   for(i=is-Radghost; i<=is-1; i++){
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
-		
-		 }/* end i */
-       	   }/* end J */
-    	} /* End k */		
+ return;
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
-	   
-
-  return;
 }
-
+                              
 /*----------------------------------------------------------------------------*/
 /* UNPACK boundary conditions after MPI_Irecv, Outer x1 boundary */
 
@@ -2643,10 +2687,14 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int ie = pRG->ie;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+                             
+                             
+  int Mi;
+  int N = pRG->nang * pRG->noct;
+                             
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2668,21 +2716,22 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-              for(j=js; j<=je; j++){
-	         for(i=ie+1; i<=ie+Radghost; i++){
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
+
+
+    for(k=ks; k<=ke; k++){
+       for(j=js; j<=je; j++){
+	      for(i=ie+1; i<=ie+Radghost; i++){
+             for(ifr=0; ifr<nf; ifr++) {
+                for(Mi=0; Mi<N; Mi++){
+                    pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                }
+            }
 
 	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
+        }/* end J */
+    } /* End k */
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+
 	   
   return;
 }
@@ -2695,10 +2744,12 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;;
   int js = pRG->js;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+                             
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -2718,21 +2769,20 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ks; k<=ke; k++){
-	      for(j=js-Radghost; j<=js-1; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){	       
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
 
-	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
+    for(k=ks; k<=ke; k++){
+	    for(j=js-Radghost; j<=js-1; j++){
+	         for(i=is-Radghost; i<=ie+Radghost; i++){
+                for(ifr=0; ifr<nf; ifr++) {
+                    for(Mi=0; Mi<N; Mi++){
+                        pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                    }
+                }
+            }/* end i */
+        }/* end J */
+    } /* End k */
+
 	   
 
 
@@ -2747,10 +2797,12 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;;
   int je = pRG->je;
   int ks = pRG->ks, ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+                                  
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2770,22 +2822,19 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
 	} /* End k */	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	  for(k=ks; k<=ke; k++){
-             for(j=je+1; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){       
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
 
+   for(k=ks; k<=ke; k++){
+      for(j=je+1; j<=je+Radghost; j++){
+	     for(i=is-Radghost; i<=ie+Radghost; i++){
+             for(ifr=0; ifr<nf; ifr++) {
+                 for(Mi=0; Mi<N; Mi++){
+                    pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                                  
+                 }
+             }
 	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
-
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
-	   
+        }/* end J */
+    } /* End k */
 
 
   return;
@@ -2799,10 +2848,12 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;;
   int js = pRG->js, je = pRG->je;
   int ks = pRG->ks;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+                                  
+  int Mi;
+  int N = pRG->nang * pRG->noct;
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
@@ -2824,21 +2875,20 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
 	
 	
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	  for(k=ks-Radghost; k<=ks-1; k++){
-             for(j=js-Radghost; j<=je+Radghost; j++){
-	        for(i=is-Radghost; i<=ie+Radghost; i++){      
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
 
-	      }/* end i */
+
+	for(k=ks-Radghost; k<=ks-1; k++){
+        for(j=js-Radghost; j<=je+Radghost; j++){
+	        for(i=is-Radghost; i<=ie+Radghost; i++){
+              for(ifr=0; ifr<nf; ifr++) {
+                  for(Mi=0; Mi<N; Mi++){
+                    pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                  }
+               }
+              }/* end i */
        	   }/* end J */
     	} /* End k */		
 
-       }/* end nang */
-    }/* end noctant */
-  }/* end ifr */
 	
 
   return;
@@ -2852,10 +2902,12 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int is = pRG->is, ie = pRG->ie;;
   int js = pRG->js, je = pRG->je;
   int ke = pRG->ke;
-  int nang = pRG->nang;
-  int noct = pRG->noct;
+
   int nf = pRG->nf;
   int i, j, k, l, m, n, ifr;
+
+ int Mi;
+ int N = pRG->nang * pRG->noct;
   
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
@@ -2878,25 +2930,18 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
 
 
-  for(ifr=0; ifr<nf; ifr++) {
-    for(l=0; l<noct; l++){
-       for(n=0; n<nang; n++){
-	   for(k=ke+1; k<=ke+Radghost; k++){
-              for(j=js-Radghost; j<=je+Radghost; j++){
-	         for(i=is-Radghost; i<=ie+Radghost; i++){      
-		    pRG->imu[ifr][l][n][k][j][i] = *(pRcv++);
+	for(k=ke+1; k<=ke+Radghost; k++){
+       for(j=js-Radghost; j<=je+Radghost; j++){
+	      for(i=is-Radghost; i<=ie+Radghost; i++){
+             for(ifr=0; ifr<nf; ifr++) {
+                for(Mi=0; Mi<N; Mi++){
+                   pRG->imu[k][j][i][ifr][Mi] = *(pRcv++);
+                }
+             }
 
 	      }/* end i */
-       	   }/* end J */
-    	} /* End k */		
-
-       }/* end nang */
-    }/* end noctant */
-}/* end ifr */
-	
-
-
-
+        }/* end J */
+    } /* End k */
 
   return;
 }

@@ -884,7 +884,8 @@ void integrate_3d_vl(DomainS *pD)
 
 /*----Add radiation source terms to half time step -------------------------*/
 #ifdef FULL_RADIATION_TRANSFER
-    for (k=kl; k<=ku; k++) {
+/* Add radiation source term at half time step like this can cause instability */
+/*    for (k=kl; k<=ku; k++) {
      for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
         Uhalf[k][j][i].M1 += (0.5 * pG->Frsource[k][j][i][0]);
@@ -894,6 +895,7 @@ void integrate_3d_vl(DomainS *pD)
       }
     }
   }
+*/
 #endif
 
 
@@ -2046,6 +2048,19 @@ void integrate_3d_vl(DomainS *pD)
           negP++;
         }
 #endif
+#ifdef FULL_RADIATION_TRANSFER
+	 /* Check velocity is smaller than the speed of light */
+		  if(sqrt(SQR(W.V1)+SQR(W.V2)+SQR(W.V3))>Crat){
+			  flag_cell = 1;
+			  BadCell.i = i;
+			  BadCell.j = j;
+			  BadCell.k = k;			  
+		  }
+		  
+#endif
+		  
+		  
+		  
         if (flag_cell != 0) {
           FixCell(pG, BadCell);
           flag_cell=0;

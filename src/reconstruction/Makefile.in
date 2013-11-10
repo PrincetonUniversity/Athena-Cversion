@@ -53,7 +53,7 @@ clean:
 depend: Makedepend
 
 Makedepend:
-	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
+	${CC} -MM  ${CFLAGS} ${SRC} > Makedepend
 
 # this forces a rebuild of all objects, if code re-configure'd
 include Makedepend

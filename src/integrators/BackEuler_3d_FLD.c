@@ -154,8 +154,9 @@ void BackEuler_3d(MeshS *pM)
 	Real velocity_x, velocity_y, velocity_z, T4, Sigma_aF, Sigma_aP, Sigma_aE, Sigma_sF, pressure, density, temperature;
 	Real vxi0, vxi1, vyj0, vyj1, vzk0, vzk1,dvxdx,dvydy,dvzdz;
 	Real Fr0x, Fr0y, Fr0z;
-	Real AdvFx, AdvFy, AdvFz, f11, f22, f33, f21, f32, f31;
+	Real f11, f22, f33, f21, f32, f31;
 	Real dErdx, dErdy, dErdz, divEr, limiter;
+    Real AdvFx[2], AdvFy[2], AdvFz[2];
 
 	/*Sigma_aF: flux mean absorption, Sigma_aP: Plank mean absorption, Sigma_aE: Er mean absorption opacity;*/
 	Real Sigma[NOPACITY];
@@ -300,9 +301,9 @@ void BackEuler_3d(MeshS *pM)
 				
 
 		/* Now set the right hand side */
-				Rad_Advection_Flux3D(pD, i, j, k, 1.0, &AdvFx, &AdvFy, &AdvFz);
+				Rad_Advection_Flux3D(pD, i, j, k, 1.0, AdvFx, AdvFy, AdvFz);
 						
-				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + (AdvFx + AdvFy + AdvFz) + dt * Sigma_aP * T4 * Crat * Eratio;			
+				pMat->RHS[Matk][Matj][Mati][0] = pG->U[k][j][i].Er + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]) + (AdvFz[1] - AdvFz[0])) + dt * Sigma_aP * T4 * Crat * Eratio;
 				/* Only need to calculate Er, one equation */
 				
 	} /* End i */
@@ -1310,6 +1311,10 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr){
 
 void set_mat_level(MatrixS *pMat_coarse, MatrixS *pMat)
 {
+    
+#ifdef MPI_PARALLEL
+	pMat_coarse->Comm_Domain = pMat->Comm_Domain;
+#endif
 
 	pMat_coarse->dx1 = 2.0 * pMat->dx1;
 	pMat_coarse->dx2 = 2.0 * pMat->dx2;
@@ -1459,6 +1464,10 @@ void BackEuler_init_3d(MeshS *pM)
 	if((RHS_coarse=(Real*****)calloc(Nlevel,sizeof(Real****))) == NULL)
 			ath_error("[BackEuler_init_3D]: malloc return a NULL pointer\n");
 
+#ifdef MPI_PARALLEL
+	pMat->Comm_Domain = pD->Comm_Domain;
+#endif
+    
 
 	/* allocate memory at each level */
 	Nx2 = Nx;

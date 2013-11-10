@@ -335,9 +335,10 @@ typedef struct RadGrid_s {
   Real *wmu;         /* weights for angular quad. */
 #else
 #ifdef CYLINDRICAL
-  Real ******Rphimu; /* direction cosin relative to the radius and azimuthal direction in cylindrical coordinate case */  
+  Real *****Rphimu; /* direction cosin relative to the radius and azimuthal direction in cylindrical coordinate case */ 
+  					/* The order is k, j, i, l*N+n, m */ 
 #endif /* CYLINDRICAL */
-  Real ******mu;     /* direction cosine relative to x1, x2, x3 axis for each octant, for each angle, for each cell k, j, i,  */
+  Real *****mu;     /* direction cosine relative to x1, x2, x3 axis for each octant, for each angle, for each cell k, j, i,  */
   Real ****wmu;	    /* weight for each angle at each cell k, j, i */	
 #endif
 
@@ -360,7 +361,8 @@ typedef struct RadGrid_s {
   Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
   Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
 #else
-  Real ******imu;     /* specific intensity  for frequency nf, for octant, and for angle, for cell k, j, i,*/ 
+  Real *****imu;     /* specific intensity  for  cell k, j, i, frequency nf, for octant * angle,*/
+  Real *****Speedfactor; /* The factor to reduce the speed of light due to opacity */
 #endif
 
 

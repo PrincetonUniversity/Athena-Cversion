@@ -39,6 +39,8 @@ static void const_opacity(GridS *pG, const int ifr, const int i,
 
 static void TwoBeam_ix2(GridS *pG, RadGridS *pRG);
 
+static void OneBeam_ix2(GridS *pG, RadGridS *pRG);
+
 static void output_1dx(MeshS *pM, OutputS *pOut);
 static void output_1dy(MeshS *pM, OutputS *pOut);
 
@@ -65,9 +67,9 @@ void problem(DomainS *pDomain)
 
   Real x1, x2, x3, ytop;
  
-  kappaes = 4.e4;
+  kappaes = 1.e2;
 
-  Real rho0 = 1.e-3, T;
+  Real rho0 = 1.0, T;
   Real rho;
   Real Jr, slope1, slope2, dis1, dis2;
   Real Hr, cos1,cos2, weight, Er, Fr;
@@ -86,8 +88,8 @@ void problem(DomainS *pDomain)
 #endif
 
   ytop = pDomain->RootMaxX[1];
-  cos1 = pRG->mu[0][0][0][4][4][0];
-  cos2 = pRG->mu[0][0][0][4][4][1];
+  cos1 = pRG->mu[0][4][4][0][0];
+  cos2 = pRG->mu[0][4][4][0][1];
 	/* First, initialize gas quantities */
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
@@ -96,7 +98,7 @@ void problem(DomainS *pDomain)
 		rho = rho0 * exp(fabs(x2-ytop));
 		rho = 1.0;
 		pG->U[k][j][i].d = rho;
-		pG->U[k][j][i].M1 = 1.0;
+		pG->U[k][j][i].M1 = 3.0;
 		pG->U[k][j][i].M2 = 0.0;
 		pG->U[k][j][i].M3 = 0.0;
 		if(sqrt(SQR(x1-0.5)+SQR(x2-0.5)+SQR(x3-0.5))<0.2)
@@ -114,12 +116,13 @@ void problem(DomainS *pDomain)
 
 
 	/* Now initialize the radiation quantities */
-for(ifr=0; ifr<nf; ifr++){
-  for(l=0; l<noct; l++){
-    for(n=0; n<nang; n++){
-      for (k=ksr; k<=ker; k++) {
-        for (j=jsr; j<=jer; j++) {
-           for (i=isr; i<=ier; i++) {
+  for (k=ksr; k<=ker; k++) {
+     for (j=jsr; j<=jer; j++) {
+       for (i=isr; i<=ier; i++) {
+           for(ifr=0; ifr<nf; ifr++){
+               for(l=0; l<noct; l++){
+                   for(n=0; n<nang; n++){
+           
 		if(ker > ksr)
 			cc_pos(pG,i-Radghost+nghost,j-Radghost+nghost,k-Radghost+nghost,&x1,&x2,&x3);
 		else
@@ -134,22 +137,23 @@ for(ifr=0; ifr<nf; ifr++){
 			}
 			   
 			   
-			Er = 1.0;
-			Fr = 0.0;
+            Er = 1.0;
+            Fr = 0.0;
+                       
+            Jr = Er/(4.0*PI);
+            Hr = Fr/(4.0*PI);
 
-			Jr = Er/(4.0*PI);
-			Hr = Fr/(4.0*PI);
 				
 			   
-			pRG->imu[ifr][l][n][k][j][i] = Jr;
+			pRG->imu[k][j][i][ifr][l*nang+n] = Jr;
 		
 			   			
 
 			if(ker > ksr){
-				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k-Radghost+nghost, &(pRG->R[ifr][k][j][i].Sigma[0]));
+				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k-Radghost+nghost, &(pRG->R[k][j][i][ifr].Sigma[0]));
 			}
 			else {
-				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k, &(pRG->R[ifr][k][j][i].Sigma[0]));
+				const_opacity(pG, ifr, i-Radghost+nghost, j-Radghost+nghost, k, &(pRG->R[k][j][i][ifr].Sigma[0]));
 			}
 
 			
@@ -158,16 +162,18 @@ for(ifr=0; ifr<nf; ifr++){
 	  }
        }
     }
+      
+      
+  }/* end ifr */
 
 
 	/* with specific intensity, 
 	 * Now we need to update the moments of the radiation field */
 	
-		CalMoment(isr, ier, jsr, jer, ksr, ker, ifr, pRG);
+		CalMoment(isr, ier, jsr, jer, ksr, ker, pRG);
 	
 
-
-  }/* end ifr */
+    bvals_fullrad_trans_fun(pDomain, left_x2, OneBeam_ix2);
 
 	get_full_opacity = const_opacity;
 
@@ -255,11 +261,88 @@ static void const_opacity(GridS *pG, const int ifr, const int i,
 
 	Sigma[0] = 0.0;
 	Sigma[1] = 0.0;
-	Sigma[2] = kappaes * rho;
-	Sigma[3] = kappaes * rho;
+	Sigma[2] = 0.0;
+	Sigma[3] = 0.0;
 
   return;
   
+}
+
+
+
+
+
+static void OneBeam_ix2(GridS *pG, RadGridS *pRG)
+{
+    
+    
+    int is = pRG->is, ie = pRG->ie;
+    int js = pRG->js;
+    int ks = pRG->ks, ke = pRG->ke;
+    int nang = pRG->nang;
+    int noct = pRG->noct;
+    int nf = pRG->nf;
+    int i, j, k, l, n, ifr;
+    int ig, jg, kg;
+    Real Jr, slope1, slope2, dis1;
+    Real x1, x2, x3;
+    int ioff, joff, koff;
+
+    Real x1c, x2c, x3c;
+
+    
+    
+    ioff = nghost - Radghost;
+    
+    if(pG->Nx[1] > 1) joff = nghost - Radghost;
+    if(pG->Nx[2] > 1) koff = nghost - Radghost;
+    
+    
+    
+    Jr = 10.0/(4.0*PI);
+    
+    
+    
+    for(k=ks; k<=ke; k++){
+        kg = k + koff;
+        for(j=1; j<=Radghost; j++){
+            jg = js-j + joff;
+            for(i=is-Radghost; i<=ie+Radghost; i++){
+                for(ifr=0; ifr<nf; ifr++){
+                    for(l=0; l<noct; l++){
+                        for(n=0; n<nang; n++){
+                            
+                            ig = i + ioff;
+                            cc_pos(pG,ig,jg,kg,&x1, &x2, &x3);
+#ifdef CYLINDRICAL
+                            x1c = x1 * cos(x2);
+                            x2c = x1 * sin(x2);
+#else
+                            x1c = x1;
+                            x2c = x2;
+#endif
+                            
+                            slope1 = -pRG->mu[k][j][i][0][1]/pRG->mu[k][j][i][0][0];
+                            slope2 = -pRG->mu[k][j][i][nang][1]/pRG->mu[k][j][i][nang][0];
+                            dis1 = fabs(slope1 * (x1c - 1.5) + (x2c + 0.0));
+                            
+                            
+                            if((k==(ks+ke)/2) && (((l == 0) && (n ==0) && (dis1 < pG->dx1)) )){
+                                pRG->imu[k][js-j][i][ifr][l*nang+n] = Jr;
+                            }
+                            else
+                                pRG->imu[k][js-j][i][ifr][l*nang+n] = 0.0;
+                            
+                            
+                        }/* end nang */
+                    }/* end noctant */
+                }/* end ifr */
+            }/* end i */
+        }/* end J */
+    } /* End k */
+           
+    
+    
 }
 
 static void TwoBeam_ix2(GridS *pG, RadGridS *pRG)
@@ -289,27 +372,29 @@ static void TwoBeam_ix2(GridS *pG, RadGridS *pRG)
   Jr = 10.0/(4.0*PI);
 
 
-for(ifr=0; ifr<nf; ifr++){
-   for(l=0; l<noct; l++){
-      for(n=0; n<nang; n++){
-	 for(k=ks; k<=ke; k++){
-		kg = k + koff;
-       	    for(j=1; j<=Radghost; j++){
+ for(k=ks; k<=ke; k++){
+	kg = k + koff;
+    for(j=1; j<=Radghost; j++){
 		jg = js-j + joff;
 	       for(i=is-Radghost; i<=ie+Radghost; i++){
-		ig = i + ioff;	
+               ig = i + ioff;
+               for(ifr=0; ifr<nf; ifr++){
+                   for(l=0; l<noct; l++){
+                       for(n=0; n<nang; n++){
+                           
 			cc_pos(pG,ig,jg,kg,&x1, &x2, &x3);
-			slope1 = -pRG->mu[0][0][k][j][i][1]/pRG->mu[0][0][k][j][i][0];
-			slope2 = -pRG->mu[1][0][k][j][i][1]/pRG->mu[1][0][k][j][i][0];
+			slope1 = -pRG->mu[k][j][i][0][1]/pRG->mu[k][j][i][0][0];
+			slope2 = -pRG->mu[k][j][i][nang][1]/pRG->mu[k][j][i][nang][0];
+                           
 			dis1 = fabs(slope1 * (x1 - 0.1) + (x2 + 0.5));
 			dis2 = fabs(slope2 * (x1 + 0.1) + (x2 + 0.5));
 		
 
 			if((k==(ks+ke)/2) && (((l == 0) && (n ==0) && (dis1 < pG->dx1)) || ((l == 1) && (n ==0) && (dis2 < pG->dx1)))){
-				pRG->imu[ifr][l][n][k][js-j][i] = Jr;				
+				pRG->imu[k][js-j][i][ifr][l*nang+n] = Jr;
 			}
 			else
-				pRG->imu[ifr][l][n][k][js-j][i] = 0.0;
+				pRG->imu[k][js-j][i][ifr][l*nang+n] = 0.0;
 
 
 
@@ -544,19 +629,19 @@ static void output_1dx(MeshS *pM, OutputS *pOut)
 
 #ifdef FULL_RADIATION_TRANSFER
 	i1d++;
-        out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].J);
+        out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].J);
 	i1d++;
-        out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[0]);
+        out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[0]);
 	i1d++;
-        out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[1]);
+        out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[1]);
 	i1d++;
 	/* To avoid cancel */
 	
-        out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[2]);
+        out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[2]);
 		  i1d++;
 		  /* To avoid cancel */
 		  
-		  out1d[kg][i1d] += 4.0*PI*(pRG->imu[0][0][0][k+koff][j+joff][i+ioff]);
+		  out1d[kg][i1d] += 4.0*PI*(pRG->imu[k+koff][j+joff][i+ioff][0][0]);
 		  
 
 #endif
@@ -854,19 +939,19 @@ static void output_1dy(MeshS *pM, OutputS *pOut)
 				
 #ifdef FULL_RADIATION_TRANSFER
 				i1d++;
-				out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].J);
+				out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].J);
 				i1d++;
-				out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[0]);
+				out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[0]);
 				i1d++;
-				out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[1]);
-				i1d++;
-				/* To avoid cancel */
-				
-				out1d[kg][i1d] += 4.0*PI*(pRG->R[0][k+koff][j+joff][i+ioff].H[2]);
+				out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[1]);
 				i1d++;
 				/* To avoid cancel */
 				
-				out1d[kg][i1d] += 4.0*PI*(pRG->imu[0][0][0][k+koff][j+joff][i+ioff]);
+				out1d[kg][i1d] += 4.0*PI*(pRG->R[k+koff][j+joff][i+ioff][0].H[2]);
+				i1d++;
+				/* To avoid cancel */
+				
+				out1d[kg][i1d] += 4.0*PI*(pRG->imu[k+koff][j+joff][i+ioff][0][0]);
 				
 				
 #endif

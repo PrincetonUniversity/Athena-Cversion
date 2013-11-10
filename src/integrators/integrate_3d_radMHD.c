@@ -526,18 +526,22 @@ void integrate_3d_radMHD(DomainS *pD)
 			Psource =  (Gamma - 1.0) * Source[k][j][i-1][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i-1][1] + velocity_y * Source[k][j][i-1][2] + velocity_z * Source[k][j][i-1][3]);
 
 
+            if(Erflag){
 
-			Wl[i].Vx += dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
-			Wl[i].Vy += dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
-			Wl[i].Vz += dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
-			Wl[i].P += dt * Propa_44 * Psource * 0.5;
+                Wl[i].Vx += dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
+                Wl[i].Vy += dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
+                Wl[i].Vz += dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
+                Wl[i].P += dt * Propa_44 * Psource * 0.5;
 			
-			if(Wl[i].P < TINY_NUMBER){ 
-				Wl[i].P -= dt * Propa_44 * Psource * 0.5;
-				Wl[i].Vx -= dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
-				Wl[i].Vy -= dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
-				Wl[i].Vz -= dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
-			}	
+                if(Wl[i].P < TINY_NUMBER){
+                    Wl[i].P -= dt * Propa_44 * Psource * 0.5;
+                    Wl[i].Vx -= dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
+                    Wl[i].Vy -= dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
+                    Wl[i].Vz -= dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
+                }
+                
+                
+            }
 	
 			for(m=0; m<NOPACITY; m++)
 				Wl[i].Sigma[m] = U1d[i-1].Sigma[m];
@@ -567,18 +571,22 @@ void integrate_3d_radMHD(DomainS *pD)
 			
 			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
+            if(Erflag){
 			
-			Wr[i].Vx += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
-			Wr[i].Vy += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
-			Wr[i].Vz += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
-			Wr[i].P += dt * Propa_44 * Psource * 0.5;
+                Wr[i].Vx += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
+                Wr[i].Vy += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
+                Wr[i].Vz += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
+                Wr[i].P += dt * Propa_44 * Psource * 0.5;
 			
-			if(Wr[i].P < TINY_NUMBER){
-				Wr[i].P -= dt * Propa_44 * Psource * 0.5;
-				Wr[i].Vx -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
-				Wr[i].Vy -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
-				Wr[i].Vz -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
-			}
+                if(Wr[i].P < TINY_NUMBER){
+                    Wr[i].P -= dt * Propa_44 * Psource * 0.5;
+                    Wr[i].Vx -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
+                    Wr[i].Vy -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
+                    Wr[i].Vz -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
+                }
+                
+                
+            }
 
 			for(m=0; m<NOPACITY; m++)
 				Wr[i].Sigma[m] = U1d[i].Sigma[m];
@@ -990,20 +998,23 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Psource =  (Gamma - 1.0) * Source[k][j-1][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j-1][i][1] + velocity_y * Source[k][j-1][i][2] + velocity_z * Source[k][j-1][i][3]);
 
+            if(Erflag){
 			
-			Wl[j].Vx += dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
-			Wl[j].Vy += dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
-			Wl[j].Vz += dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
-			Wl[j].P += dt * Propa_44 * Psource * 0.5;
+                Wl[j].Vx += dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
+                Wl[j].Vy += dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
+                Wl[j].Vz += dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
+                Wl[j].P += dt * Propa_44 * Psource * 0.5;
 			
-			if(Wl[j].P < TINY_NUMBER){
-				Wl[j].P -= dt * Propa_44 * Psource * 0.5;
-				Wl[j].Vx -= dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
-				Wl[j].Vy -= dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
-				Wl[j].Vz -= dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
-			}
+                if(Wl[j].P < TINY_NUMBER){
+                    Wl[j].P -= dt * Propa_44 * Psource * 0.5;
+                    Wl[j].Vx -= dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
+                    Wl[j].Vy -= dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
+                    Wl[j].Vz -= dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
+                }
 
-			
+			}
+            
+            
 			for(m=0; m<NOPACITY;m++){
 				Wl[j].Sigma[m] = U1d[j-1].Sigma[m];
 			}
@@ -1035,18 +1046,22 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-			
-			Wr[j].Vx += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
-			Wr[j].Vy += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
-			Wr[j].Vz += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
-			Wr[j].P += dt * Propa_44 * Psource * 0.5;
+			if(Erflag){
+            
+                Wr[j].Vx += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
+                Wr[j].Vy += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
+                Wr[j].Vz += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
+                Wr[j].P += dt * Propa_44 * Psource * 0.5;
 
-			if(Wr[j].P < TINY_NUMBER){
-				Wr[j].P -= dt * Propa_44 * Psource * 0.5;
-				Wr[j].Vx -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
-				Wr[j].Vy -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
-				Wr[j].Vz -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;		
-			}
+                if(Wr[j].P < TINY_NUMBER){
+                    Wr[j].P -= dt * Propa_44 * Psource * 0.5;
+                    Wr[j].Vx -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
+                    Wr[j].Vy -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
+                    Wr[j].Vz -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
+                }
+                
+                
+            }
 			
 			for(m=0; m<NOPACITY; m++){
 				Wr[j].Sigma[m] = U1d[j].Sigma[m];
@@ -1307,18 +1322,21 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Psource =  (Gamma - 1.0) * Source[k-1][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k-1][j][i][1] + velocity_y * Source[k-1][j][i][2] + velocity_z * Source[k-1][j][i][3]);
 
+			if(Erflag){
+            
+                Wl[k].Vx += dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
+                Wl[k].Vy += dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
+                Wl[k].Vz += dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
+                Wl[k].P += dt * Propa_44 * Psource * 0.5;
 			
-			Wl[k].Vx += dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
-			Wl[k].Vy += dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
-			Wl[k].Vz += dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
-			Wl[k].P += dt * Propa_44 * Psource * 0.5;
-			
-			if(Wl[k].P < TINY_NUMBER){
-				Wl[k].P -= dt * Propa_44 * Psource * 0.5;
-				Wl[k].Vx -= dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
-				Wl[k].Vy -= dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
-				Wl[k].Vz -= dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
-			}
+                if(Wl[k].P < TINY_NUMBER){
+                    Wl[k].P -= dt * Propa_44 * Psource * 0.5;
+                    Wl[k].Vx -= dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
+                    Wl[k].Vy -= dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
+                    Wl[k].Vz -= dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
+                }
+                
+            }
 			
 	
 			for(m=0;m<NOPACITY;m++){
@@ -1351,18 +1369,21 @@ void integrate_3d_radMHD(DomainS *pD)
 
 			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
+            if(Erflag){
 			
-			Wr[k].Vx += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
-			Wr[k].Vy += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
-			Wr[k].Vz += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
-			Wr[k].P += dt * Propa_44 * Psource * 0.5;
+                Wr[k].Vx += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
+                Wr[k].Vy += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
+                Wr[k].Vz += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
+                Wr[k].P += dt * Propa_44 * Psource * 0.5;
 			
-			if(Wr[k].P < TINY_NUMBER){
-				Wr[k].P -= dt * Propa_44 * Psource * 0.5;
-				Wr[k].Vx -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
-				Wr[k].Vy -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
-				Wr[k].Vz -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
-			}
+                if(Wr[k].P < TINY_NUMBER){
+                    Wr[k].P -= dt * Propa_44 * Psource * 0.5;
+                    Wr[k].Vx -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
+                    Wr[k].Vy -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
+                    Wr[k].Vz -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
+                }
+                
+            }
 
 			for(m=0; m<NOPACITY;m++){
 				Wr[k].Sigma[m] = U1d[k].Sigma[m];
@@ -4746,10 +4767,12 @@ k][j][i].M3);
 					
 		/* For FLD, add the energy source term directly */			
 #ifdef FLD
-		pG->U[k][j][i].Er += (1.0 - Eratio)*Ersource;	
-					
-		Uguess[4] -= Prat * Ersource;
-					
+                    
+        pG->U[k][j][i].Er += (1.0 - Eratio) * (0.5 * (Ersource + pG->Ersource[k][j][i])) ;
+                    
+        Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[k][j][i]));
+                    
+							
 		pG->U[k][j][i].d  = Uguess[0];
 		pG->U[k][j][i].M1 = Uguess[1];
 		pG->U[k][j][i].M2 = Uguess[2];

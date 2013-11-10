@@ -26,7 +26,7 @@ void UpdateRT(DomainS *pD){
 	
 	RadGridS *pRG=(pD->RadGrid);
 	GridS *pG = (pD->Grid);
-	int ifr;
+
 	
 	int i;
 	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
@@ -58,74 +58,69 @@ void UpdateRT(DomainS *pD){
 	}
 	
 	
-	for(ifr=0; ifr<pRG->nf; ifr++){
-		CalMoment(il, iu, jl, ju, kl, ku, ifr, pRG);
+
+		CalMoment(il, iu, jl, ju, kl, ku, pRG);
 		
 		/* ghost zones also need to be calculated for scattering opacity */
-		RadSsource(ifr, pRG, pG);
-	}
+		RadSsource(pRG, pG);
+
 
 	return;
 }
 
 
 /* Calculate the radiation moments for the specific index range:
- * il to iu, jl to ju, kl to ku */
+ * il to iu, jl to ju, kl to ku 
+ */
 
 
-void CalMoment(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, const int ifr, RadGridS *pRG)
+void CalMoment(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, RadGridS *pRG)
 {
-	int i, j, k, l, n, m;
+	int i, j, k, Mi, m;
 	Real wimu;
 	Real mu[3]; /* cosins with respect to three axis */
 	Real mu2[6]; 	/* products of two angles, used for radiation pressure */
-	
-	
+	int nelements = pRG->noct * pRG->nang;
+	int nf = pRG->nf;
+	int ifr;
 	
 	/* First, initialize to be zero */
 	
 	for(k=kl; k<=ku; k++){
 		for(j=jl; j<=ju; j++){	
 			for(i=il; i<=iu; i++){	
-				pRG->R[ifr][k][j][i].J = 0.0;
-				for(m=0; m<3; m++)
-					pRG->R[ifr][k][j][i].H[m] = 0.0;
+				for(ifr=0; ifr<nf; ifr++){
+			
+					pRG->R[k][j][i][ifr].J = 0.0;
+					for(m=0; m<3; m++)
+						pRG->R[k][j][i][ifr].H[m] = 0.0;
 				
-				for(m=0; m<6; m++)
-					pRG->R[ifr][k][j][i].K[m] = 0.0;
-			}/* end i*/
-		}/* end j */
-	}/* end k */
-	
-	
-	for(l=0; l<pRG->noct; l++){
-		for(n=0; n<pRG->nang; n++){
-			for(k=kl; k<=ku; k++){
-				for(j=jl; j<=ju; j++){	
-					for(i=il; i<=iu; i++){
+					for(m=0; m<6; m++)
+						pRG->R[k][j][i][ifr].K[m] = 0.0;
 						
+					for(Mi=0; Mi<nelements; Mi++){
 						/* First, check specific intensity is not negative */	  
-						/*	if(pRG->imu[ifr][l][n][k][j][i] < TINY_NUMBER)
-						 pRG->imu[ifr][l][n][k][j][i] = TINY_NUMBER;
-						 */
+						if(pRG->imu[k][j][i][ifr][Mi] < TINY_NUMBER)
+						 	pRG->imu[k][j][i][ifr][Mi] = TINY_NUMBER;
+						 
 						/* sum rays along different directions */
-						wimu = pRG->imu[ifr][l][n][k][j][i] * pRG->wmu[n][k][j][i];
+						wimu = pRG->imu[k][j][i][ifr][Mi] * pRG->wmu[k][j][i][Mi];
 						
 						/* For cylindrical coordinate, we nned to convert the angle */
 #ifdef CYLINDRICAL
 						for(m=0; m<3; m++)
-							mu[m] = pRG->Rphimu[l][n][k][j][i][m];
+							mu[m] = pRG->Rphimu[k][j][i][Mi][m];
 #else
 						for(m=0; m<3; m++)
-							mu[m] = pRG->mu[l][n][k][j][i][m];
+							mu[m] = pRG->mu[k][j][i][Mi][m];
 #endif
 						
 						/* for energy density */
-						pRG->R[ifr][k][j][i].J += wimu;
+						pRG->R[k][j][i][ifr].J += wimu;
 						
 						/* for flux */		
 						for(m=0; m<3; m++)
-							pRG->R[ifr][k][j][i].H[m] += mu[m] * wimu;
+							pRG->R[k][j][i][ifr].H[m] += mu[m] * wimu;
 						
 						/* for radiation pressure */
 						mu2[0] = mu[0] * mu[0];
@@ -136,15 +131,15 @@ void CalMoment(const int il, const int iu, const int jl, const int ju, const int
 						mu2[5] = mu[2] * mu[2];
 						
 						for(m=0; m<6; m++)
-							pRG->R[ifr][k][j][i].K[m] += mu2[m] * wimu;
-					}/* end i  */
-				}/* end j */
-			}/* end k */
-		}/* end n */
-	}/* end l */
+							pRG->R[k][j][i][ifr].K[m] += mu2[m] * wimu;
+										
+					}/* end Mi */	
+				}/* end ifr */		
+			}/* end i*/
+		}/* end j */
+	}/* end k */
 	
-	
-	
+
 }
 
 
@@ -466,7 +461,7 @@ void SpecialMatrix2(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real
  * UN3[] is UN[N-1][]
  */
 
-void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3)
+void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3)
 {
 
 	Real swap;
@@ -475,21 +470,30 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 	
 	/* First, subtract the last line from lines 1 to N-1 */
 	/* RHS is also changed during this process but Xi unchanged */
-	tempMc = Mc[0];
-	temp = RHS[0];
+	tempMc = Ma[0][2];
+	
+	
+	/* Redfined Mb */
+	Ma[0][1] += Ma[0][0] + tempMc;
+	for(i=1; i<N; i++)
+		Ma[i][1] += tempMc; 
+		
+		
+	/* Redefine Mc */	
+		
+	tempMc = Ma[N-1][2];
+    temp = RHS[0];
+
 	for(i=0; i<N-1; i++){
 		RHS[i] -= RHS[N-1];
 		/* Redefine Mc */
-		Mc[i] -= Mc[N-1];
+		Ma[i][2] -= tempMc;
 	}
 	RHS[N-1] = temp;
-	/* Redfined Mb */
-	Mb[0] += Ma[0] + tempMc;
-	for(i=1; i<N; i++)
-		Mb[i] += tempMc; 
+	
 
 	for(i=0; i<N-1; i++)
-		Md[i] = Mc[i] - Ma[N-1];
+		Md[i] = Ma[i][2] - Ma[N-1][0];
 
 	/* Mc[N-1] is no longer used anymore */
 	/* Ma[i] and Mb[0] are always no-zero */
@@ -497,8 +501,10 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 	/* Find the first non-zero Mc */
 	i=N-2; 
 
-	while(((fabs(Mc[i]) < TINY_NUMBER))&&(i >= 0))
+	while((fabs(Ma[i][2]) < TINY_NUMBER)){
         	i--;
+        if( i<0 ) break;
+    }
 
    	Nzl = i;
 	
@@ -506,19 +512,19 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 	if(Nzl < 0){
      		/* First, Multiple L^-1 and RHS */
 		for(i=0; i<N-1; i++){
-			RHS[N-1] -= Mb[i] * RHS[i]/Ma[i];
+			RHS[N-1] -= Ma[i][1] * RHS[i]/Ma[i][0];
 		}
 		/* Then, Multiple U^-1 and RHS */
 		/* First RHS[N-1] */
-		temp = Mb[N-1];
+		temp = Ma[N-1][1];
 		for(i=0; i<N-1; i++)
-			temp += Mb[i] * Ma[N-1]/Ma[i];
+			temp += Ma[i][1] * Ma[N-1][0]/Ma[i][0];
 
 		RHS[N-1] /= temp;
 
 		/* Now solve RHS[0] to RHS[n-2]	*/
 		for(i=0; i<N-1; i++)
-			RHS[i] = (RHS[i] + Ma[N-1] * RHS[N-1])/Ma[i];		
+			RHS[i] = (RHS[i] + Ma[N-1][0] * RHS[N-1])/Ma[i][0];		
 
 	}/* End if Nzl < 0 */
 	else if(Nzl == 0){
@@ -533,33 +539,33 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 
 	/*	lN[0][0] = (Ma[0] + Mc[0])/Mb[0];
 	*/
-		MCB0 = (Ma[0] + Mc[0])/Mb[0];
+		MCB0 = (Ma[0][0] + Ma[0][2])/Ma[0][1];
 		lN1[0] = MCB0;
 /*
 		for(i=1; i<N-1; i++)
 			lN[0][i] = (Mc[0] - Mb[i] * (Ma[0] + Mc[0])/Mb[0])/Ma[i];
 */
 		for(i=1; i<N-1; i++)
-			lN1[i] = (Mc[0] - Mb[i] * MCB0)/Ma[i];
+			lN1[i] = (Ma[0][2] - Ma[i][1] * MCB0)/Ma[i][0];
 
 		for(i=0; i<N-1; i++)
 			RHS[N-1] -= lN1[i] * RHS[i];
 
 		/* calculate U^-1 RHS */
-		temp = -Ma[N-1] + Mc[0] - Mb[N-1] * MCB0;
+		temp = -Ma[N-1][0] + Ma[0][2] - Ma[N-1][1] * MCB0;
 		for(i=1; i<N-1; i++)
-			temp += Ma[N-1] * (Mc[0] - Mb[i] * MCB0)/Ma[i];
+			temp += Ma[N-1][0] * (Ma[0][2] - Ma[i][1] * MCB0)/Ma[i][0];
 
 		RHS[N-1] /= temp;
 
 		for(i=1; i<N-1; i++){
-			RHS[i] = (RHS[i] + Ma[N-1] * RHS[N-1]) / Ma[i];
+			RHS[i] = (RHS[i] + Ma[N-1][0] * RHS[N-1]) / Ma[i][0];
 		}
 
 		for(i=1; i<N; i++)
-			RHS[0] -= Mb[i] * RHS[i];
+			RHS[0] -= Ma[i][1] * RHS[i];
 
-		RHS[0] /= Mb[0];
+		RHS[0] /= Ma[0][1];
 
 
 	} /* end Nzl ==0 */	
@@ -573,13 +579,13 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		for(i=Nzl+1; i<N-1; i++){
 			for(j=0; j<=Nzl; j++){
 				/* Redefine RHS */
-				RHS[j] -= (Mc[j] * RHS[i] / Ma[i]);
+				RHS[j] -= (Ma[j][2] * RHS[i] / Ma[i][0]);
 				/* Redefine Md[j] */
-				Md[j] -= (Mc[j] * Md[i] / Ma[i]);
+				Md[j] -= (Ma[j][2] * Md[i] / Ma[i][0]);
 			}
 			/* Also replace the line N-1 */
-			RHS[N-1] -= (Mb[i] * RHS[i] / Ma[i]);
-			Mb[N-1] -= (Mb[i] * Md[i]/Ma[i]);
+			RHS[N-1] -= (Ma[i][1] * RHS[i] / Ma[i][0]);
+			Ma[N-1][1] -= (Ma[i][1] * Md[i]/Ma[i][0]);
 		}
 
 		/* Now we only need to solve lines between 0 to Nzl and N-1 lines */
@@ -602,24 +608,24 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		 * The second element (starting from line 2 ) is Mc[Nzl-i+1]/Mc[Nzl]
 		*/
 		/* Now the line Nzl */
-		MCB0 = (Ma[0] + Mc[0])/Mb[0];
-		MCB1 = Ma[1]/(Mb[0] - Mb[1]);
-		MCB2 = Ma[0]/(Mb[0] - Mb[1]);
+		MCB0 = (Ma[0][0] + Ma[0][2])/Ma[0][1];
+		MCB1 = Ma[1][0]/(Ma[0][1] - Ma[1][1]);
+		MCB2 = Ma[0][0]/(Ma[0][1] - Ma[1][1]);
 		
 	/*	lN[Nzl][0] = Mc[1]/Mb[0];
 		lN[N-1][0] = (Ma[0] + Mc[0])/Mb[0];
 	*/
-		lN2[0] = Mc[1]/Mb[0];
+		lN2[0] = Ma[1][2]/Ma[0][1];
 		lN3[0] = MCB0;
 		/* The second element */
 		if(Nzl > 1){
-			lN2[1] = (Ma[1] * Mb[0] + (Mb[0] - Mb[1]) * Mc[1])/((Mb[0] - Mb[1]) * Mc[Nzl]);
-			lN3[1] = -(Ma[0] * Mb[1] + Mc[0] * (Mb[1] - Mb[0]))/((Mb[0] - Mb[1]) * Mc[Nzl]);
+			lN2[1] = (Ma[1][0] * Ma[0][1] + (Ma[0][1] - Ma[1][1]) * Ma[1][2])/((Ma[0][1] - Ma[1][1]) * Ma[Nzl][2]);
+			lN3[1] = -(Ma[0][0] * Ma[1][1] + Ma[0][2] * (Ma[1][1] - Ma[0][1]))/((Ma[0][1] - Ma[1][1]) * Ma[Nzl][2]);
 		}
 
 		for(i=2; i<Nzl; i++){
-			lN2[i] = MCB1 * (Mb[i] - Mb[0])/Ma[i];
-			lN3[i] = MCB2 * (Mb[1] - Mb[i])/Ma[i];
+			lN2[i] = MCB1 * (Ma[i][1] - Ma[0][1])/Ma[i][0];
+			lN3[i] = MCB2 * (Ma[1][1] - Ma[i][1])/Ma[i][0];
 		}
 			
 
@@ -627,21 +633,21 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		/* Now the element [N-1][Nzl] */
 		/* To avoid many Ma[i] especially when Ma[i] is huge */
 		/* Divide a common factor for up and down */
-		tempup = Mc[0] * (Mb[0] - Mb[1])/(Ma[0]*Ma[1]);
-		temp = Mb[1]/Ma[1];
+		tempup = Ma[0][2] * (Ma[0][1] - Ma[1][1])/(Ma[0][0]*Ma[1][0]);
+		temp = Ma[1][1]/Ma[1][0];
 		tempup -= temp;
 
 		for(j=2; j<=Nzl; j++){
-			temp = Mc[j] * (Mb[1] - Mb[j])/(Ma[1]*Ma[j]);
+			temp = Ma[j][2] * (Ma[1][1] - Ma[j][1])/(Ma[1][0]*Ma[j][0]);
 			tempup -= temp;
 		}
 
-		tempdown = Mc[1] * (Mb[0] - Mb[1])/(Ma[0]*Ma[1]);
-		temp = Mb[0]/Ma[0];
+		tempdown = Ma[1][2] * (Ma[0][1] - Ma[1][1])/(Ma[0][0]*Ma[1][0]);
+		temp = Ma[0][1]/Ma[0][0];
 		tempdown += temp;
 
 		for(j=2; j<=Nzl; j++){
-			temp = Mc[j] * (Mb[0] - Mb[j])/(Ma[0]*Ma[j]);
+			temp = Ma[j][2] * (Ma[0][1] - Ma[j][1])/(Ma[0][0]*Ma[j][0]);
 			tempdown += temp;
 		}
 
@@ -653,13 +659,13 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		/* Now calculate L^-1 RHS */
 		/* The first element is unchanged */
 		/* The second element */
-		BInv = 1.0/Mb[0];
-		CInv = 1.0/Mc[Nzl];
+		BInv = 1.0/Ma[0][1];
+		CInv = 1.0/Ma[Nzl][2];
 		
-		RHS[1] -= (Mc[Nzl] * RHS[0] * BInv);
+		RHS[1] -= (Ma[Nzl][2] * RHS[0] * BInv);
 		for(j=2; j<Nzl; j++){
-			RHS[j] -= (Mc[j] * RHS[0] * BInv);
-			RHS[j] -= (Mc[j] * RHS[1] * CInv);
+			RHS[j] -= (Ma[j][2] * RHS[0] * BInv);
+			RHS[j] -= (Ma[j][2] * RHS[1] * CInv);
 		}
 		/* The line Nzl */
 		if(Nzl > 1){
@@ -683,36 +689,36 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 
 	
 		for(i=1; i<=Nzl; i++)
-			UN1[i] = (Mb[0] - Mb[i]) * Mc[Nzl] * BInv;
+			UN1[i] = (Ma[0][1] - Ma[i][1]) * Ma[Nzl][2] * BInv;
 
-		UN1[Nzl] += Ma[Nzl];
+		UN1[Nzl] += Ma[Nzl][0];
 		
-		UN1[N-1] = Md[Nzl] - Mb[N-1] * Mc[Nzl] * BInv;
+		UN1[N-1] = Md[Nzl] - Ma[N-1][1] * Ma[Nzl][2] * BInv;
 
 		/* For the lines 2 to Nzl-1, the elements are a[i], ... -a[Nzl]*c[i]/c[Nzl];
 
 		* now the line Nzl, there are only two elements in lines Nzl */
 		if(Nzl > 1){
-			UN2[Nzl] = -Mb[0];
+			UN2[Nzl] = -Ma[0][1];
 
 			for(j=1; j<=Nzl; j++){
-				temp = (Mb[0] - Mb[j]) * Mc[j] / Ma[j];
+				temp = (Ma[0][1] - Ma[j][1]) * Ma[j][2] / Ma[j][0];
 				UN2[Nzl] -= temp;
 			}
 
-			temp = (Mb[0] - Mb[1]) * Mc[Nzl] / (Ma[1] * Ma[Nzl]);
+			temp = (Ma[0][1] - Ma[1][1]) * Ma[Nzl][2] / (Ma[1][0] * Ma[Nzl][0]);
 			UN2[Nzl] /= temp;
 		
 
 		/* Now the element [Nzl][N-1] */
-			UN2[N-1] = Mb[N-1] * Mc[Nzl] - Mb[0] * Md[Nzl];
+			UN2[N-1] = Ma[N-1][1] * Ma[Nzl][2] - Ma[0][1] * Md[Nzl];
 		
 			for(j=1; j<Nzl; j++){
-				temp = (Mc[Nzl] * Md[j] - Mc[j] * Md[Nzl]) * (Mb[0] - Mb[j])/Ma[j];
+				temp = (Ma[Nzl][2] * Md[j] - Ma[j][2] * Md[Nzl]) * (Ma[0][1] - Ma[j][1])/Ma[j][0];
 				UN2[N-1] += temp;
 			}
 
-			temp = (Mb[0] - Mb[1]) * Mc[Nzl]/Ma[1];
+			temp = (Ma[0][1] - Ma[1][1]) * Ma[Nzl][2]/Ma[1][0];
 
 			UN2[N-1] /= temp;
 		}/* End Nzl > 1 */
@@ -725,9 +731,9 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 
 		/* now the last element UN[N-1][N-1] */
 		/* sum LN[N-1][i] * UN[i][N-1] = Mb */
-		UN3[N-1] = Md[0] - lN3[0] * Mb[N-1] - lN3[1] * UN1[N-1];
+		UN3[N-1] = Md[0] - lN3[0] * Ma[N-1][1] - lN3[1] * UN1[N-1];
 		for(i=2; i<Nzl; i++)
-			UN3[N-1] -= (lN3[i] * (Md[i] - Mc[i] * Md[Nzl] * CInv));
+			UN3[N-1] -= (lN3[i] * (Md[i] - Ma[i][2] * Md[Nzl] * CInv));
 
 		if(Nzl > 1){
 			UN3[N-1] -= (lN3[Nzl] * UN2[N-1]);
@@ -740,9 +746,9 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		RHS[Nzl] /= UN2[Nzl]; 
 
 		for(i=Nzl-1; i>1; i--){
-			RHS[i] -= (Md[i] - Mc[i] * Md[Nzl] * CInv) * RHS[N-1]; 
-			RHS[i] += (Ma[Nzl] * Mc[i] * CInv) * RHS[Nzl];
-			RHS[i] /= Ma[i];
+			RHS[i] -= (Md[i] - Ma[i][2] * Md[Nzl] * CInv) * RHS[N-1]; 
+			RHS[i] += (Ma[Nzl][0] * Ma[i][2] * CInv) * RHS[Nzl];
+			RHS[i] /= Ma[i][0];
 		}
 		
 		if(Nzl > 1){	
@@ -754,16 +760,16 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 		}
 			
 		for(i=1; i<=Nzl; i++)
-			RHS[0] -= Mb[i] * RHS[i];
+			RHS[0] -= Ma[i][1] * RHS[i];
 
-		RHS[0] -= (Mb[N-1] * RHS[N-1]);
-		RHS[0] /= Mb[0];
+		RHS[0] -= (Ma[N-1][1] * RHS[N-1]);
+		RHS[0] /= Ma[0][1];
 
 
 			/* now calculate the solution between Nzl+1 to N-2 */
 			/* xi =  RHS[i]/Ma[i] - Md[i]/Ma[i] xn-1 */
 		for(i=Nzl+1; i<N-1; i++)
-			RHS[i] = (RHS[i] - Md[i] * RHS[N-1])/Ma[i];			
+			RHS[i] = (RHS[i] - Md[i] * RHS[N-1])/Ma[i][0];			
 
 		
 	}/* end if Nzl > 0 */
@@ -792,7 +798,7 @@ void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *R
 
 
 
-void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS)
+void AbsorptionMatrix(const int N, Real **Ma, Real *Md, Real *RHS)
 {
 	
 	/* N always larger than 2 */
@@ -815,26 +821,26 @@ void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real 
 	 */
 		
 	/* All the variables 1 to N-1 can be expressed in terms of variable N and N+1 */
-	CoefN[0] = Ma[N-1] + Mb[N-1];
+	CoefN[0] = Ma[N-1][0] + Ma[N-1][1];
 	CoefN[1] = Md[N-1];
 	
-	CoefN1[0] = Mc[N-1];
+	CoefN1[0] = Ma[N-1][2];
 	CoefN1[1] = Md[N];
 	
 	tempRHS[0] = RHS[N-1];
 	tempRHS[1] = RHS[N];
 	
 	for(i=0; i<N-1; i++){
-		MaInv = 1.0/Ma[i];
+		MaInv = 1.0/Ma[i][0];
 		/* line N */
-		tempRHS[0] += (-Mb[i] * MaInv * RHS[i]);
-		CoefN[0] += (Mb[i] * MaInv * Ma[N-1]);
-		CoefN[1] += (-Mb[i] * MaInv * Md[i]);
+		tempRHS[0] += (-Ma[i][1] * MaInv * RHS[i]);
+		CoefN[0] += (Ma[i][1] * MaInv * Ma[N-1][0]);
+		CoefN[1] += (-Ma[i][1] * MaInv * Md[i]);
 		
 		/* line N+1 */
-		tempRHS[1] += (-Mc[i] * MaInv * RHS[i]);
-		CoefN1[0] += (Mc[i] * MaInv * Ma[N-1]);
-		CoefN1[1] += (-Mc[i] * MaInv * Md[i]);		
+		tempRHS[1] += (-Ma[i][2] * MaInv * RHS[i]);
+		CoefN1[0] += (Ma[i][2] * MaInv * Ma[N-1][0]);
+		CoefN1[1] += (-Ma[i][2] * MaInv * Md[i]);		
 		
 	}
 	
@@ -849,11 +855,11 @@ void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real 
 	RHS[N-1] = (tempRHS[0] - CoefN[1] * RHS[N])/CoefN[0];
 	
 	
-	temp = -Ma[N-1] * RHS[N-1];
+	temp = -Ma[N-1][0] * RHS[N-1];
 	
 	/* Now set the solution */
 	for(i=0; i<N-1; i++){
-		RHS[i] = (RHS[i] - (temp + Md[i] * RHS[N]))/Ma[i];		
+		RHS[i] = (RHS[i] - (temp + Md[i] * RHS[N]))/Ma[i][0];		
 	}
 	
 	/* Now the new solutions are stored in RHS[] */

@@ -292,12 +292,12 @@ void dump_history(MeshS *pM, OutputS *pOut)
 	      ir = i + ioff;
 	      
 	      for(ifr=0; ifr<nfr; ifr++){
- 		 J += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].J;
-		 H1 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[0];
-		 H2 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[1];
-		 H3 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[ifr][kr][jr][ir].H[2];
+ 		 J += 4.0 * PI * pRG->wnu[ifr] * pRG->R[kr][jr][ir][ifr].J;
+		 H1 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[kr][jr][ir][ifr].H[0];
+		 H2 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[kr][jr][ir][ifr].H[1];
+		 H3 += 4.0 * PI * pRG->wnu[ifr] * pRG->R[kr][jr][ir][ifr].H[2];
 	      	 for(m=0; m<6; m++)
-			Edd[m] += pRG->R[ifr][kr][jr][ir].K[m]/pRG->R[ifr][kr][jr][ir].J;
+			Edd[m] += pRG->R[kr][jr][ir][ifr].K[m]/pRG->R[kr][jr][ir][ifr].J;
 	      }
 
 	      mhst++;
@@ -386,7 +386,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 		/* dump a particular specific intensity for each cell */
               for(n=0; n<I_hst_cnt; n++){
                 mhst++;
-                scal[mhst] += dVol*(pRG->imu[Ifre[n]][Il[n]][In[n]][kr][jr][ir]);
+                scal[mhst] += dVol*(pRG->imu[kr][jr][ir][Ifre[n]][(Il[n]*pRG->nang+Il[n])]);
               } /* End specific intensity */
 
 #endif

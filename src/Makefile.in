@@ -202,7 +202,7 @@ include ../Makeoptions
 #--------------------  implicit rules  -----------------------------------------
 
 .c.o:
-	${CC} ${CFLAGS} -c $<
+	${CC}  ${CFLAGS} -c $<
 
 #---------------------  targets  -----------------------------------------------
 
@@ -227,7 +227,7 @@ clean:
 depend: Makedepend
 
 Makedepend:
-	${CC} -MM ${CFLAGS} ${SRC} > Makedepend
+	${CC} -MM  ${CFLAGS} ${SRC} > Makedepend
 
 # a few functionality tests of some modules of the code
 par:	par.c

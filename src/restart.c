@@ -87,7 +87,7 @@ void restart_grids(char *res_file, MeshS *pM)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
   RadGridS *pRG;
-  int nf, nang, noct, l, m, ifr, n;
+  int nf, nang, noct, l, ifr, n;
 #endif
 
 /* Open the restart file */
@@ -691,11 +691,11 @@ void restart_grids(char *res_file, MeshS *pM)
       ath_error("[restart_grids]: Expected rad_J, found %s",line);
     for (k=ks; k<=ke; k++) {
       for (j=js; j<=je; j++) {
-	for (i=is; i<=ie; i++) {
-	  for (ifr=0; ifr<nf; ifr++) {
-	    for (l=0; l<noct; l++){
-	      for (n=0; n<nang; n++){
-	    	fread(&(pRG->imu[ifr][l][n][k][j][i]),sizeof(Real),1,fp);
+		  for (i=is; i<=ie; i++) {
+              for (ifr=0; ifr<nf; ifr++) {
+                  for (l=0; l<noct; l++){
+                      for (n=0; n<nang; n++){
+                          fread(&(pRG->imu[k][j][i][ifr][l*pRG->nang+n]),sizeof(Real),1,fp);
 	      }/* end n */
 	      }/* end l */
 	  }}}}
@@ -748,7 +748,7 @@ void dump_restart(MeshS *pM, OutputS *pout)
 #endif
 #ifdef FULL_RADIATION_TRANSFER
   RadGridS *pRG;
-  int nf, nang, noct, l, m, ifr, n;
+  int nf, nang, noct, l, ifr, n;
 #endif
 
 /* Allocate memory for buffer */
@@ -1524,19 +1524,19 @@ void dump_restart(MeshS *pM, OutputS *pout)
 /* Write the mean intensity */
 
      fprintf(fp,"\nrad_J\n");
-      for (k=ks; k<=ke; k++) {
-        for (j=js; j<=je; j++) {
-          for (i=is; i<=ie; i++) {
-	    for (ifr=0; ifr<nf; ifr++) {
-	      for (l=0; l<noct; l++){
-		for (n=0; n<nang; n++){
-	      	buf[nbuf++] = pRG->imu[ifr][l][n][k][j][i];
-	      if ((nbuf+1) > bufsize) {
-		fwrite(buf,sizeof(Real),nbuf,fp);
-		nbuf = 0;
-	      }
-	      }
-	      }
+     for (k=ks; k<=ke; k++) {
+       for (j=js; j<=je; j++) {
+         for (i=is; i<=ie; i++) {
+             for (ifr=0; ifr<nf; ifr++) {
+                for (l=0; l<noct; l++){
+                   for (n=0; n<nang; n++){
+                       buf[nbuf++] = pRG->imu[k][j][i][ifr][l*pRG->nang+n];
+                       if ((nbuf+1) > bufsize) {
+                           fwrite(buf,sizeof(Real),nbuf,fp);
+                           nbuf = 0;
+                       }
+                   }
+                }
 	    }}}}
       if (nbuf > 0) {
         fwrite(buf,sizeof(Real),nbuf,fp);

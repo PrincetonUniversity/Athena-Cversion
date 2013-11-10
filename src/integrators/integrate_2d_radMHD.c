@@ -330,9 +330,11 @@ void integrate_2d_radMHD(DomainS *pD)
 		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
 
-		Wl[i].Vx += dt * Source[1] * 0.5 * betax;
-		Wl[i].Vy += dt * Source[2] * 0.5 * betay;
-		Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+        if(Erflag){
+            Wl[i].Vx += dt * Source[1] * 0.5 * betax;
+            Wl[i].Vy += dt * Source[2] * 0.5 * betay;
+            Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
+        }
 
 		if(Wl[i].P < TINY_NUMBER)
 			Wl[i].P -= dt * Propa_44 * Source[4] * 0.5;
@@ -432,13 +434,17 @@ void integrate_2d_radMHD(DomainS *pD)
 		/* In case SPP * dt  is small, use expansion expression */	
 		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
+        
+        if(Erflag){
 
-		Wr[i].Vx += dt * Source[1] * 0.5 * betax;
-		Wr[i].Vy += dt * Source[2] * 0.5 * betay;
-		Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
+            Wr[i].Vx += dt * Source[1] * 0.5 * betax;
+            Wr[i].Vy += dt * Source[2] * 0.5 * betay;
+            Wr[i].P += dt * Propa_44 * Source[4] * 0.5;
 
-		if(Wr[i].P < TINY_NUMBER)
-			Wr[i].P -= dt * Propa_44 * Source[4] * 0.5;
+            if(Wr[i].P < TINY_NUMBER)
+                Wr[i].P -= dt * Propa_44 * Source[4] * 0.5;
+            
+        }
 
 		for(m=0; m<NOPACITY; m++){
 			Wr[i].Sigma[m] = U1d[i].Sigma[m];
@@ -707,14 +713,18 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 		/* Propa[4][0] = (1.0 - alpha) * W[i-1].P / U1d[i-1].d; */
 		Propa_44 = alpha;
+        
+        if(Erflag){
 
 		/* "Vx" is actually vy, "vz" is actually vx; We stay with the correct meaning in source terms */
-		Wl[j].Vx += dt * Source[2] * 0.5 * betay;
-		Wl[j].Vz += dt * Source[1] * 0.5 * betax;
-		Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
+            Wl[j].Vx += dt * Source[2] * 0.5 * betay;
+            Wl[j].Vz += dt * Source[1] * 0.5 * betax;
+            Wl[j].P += dt * Propa_44 * Source[4] * 0.5;
 
-		if(Wl[j].P < TINY_NUMBER)
-			Wl[j].P -= dt * Propa_44 * Source[4] * 0.5;
+            if(Wl[j].P < TINY_NUMBER)
+                Wl[j].P -= dt * Propa_44 * Source[4] * 0.5;
+            
+        }
 
 		for(m=0; m<NOPACITY; m++){
 			Wl[j].Sigma[m] = U1d[j-1].Sigma[m];
@@ -813,14 +823,18 @@ void integrate_2d_radMHD(DomainS *pD)
 	
 		/* Propa[4][0] = (1.0 - alpha) * W[i].P / U1d[i].d; */
 		Propa_44 = alpha;
+        
+        if(Erflag){
 
-		/* "vx" is actually vy, "vy" is actually vx */
-		Wr[j].Vx += dt * Source[2] * 0.5 * betay;
-		Wr[j].Vz += dt * Source[1] * 0.5 * betax;
-		Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
+            /* "vx" is actually vy, "vy" is actually vx */
+            Wr[j].Vx += dt * Source[2] * 0.5 * betay;
+            Wr[j].Vz += dt * Source[1] * 0.5 * betax;
+            Wr[j].P += dt * Propa_44 * Source[4] * 0.5;
 
-		if(Wr[j].P < TINY_NUMBER)
-			Wr[j].P -= dt * Propa_44 * Source[4] * 0.5;
+            if(Wr[j].P < TINY_NUMBER)
+                Wr[j].P -= dt * Propa_44 * Source[4] * 0.5;
+            
+        }
 
 		for(m=0; m<NOPACITY; m++){
 			Wr[j].Sigma[m] = Sigma[m];
@@ -2154,6 +2168,16 @@ void integrate_2d_radMHD(DomainS *pD)
 			+ pG->U[ks][j][i].Edd_21 * velocity_y)* pG->U[ks][j][i].Er / Crat));
 		Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
 			+ pG->U[ks][j][i].Edd_21 * velocity_x)* pG->U[ks][j][i].Er / Crat));
+                
+                
+        /* Calculate the momentum source term before opacity is updated. It may cause trouble if opacity changes too much */
+        Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (Source_Inv[1][1] * velocity_x
+                 * (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x
+                 + pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat)
+                 + Source_Inv[2][2] * velocity_y
+                 * (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y
+                  + pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat));
+        
 		
 
 		/* Prepare the Prims variable */
@@ -2181,9 +2205,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		Ersource = Ersource - pG->U[ks][j][i].Er;
 				
 #ifdef FLD
-		pG->U[ks][j][i].Er += (1.0 - Eratio) * Ersource;
-				
-		Uguess[4] -= Prat * Ersource;
+        pG->U[ks][j][i].Er += (1.0 - Eratio) * (0.5 * (Ersource + pG->Ersource[ks][j][i])) ;
+           
+        Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[ks][j][i]));
 				
 		pG->U[ks][j][i].d  = Uguess[0];
 		pG->U[ks][j][i].M1 = Uguess[1];
@@ -2194,14 +2218,12 @@ void integrate_2d_radMHD(DomainS *pD)
 
 		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[ks][j][i].Er;
 
-		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (Source_Inv[1][1] * velocity_x
-			* (pG->U[ks][j][i].Fr1 - ((1.0 + pG->U[ks][j][i].Edd_11) * velocity_x 
-			+ pG->U[ks][j][i].Edd_21 * velocity_y) * pG->U[ks][j][i].Er / Crat)
-			+ Source_Inv[2][2] * velocity_y
-			* (pG->U[ks][j][i].Fr2 - ((1.0 + pG->U[ks][j][i].Edd_22) * velocity_y 
-			+ pG->U[ks][j][i].Edd_21 * velocity_x) * pG->U[ks][j][i].Er / Crat));
+		
 
+                
 		Source_Invnew[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+                
+                
 
 		if(Erflag){
 			Source_guess[4] = -Prat * Crat * diffTEr + Prwork2;

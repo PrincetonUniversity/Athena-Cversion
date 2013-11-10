@@ -2872,7 +2872,7 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 */
 
 	/* use 10 times optical depth per cell */
-	taucell = 20.0 * dl * Sigma_t;
+	taucell = Taufactor * dl * Sigma_t;
 
 	/* In optical thin regime, do not include the factor 10, to be consistent with linear analysis */
 /*	if(dl * Sigma_t < 0.1)

@@ -23,13 +23,13 @@ void fullradiation_destruct(MeshS *pM);
 /* hydro_to_rad.c */
 
 void hydro_to_fullrad(DomainS *pD);
-void Absorption2D(const int N, RadGridS *pRG, Real ***sol, Real ***inisol, Real ***Ma, Real ***Mb, Real ***Mc, Real ***Mdcoef, Real **Tcoef, Real **T4coef, Real *Md, Real *RHS);
-void Absorption3D(const int N, RadGridS *pRG, Real ****sol, Real ****inisol, Real ****Ma, Real ****Mb, Real ****Mc, Real ****Mdcoef, Real ***Tcoef, Real ***T4coef, Real *Md, Real *RHS);
-void RadAsource2D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real ****Coefn, Real ****Coefnn, Real ***sol);
-void RadAsource3D(const int ifr, const int N, RadGridS *pRG, GridS *pG, Real ***Tcoef, Real *****Coefn, Real *****Coefnn, Real ****sol);
-void RadSsource(const int ifr, RadGridS *pRG, GridS *pG);
+
+void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, int *flag);
+void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **inisol);
+void RadSsource(RadGridS *pRG, GridS *pG);
 void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
+void GetSpeedfactor(DomainS *pD);
 
 
 /* bvals_fullrad.c */
@@ -42,12 +42,12 @@ void bvals_fullrad_trans_fun(DomainS *pD, enum BCDirection dir, VRGIFun_t prob_b
 /* Update the momentums of specific intensity for each cell */
 
 void UpdateRT(DomainS *pD);
-void CalMoment(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, const int ifr, RadGridS *pRG);
+void CalMoment(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, RadGridS *pRG);
 void ReduceVelocity(const Real sigma, const Real ds, Real *alpha);
 void SpecialMatrix(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real *UN, const int N);
 void SpecialMatrix2(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real *UN, const int N);
-void SpecialMatrix3(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3);
-void AbsorptionMatrix(const int N, Real *Ma, Real *Mb, Real *Mc, Real *Md, Real *RHS);
+void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3);
+void AbsorptionMatrix(const int N, Real **Ma, Real *Md, Real *RHS);
 void convert_angle(const Real x2, const Real miux0, const Real miuy0, Real *miux, Real *miuy);
 /* FullRT_flux.c */
 
@@ -55,7 +55,7 @@ void convert_angle(const Real x2, const Real miux0, const Real miuy0, Real *miux
 void flux_PLM(Real r[3]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[3], Real imhalf[1]);
 void flux_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real dt, const Real ds, const Real vel, Real imu[5], Real imhalf[1]);
 void lrstate_PPM(Real r[5]  __attribute__((unused)), const int dir __attribute__((unused)), const Real ds __attribute__((unused)), Real imu[5], Real iLeft[1], Real iRight[1]);
-void flux_AdvJ(Real r[3]  __attribute__((unused)), const int dir __attribute__((unused)), Real *tempJ, Real *tempV, int nstart, int nend, Real ds, Real dt, Real *tempAdv);
+void flux_AdvJ(const int nf, const int N, Real *r  __attribute__((unused)), const int dir __attribute__((unused)), Real ***tempJ, Real ***tempV, int nstart,int nend,Real ds, Real dt, Real ***tempAdv);
 
 int permutation(int i, int j, int k, int **pl, int np);
 
