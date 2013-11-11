@@ -454,13 +454,14 @@ void problem_read_restart(MeshS *pM, FILE *fp)
   dump_history_enroll(hst_BxBy, "<-Bx By>");
 #endif /* MHD */
 
+  ztop = pM->RootMaxX[2];
+  zbtm = pM->RootMinX[2];
+
 /* If using outflow boundaries, have to enroll them here too */
 
   if (zbc_out == 1) {
 
     int nl, nd;
-    ztop = pM->RootMaxX[2];
-    zbtm = pM->RootMinX[2];
 
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
