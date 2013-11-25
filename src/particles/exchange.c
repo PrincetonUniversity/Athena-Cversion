@@ -1864,8 +1864,8 @@ static void reflect_ix1_exchange(GridS *pG)
 
   for (k=kb; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
-      for (i=jl; i<pG->js; i++) {
-        ir = 2*pG->js-i-1;
+      for (i=il; i<pG->is; i++) {
+        ir = 2*pG->is-i-1;
         myCoup[k][j][ir].U[0] -= myCoup[k][j][i].U[0];
         for (n=1;n<NVar; n++)
           myCoup[k][j][ir].U[n] += myCoup[k][j][i].U[n];
@@ -1875,7 +1875,7 @@ static void reflect_ix1_exchange(GridS *pG)
 
   for (k=kb; k<=kt; k++) {
     for (j=jb; j<=jt; j++) {
-      for (i=jb; i<pG->js; i++) {
+      for (i=ib; i<pG->is; i++) {
         ir = 2*pG->js-i-1;
         myCoup[k][j][i].U[0] = -myCoup[k][j][ir].U[0];
         for (n=1;n<NVar; n++)
@@ -2035,7 +2035,6 @@ static void periodic_ix1_exchange(GridS *pG)
          myCoup[k][j][pG->is-NOfst +i].U[n] += GhstZns_ox1[k][i][j].U[n];
          myCoup[k][j][pG->ie-NExc+1+i].U[n] += GhstZns_ix1[k][i][j].U[n];
     }}}}
-
   } else {
 #endif
     for (k=kb; k<=kt; k++) {
