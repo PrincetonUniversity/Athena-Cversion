@@ -334,11 +334,11 @@ void integrate_2d_radMHD(DomainS *pD)
             Wl[i].Vx += dt * Source[1] * 0.5 * betax;
             Wl[i].Vy += dt * Source[2] * 0.5 * betay;
             Wl[i].P += dt * Propa_44 * Source[4] * 0.5;
-        }
+        
 
 		if(Wl[i].P < TINY_NUMBER)
 			Wl[i].P -= dt * Propa_44 * Source[4] * 0.5;
-	
+	}
 		for(m=0; m<NOPACITY; m++){
 			Wl[i].Sigma[m] = U1d[i-1].Sigma[m];
 		}

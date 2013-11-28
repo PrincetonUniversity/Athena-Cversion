@@ -48,6 +48,7 @@ void SpecialMatrix(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real 
 void SpecialMatrix2(Real *Ma, Real *Mb, Real *RHS, Real *lN, Real *tempRHS, Real *UN, const int N);
 void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Real *lN2, Real *lN3,  Real *UN1, Real *UN2, Real *UN3);
 void AbsorptionMatrix(const int N, Real **Ma, Real *Md, Real *RHS);
+void LinearAbsorptionMatrix(const int N, Real **Ma, Real *RHS);
 void convert_angle(const Real x2, const Real miux0, const Real miuy0, Real *miux, Real *miuy);
 /* FullRT_flux.c */
 
@@ -72,6 +73,24 @@ void fullRT_3d_destruct(void);
 
 /* output_spec.c */
 void output_spec(MeshS *pM);
+
+/* output_intensity_vtk.c */
+void output_ix1_vtk(MeshS *pM, OutputS *pOut);
+void output_ox1_vtk(MeshS *pM, OutputS *pOut);
+void output_ix2_vtk(MeshS *pM, OutputS *pOut);
+void output_ox2_vtk(MeshS *pM, OutputS *pOut);
+void output_ix3_vtk(MeshS *pM, OutputS *pOut);
+void output_ox3_vtk(MeshS *pM, OutputS *pOut);
+
+/* dump_intensity_vtk.c */
+void dump_ix1_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox1_vtk(MeshS *pM, OutputS *pOut);
+void dump_ix2_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox2_vtk(MeshS *pM, OutputS *pOut);
+void dump_ix3_vtk(MeshS *pM, OutputS *pOut);
+void dump_ox3_vtk(MeshS *pM, OutputS *pOut);
+
+
 
 #endif /* RADIATION_TRANSFER */
 #endif /* RADIATION_TRANSFER_PROTOTYPES_H */

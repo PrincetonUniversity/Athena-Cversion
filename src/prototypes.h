@@ -385,7 +385,7 @@ Real EquState(const Real density, const Real sum, const Real Er0); /* Function t
 
 void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
 
-#ifdef RADIATION_TRANSFER
+#if defined(RADIATION_TRANSFER) || defined(FLD)
 /* Function to calculate Eddington tensor */
 
 void Eddington_FUN(DomainS *pD);

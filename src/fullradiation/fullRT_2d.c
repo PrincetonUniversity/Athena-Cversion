@@ -456,6 +456,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
 	
 	Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, AngleVN;
 	Real sigmaa, sigmaaI, sigmas;
+    Real Tgas4;
 	
 
 		for(j=js; j<=je; j++){
@@ -557,6 +558,57 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                 /* Borrow the memory RHS */
                 /* The energy and momentum source terms are already initialized */
                 Absorption(pRG->nf, nelements, sol, inisol, Ma, Mdcoef, Tcoef, Md, RHS[0], &flag);
+                
+                
+                /**********************************************************************/
+                /* This part is only calculated in special cases */
+                /* If the non-linear matrix does not converge, fix the temperature and invert a linear
+                 * matrix as a rough estimate */
+                if(flag == 0){
+                    for(ifr=0; ifr<pRG->nf; ifr++){
+                        sigmaa = pRG->R[ks][j][i][ifr].Sigma[0];
+                        sigmaaI = pRG->R[ks][j][i][ifr].Sigma[1];
+                        
+                        Tgas4 = pG->tgas[ks][j+offset][i+offset];
+                        Tgas4 = SQR(Tgas4);
+                        Tgas4 = SQR(Tgas4);
+                        /* save the current gas temperature */
+                        
+                        AngleV = FullAngleV[j][i][nelements-1];
+                        
+                        RHS[0][nelements-1] = pRG->imu[ks][j][i][ifr][nelements-1] + dt * Crat * sigmaa * Tgas4 * QuaPI + 3.0 * dt * AngleV * sigmaa * QuaPI;
+                        
+                        for(Mi=0; Mi<nelements; Mi++){
+                            
+                            
+                            AngleV = FullAngleV[j][i][Mi];
+                            AngleV2 = MatrixAngleV2[j][i][Mi];
+                            
+                            Ma[0][Mi][0] = (1.0 + dt * sigmaaI * (Crat - AngleV));
+                            Ma[0][Mi][1] = dt * sigmaaI * (vel2 + AngleV2) * pRG->wmu[ks][j][i][Mi] * InvCrat;
+                            
+                            if(Mi < nelements - 1){
+                                RHS[0][Mi] = pRG->imu[ks][j][i][ifr][Mi] + dt * Crat * sigmaa * Tgas4 * QuaPI + 3.0 * dt * AngleV * sigmaa * QuaPI;
+                                RHS[0][Mi] -= RHS[0][nelements-1];
+                            }
+                            
+                        }/* end Mi */
+                        
+                        /* Now solve the linear matrix */
+                        LinearAbsorptionMatrix(nelements, Ma[0], RHS[0]);
+                        
+                        /* set the solution */
+                        for(Mi=0; Mi<nelements; Mi++){
+                            sol[ifr][Mi] = RHS[0][Mi];
+                        }
+                        
+                        sol[ifr][nelements] = pG->tgas[ks][j+offset][i+offset];
+                        
+                        
+                    }/* end ifr */
+                    
+                }/* end flag */
+
                 
                 /* Because the absorption opacity related terms are updated implicitly,
                  * use the update quantities to calculate the energy and momentum source terms

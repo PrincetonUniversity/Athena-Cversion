@@ -2258,12 +2258,13 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 			vFzk1Full = ((1.0 + f33k1) * vzk1 + vxk1 * f31k1 + vyk1 * f32k1) / Crat;	
 		}
 
+    
+    /* Set the flag whether split advection term or not */
+                /* in optical thick regime, split advection to use upwind flux */
+	/* flag to use upwind flux for advection term */
 
-		/* Set the flag whether split advection term or not */
-		/* in optical thick regime, split advection to use upwind flux */
-/* flag to use upwind flux for advection term */
+                /* calculate the Div(vP_r) term, which is added as cell centered difference */
 
-		/* calculate the Div(vP_r) term, which is added as cell centered difference */
 		
 
 		if(DIM == 1){			
@@ -2843,6 +2844,8 @@ void matrix_coef_FLD(const MatrixS *pMat, const int DIM, const int i, const int 
 		theta[6] = -Crat * diffk1 * dt / (dz * dz);
 	}
 }
+
+
 
 #endif /* FLD */
 

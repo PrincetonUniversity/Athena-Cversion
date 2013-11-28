@@ -577,7 +577,7 @@ void GetSpeedfactor(DomainS *pD)
 			for(i=il; i<=iu; i++){
 #ifdef CYLINDRICAL
 				/* The scale factor r[i] is the same for each i, for different angles j */
-                dS[2] *= r[i+offset];
+                dS[1] = pRG->dx2 * r[i+offset];
 #endif
 				for(ifr=0; ifr<pRG->nf; ifr++){
                     

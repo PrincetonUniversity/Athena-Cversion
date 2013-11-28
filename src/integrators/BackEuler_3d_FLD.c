@@ -199,43 +199,17 @@ void BackEuler_3d(MeshS *pM)
 	bgflag = 0; 
 */
 /*===================================*/
-	for(k=ks; k<=ke; k++){
-                for(j=js; j<=je; j++){
-                        for(i=is; i<= ie; i++){	
-				f11 = pG->U[k][j][i].Edd_11;
-			        f22 = pG->U[k][j][i].Edd_22;
-				f33 = pG->U[k][j][i].Edd_33;
-
-        			f21 = pG->U[k][j][i].Edd_21;
-        			f31 = pG->U[k][j][i].Edd_31;
-        			f32 = pG->U[k][j][i].Edd_32;
-
-				vxi0 = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
-				vxi1 = pG->U[k][j][i+1].M1 / pG->U[k][j][i+1].d;	
-				vyj0 = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
-				vyj1 = pG->U[k][j+1][i].M2 / pG->U[k][j+1][i].d;
-				vzk0 = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
-                                vzk1 = pG->U[k+1][j][i].M3 / pG->U[k+1][j][i].d;
-				
-				dvxdx = (vxi1 - vxi0) / (2.0 * pG->dx1);
-				dvydy = (vyj1 - vyj0) / (2.0 * pG->dx2);
-				dvzdz = (vzk1 - vzk0) / (2.0 * pG->dx3);
-				
-				pG->U[k][j][i].Er /= (1.0 + pG->dt * ((f11 + f21 + f31) * dvxdx + (f21 + f22 + f32) * dvydy + (f31 + f32 + f33) * dvzdz));
-			}
-		}
-	}
 
 	/* Apply the boundary condition */
 	/* Need to update the boundary condition of Er before calculating Fr */
-        for (i=0; i<pM->NLevels; i++){
+/*        for (i=0; i<pM->NLevels; i++){
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
                 if (pM->Domain[i][j].Grid != NULL){
                         bvals_radMHD(&(pM->Domain[i][j]));
 
                 }                    }
         }  
-
+*/
 
 	/* Now copy the data */
 	/* Including the ghost zones */
@@ -441,6 +415,36 @@ if((pMat->bgflag) || (Matrixflag == 2)){
 */
 			
 	}
+    
+    /* Do the Div V P step */
+    
+    for(k=ks; k<=ke; k++){
+        for(j=js; j<=je; j++){
+            for(i=is; i<= ie; i++){
+				f11 = pG->U[k][j][i].Edd_11;
+                f22 = pG->U[k][j][i].Edd_22;
+				f33 = pG->U[k][j][i].Edd_33;
+                
+                f21 = pG->U[k][j][i].Edd_21;
+                f31 = pG->U[k][j][i].Edd_31;
+                f32 = pG->U[k][j][i].Edd_32;
+                
+				vxi0 = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
+				vxi1 = pG->U[k][j][i+1].M1 / pG->U[k][j][i+1].d;
+				vyj0 = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
+				vyj1 = pG->U[k][j+1][i].M2 / pG->U[k][j+1][i].d;
+				vzk0 = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
+                vzk1 = pG->U[k+1][j][i].M3 / pG->U[k+1][j][i].d;
+				
+				dvxdx = (vxi1 - vxi0) / (2.0 * pG->dx1);
+				dvydy = (vyj1 - vyj0) / (2.0 * pG->dx2);
+				dvzdz = (vzk1 - vzk0) / (2.0 * pG->dx3);
+				
+				pG->U[k][j][i].Er /= (1.0 + pG->dt * ((f11 + f21 + f31) * dvxdx + (f21 + f22 + f32) * dvydy + (f31 + f32 + f33) * dvzdz));
+			}
+		}
+	}
+
 
 /* Need to update the boundary condition of Er before calculating Fr */
 	for (i=0; i<pM->NLevels; i++){ 

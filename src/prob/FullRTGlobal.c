@@ -3464,7 +3464,10 @@ static void output_2d_binary(MeshS *pM, OutputS *pOut)
 										  MPI_DOUBLE, MPI_SUM, 0, pD->Comm_Domain);
 						if(ierr)
 							ath_error("[output_1d]: MPI_Reduce call returned error = %d\n",ierr);
-						
+					
+						for (k=0; k<nrmx*nzmx; k++) {
+                                                        out1d[k][i1d] = g_out1d[k];
+                                                }	
 					}
 					
 	

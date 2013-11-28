@@ -169,36 +169,18 @@ void BackEuler_2d(MeshS *pM)
 
 /*========================================*/
 
-        for(j=js; j<=je; j++){
-                for(i=is; i<= ie; i++){	
-			f11 = pG->U[ks][j][i].Edd_11;
-		        f22 = pG->U[ks][j][i].Edd_22;
-			f21 = pG->U[ks][j][i].Edd_21;
-       		
-
-			vxi0 = pG->U[ks][j][i-1].M1 / pG->U[ks][j][i-1].d;
-			vxi1 = pG->U[ks][j][i+1].M1 / pG->U[ks][j][i+1].d;	
-			vyj0 = pG->U[ks][j-1][i].M2 / pG->U[ks][j-1][i].d;
-			vyj1 = pG->U[ks][j+1][i].M2 / pG->U[ks][j+1][i].d;
-			
-			dvxdx = (vxi1 - vxi0) / (2.0 * pG->dx1);
-			dvydy = (vyj1 - vyj0) / (2.0 * pG->dx2);
-			
-			pG->U[ks][j][i].Er /= (1.0 + pG->dt * ((f11 + f21) * dvxdx + (f21 + f22) * dvydy));
-			}
-		}
 
 
 	/* Apply the boundary condition */
 	/* Need to update the boundary condition of Er before calculating Fr */
-        for (i=0; i<pM->NLevels; i++){
+ /*       for (i=0; i<pM->NLevels; i++){
             for (j=0; j<pM->DomainsPerLevel[i]; j++){  
                 if (pM->Domain[i][j].Grid != NULL){
                         bvals_radMHD(&(pM->Domain[i][j]));
 
                 }                    }
         }  
-
+*/
 /*===============================================*/
 
 /* First, do the advection step and update bounary */
@@ -368,6 +350,27 @@ if(pMat->bgflag){
 
 			
 		}
+    
+    /* Do the Div V P step */
+    
+    for(j=js; j<=je; j++){
+        for(i=is; i<= ie; i++){
+			f11 = pG->U[ks][j][i].Edd_11;
+            f22 = pG->U[ks][j][i].Edd_22;
+			f21 = pG->U[ks][j][i].Edd_21;
+       		
+            
+			vxi0 = pG->U[ks][j][i-1].M1 / pG->U[ks][j][i-1].d;
+			vxi1 = pG->U[ks][j][i+1].M1 / pG->U[ks][j][i+1].d;
+			vyj0 = pG->U[ks][j-1][i].M2 / pG->U[ks][j-1][i].d;
+			vyj1 = pG->U[ks][j+1][i].M2 / pG->U[ks][j+1][i].d;
+			
+			dvxdx = (vxi1 - vxi0) / (2.0 * pG->dx1);
+			dvydy = (vyj1 - vyj0) / (2.0 * pG->dx2);
+			
+			pG->U[ks][j][i].Er /= (1.0 + pG->dt * ((f11 + f21) * dvxdx + (f21 + f22) * dvydy));
+        }
+    }
 
 
 /* Need to update the boundary condition of Er before calculating Fr */

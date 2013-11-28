@@ -331,6 +331,7 @@ void problem(DomainS *pDomain)
 	Erflag = par_getd_def("problem","Erflag",1);
 	Ncycle = par_getd_def("problem","Ncycle",15);
   	TOL  = par_getd_def("problem","TOL",1.e-10);
+	Taufactor  = par_getd_def("problem","Taufactor",20.0);
 #endif
 	printf("Eratio: %f  Erflag: %d\n",Eratio,Erflag);
 	
@@ -885,6 +886,7 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
 	fwrite(&Prat,sizeof(Real),1,fp);
 	fwrite(&Crat,sizeof(Real),1,fp);
+	fwrite(&Taufactor,sizeof(Real),1,fp);
 	fwrite(&R_ideal,sizeof(Real),1,fp);
  	fwrite(&kappaes,sizeof(Real),1,fp);
 	fwrite(&kappaffP,sizeof(Real),1,fp);
@@ -955,6 +957,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)	
 	fread(&Prat,sizeof(Real),1,fp);
 	fread(&Crat,sizeof(Real),1,fp);
+	fread(&Taufactor,sizeof(Real),1,fp);
 	fread(&R_ideal,sizeof(Real),1,fp);
 	fread(&kappaes,sizeof(Real),1,fp);
 	fread(&kappaffP,sizeof(Real),1,fp);

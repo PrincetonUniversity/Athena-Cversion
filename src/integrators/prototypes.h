@@ -84,6 +84,7 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 #ifdef FLD
 
 void FLD_limiter(const Real divEr, const Real Er, const Real Sigma, Real *lambda);
+void matrix_coef_FLD(const MatrixS *pMat, const int DIM, const int i, const int j, const int k, Real *theta);
 
 #endif
 

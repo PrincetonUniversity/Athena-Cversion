@@ -419,6 +419,12 @@ Now use the default one.\n");
 	rad_out_flag = 1;
       }
     }
+      
+#endif /*  RADIATION_TRANSFER */
+    
+/* output the intensity */
+      
+#if defined(RADIATION_TRANSFER) || defined FULL_RADIATION_TRANSFER
 
     if (strcmp(new_out.out,"ix1") == 0){
       new_out.out_fun = output_ix1_vtk;
@@ -444,7 +450,7 @@ Now use the default one.\n");
       new_out.out_fun = output_ox3_vtk;
       goto add_it;
     }
-#endif
+#endif /* defined(RADIATION_TRANSFER) || defined FULL_RADIATION_TRANSFER */
 
 /* Now handle data outputs (ouput of SINGLE variable).  There are lots more
  * options for outputs than dumps.  Need to choose variable, format, size

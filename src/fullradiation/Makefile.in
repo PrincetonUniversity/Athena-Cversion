@@ -14,7 +14,9 @@ CORE_OBJ = init_fullradiation.o\
 	   fullRT_2d.o\
 	   fullRT_3d.o\
 	   output_spec.o\
-	   FullRT_flux.o
+	   FullRT_flux.o \
+	   output_intensity_vtk.o \
+	   dump_intensity_vtk.o 
 OBJ = $(CORE_OBJ)
 
 #-------------------  macro definitions  ---------------------------------------

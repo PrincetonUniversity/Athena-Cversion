@@ -163,7 +163,9 @@ FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/fullRT_2d.o\
 		fullradiation/fullRT_3d.o\
 		fullradiation/output_spec.o\
-		fullradiation/FullRT_flux.o
+		fullradiation/FullRT_flux.o \
+		fullradiation/output_intensity_vtk.o \
+		fullradiation/dump_intensity_vtk.o
 
 RECONSTRUCTION_OBJ = reconstruction/esystem_prim.o \
 		     reconstruction/lr_states_dc.o \

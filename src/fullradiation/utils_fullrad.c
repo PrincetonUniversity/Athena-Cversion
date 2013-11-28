@@ -865,6 +865,75 @@ void AbsorptionMatrix(const int N, Real **Ma, Real *Md, Real *RHS)
 	/* Now the new solutions are stored in RHS[] */
 }
 
+
+
+
+/* This is the matrix for absorption opacity when 
+ * gas temperature is taken fixed
+ * This is used when the non-linear matrix cannot converge
+ * The matrix form is
+ * Ma1+Mb1  Mb2     Mb3  ... ... Mbn   		*
+ * Mb1     Ma2+Mb2  Mb3  ... ... Mbn   		*
+ * Mb1     Mb2    Ma3+Mb3        Mbn   		*
+ * ...   ...     ...							*
+ * Mb1     Mb2     Mb3 ...  ... Man+Mbn		*
+ 
+ * We can do the LU decomposition by hand
+ * for this special matrix
+ * To solve this matrix, we first subtract the n line from each line *
+ */
+
+
+
+
+void LinearAbsorptionMatrix(const int N, Real **Ma, Real *RHS)
+{
+	
+	/* N always larger than 2 */
+	/* The total line s of the matrix is N */
+	/* Lines 1 to N are for  I */
+	
+	Real CoefN, tempRHS, temp;
+	Real MaInv;
+	int i;
+	
+	/* Now the matrix becomes the form */
+	/* Ma1 0    0   0  ... ...	 -Man*
+	 * 0   Ma2  0   0  ... ...   -Man *
+	 * 0   0    Ma3 0  ... ...   -Man *
+	 * ... ...  ...	...
+	 * ... ... ... ...
+	 * Mb1 Mb2  Mb3 Mb4...  ...  Man+Mbn *
+	 */
+    
+	/* All the variables 1 to N-1 can be expressed in terms of variable N  */
+	CoefN = Ma[N-1][0] + Ma[N-1][1];
+	
+	tempRHS = RHS[N-1];
+
+	
+	for(i=0; i<N-1; i++){
+		MaInv = 1.0/Ma[i][0];
+		/* line N */
+		tempRHS += (-Ma[i][1] * MaInv * RHS[i]);
+		CoefN += (Ma[i][1] * MaInv * Ma[N-1][0]);
+	}
+    
+    /* Now get solution N */
+    RHS[N-1] = tempRHS / CoefN;
+	
+	
+	temp = -Ma[N-1][0] * RHS[N-1];
+	
+	/* Now set the solution */
+	for(i=0; i<N-1; i++){
+		RHS[i] = (RHS[i] - temp)/Ma[i][0];
+	}
+	
+	/* Now the new solutions are stored in RHS[] */
+}
+
+
 void ReduceVelocity(const Real sigma, const Real ds, Real *alpha)
 {
 
