@@ -98,7 +98,7 @@ void problem(DomainS *pDomain)
 		rho = rho0 * exp(fabs(x2-ytop));
 		rho = 1.0;
 		pG->U[k][j][i].d = rho;
-		pG->U[k][j][i].M1 = 3.0;
+		pG->U[k][j][i].M1 = 0.0;
 		pG->U[k][j][i].M2 = 0.0;
 		pG->U[k][j][i].M3 = 0.0;
 		if(sqrt(SQR(x1-0.5)+SQR(x2-0.5)+SQR(x3-0.5))<0.2)
@@ -137,7 +137,7 @@ void problem(DomainS *pDomain)
 			}
 			   
 			   
-            Er = 1.0;
+            Er = 10.0;
             Fr = 0.0;
                        
             Jr = Er/(4.0*PI);
@@ -173,8 +173,8 @@ void problem(DomainS *pDomain)
 		CalMoment(isr, ier, jsr, jer, ksr, ker, pRG);
 	
 
-    bvals_fullrad_trans_fun(pDomain, left_x2, OneBeam_ix2);
-
+/*    bvals_fullrad_trans_fun(pDomain, left_x2, OneBeam_ix2);
+*/
 	get_full_opacity = const_opacity;
 
 	
@@ -261,8 +261,8 @@ static void const_opacity(GridS *pG, const int ifr, const int i,
 
 	Sigma[0] = 0.0;
 	Sigma[1] = 0.0;
-	Sigma[2] = 0.0;
-	Sigma[3] = 0.0;
+	Sigma[2] = kappaes;
+	Sigma[3] = kappaes;
 
   return;
   

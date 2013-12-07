@@ -501,7 +501,7 @@ void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Rea
 	/* Find the first non-zero Mc */
 	i=N-2; 
 
-	while((fabs(Ma[i][2]) < TINY_NUMBER)){
+	while((fabs(Ma[i][2]) < 1.e-15)){
         	i--;
         if( i<0 ) break;
     }

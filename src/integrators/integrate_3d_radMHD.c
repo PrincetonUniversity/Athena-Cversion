@@ -128,7 +128,7 @@ static Real betafloor = 0.0;
 static Real dfloor = 1.e-20;
 static Real Tfloor = 1.e-20;
 /* electron equilivalent rest mass temperature, used in compton scattering */
-static Real T_e = 5.94065e9; 
+/*static Real T_e = 5.94065e9; */
 /*static Real T0 = 2.63375e7; *
  * Now defined in global */
  
@@ -5370,7 +5370,7 @@ k][j][i].M3);
 			else{
 				if(temperature > TINY_NUMBER){
 					Tr = pow(pG->U[k][j][i].Er, 0.25);
-					coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/T0);
+					coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/Tunit);
 					coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d);
 					coefB = temperature + coefK * pG->U[k][j][i].Er;
 					coef1 = coefA * coefK;

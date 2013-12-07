@@ -258,12 +258,12 @@ void problem(DomainS *pDomain)
 
 	/* Initialize temperature unit */
 /*
-   This T0 is only needed when Compton term is added 
-
-#ifdef FULL_RADIATION_TRANSFER
-	T0= 1.e7;
-#endif
+   This Tunit is only needed when Compton term is added
 */
+#ifdef FULL_RADIATION_TRANSFER
+	Tunit= 1.e7;
+#endif
+
 
 /* Ensure a different initial random seed for each process in an MPI calc. */
   ixs = pGrid->Disp[0];
@@ -289,8 +289,8 @@ void problem(DomainS *pDomain)
 	/* Parameters to setup the initial torus */
 
 	Real Lprofile = 0.0;
-	Real vs0 = 2.0;
-	Real rho0 = 80.0;
+	Real vs0 = 3.0;
+	Real rho0 = 30.0;
 	Real L0 = sqrt(R0/2.0) * R0 * Crat/(R0 - 1.0);
 	Real Effphi, Effphi0, tempphi;
 	Real nindex, langular, vphi;
@@ -775,11 +775,11 @@ void problem_write_restart(MeshS *pM, FILE *fp)
    	fwrite(&zbtm,sizeof(Real),1,fp);
     	fwrite(&ztop,sizeof(Real),1,fp);
 
-/*
+
 #ifdef FULL_RADIATION_TRANSFER
-    	fwrite(&T0,sizeof(Real),1,fp);
+    	fwrite(&Tunit,sizeof(Real),1,fp);
 #endif
-*/
+
 
   return;
 }
@@ -821,11 +821,11 @@ void problem_read_restart(MeshS *pM, FILE *fp)
        fread(&zbtm,sizeof(Real),1,fp);
        fread(&ztop,sizeof(Real),1,fp);
 
-/*
+
 #ifdef FULL_RADIATION_TRANSFER
-       fread(&T0,sizeof(Real),1,fp);
+       fread(&Tunit,sizeof(Real),1,fp);
 #endif
-*/
+
 
 #ifdef MPI_PARALLEL 
   if(myID_Comm_world == 0){
@@ -958,7 +958,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
                           Wtemp.P = rho * R_ideal * Tfloor;
 						  T = Tfloor;
                         }
-                        else if(T0 < 5.0){
+                        else if(T0 < 3.0){
                             T = T0;
                         }
                         else{
@@ -970,7 +970,10 @@ void problem_read_restart(MeshS *pM, FILE *fp)
                                           
                                         
                             T = rtsafe(Tequilibrium, 0.0, T0, 1.e-12, coef1, coef2, coef3,0.0);
-                            Wtemp.P = T * rho * R_ideal;
+                            if(T < 1.0)
+			    	T = 1.0;
+			 
+			    Wtemp.P = T * rho * R_ideal;
                         
                         }
 
@@ -996,9 +999,9 @@ void problem_read_restart(MeshS *pM, FILE *fp)
  
 		CalMoment(isr, ier, jsr, jer, ksr, ker, pRG);
 
- 
-
 */
+
+
 
     }/* Grid != NULL */
   }/* nd */
@@ -1175,7 +1178,7 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	cc_pos(pG,i,j,k,&x1,&x2,&x3);
 	
 	
-	if((fabs(x3) > 15.0) || (x1 < 50.0)){
+	if((fabs(x3) > 30.0) || (x1 < 50.0)){
 		if(Jrhomax > 0.0){
 			if((J > factor * Jrhomax) && (J > 0.01)){
 				*eta_O = eta0 * J * J /( Jrhomax * Jrhomax);
@@ -1195,7 +1198,7 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	if(*eta_O > eta0)
 		*eta_O = eta0;
 
-	if(x1 < 5 )
+	if(x1 < 4 )
 		*eta_O = eta0;
 
 	*eta_H = 0.0;
@@ -1442,7 +1445,11 @@ void disk_or(GridS *pGrid) {
 		  cc_pos(pGrid,ie+i,j,k,&R,&p,&z);
 		  Vk = Vkep(R,p,z);
 
-		  Wtemp.V2 = Lper/R + Vk;
+		/*
+ 		  Wtemp.V2 = Lper/R + Vk;
+		*/
+		 if(Wtemp.V1 < 0.0)
+			Wtemp.V1 = 0.0;
 		  
 		  pGrid->U[k][j][ie+i].d = rho;
 		  pGrid->U[k][j][ie+i].M1 = rho * Wtemp.V1;

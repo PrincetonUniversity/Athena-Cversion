@@ -126,8 +126,9 @@ static Real Vmax = 500.0;
 static Real dfloor = 1.e-20;
 static Real Tfloor = 1.e-20;
 /* electron equilivalent rest mass temperature, used in compton scattering */
-static Real T_e = 5.94065e9; 
-#ifndef RADIATION_HYDRO
+/*static Real T_e = 5.94065e9;
+*/
+ #ifndef RADIATION_HYDRO
 #ifndef RADIATION_MHD
 #ifndef RADIATION_TRANSFER
 #ifndef FULL_RADIATION_TRANSFER 

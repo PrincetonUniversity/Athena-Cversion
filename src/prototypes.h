@@ -383,7 +383,7 @@ void polint(Real xa[], Real ya[], int n, Real x, Real *y, Real *dy);
 void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er);
 Real EquState(const Real density, const Real sum, const Real Er0); /* Function to calculate thermal equilibrium state */
 
-void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
+
 
 #if defined(RADIATION_TRANSFER) || defined(FLD)
 /* Function to calculate Eddington tensor */
@@ -396,7 +396,8 @@ void Eddington_FUN(DomainS *pD);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined (FULL_RADIATION_TRANSFER)
 double rtsafe(void (*funcd)(double, double, double, double, double, double *, double *), double x1, double x2,
 	double xacc, double coef1, double coef2, double coef3, double coef4);
-void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);	
+void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
+void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval);
 #endif
 
 

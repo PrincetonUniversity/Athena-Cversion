@@ -1144,6 +1144,9 @@ void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c)
 
 
 
+
+
+
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 /*----------------------------------------------------------------------------*/
 /* 
@@ -1976,21 +1979,6 @@ Real EquState(const Real density, const Real sum, const Real Er0)
 	return Tguess;		
 }
 
-
-
-/* Function to calculate the equilibrium state due to Compton scattering */
-void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval)
-{
-
-	/* function is 
-	*  coef1 * T^8 + coef2 * T^5 + coef3 * T^4 + coef4 == 0 *
-	*/
-
-	*fval = coef1 * pow(T, 8.0) + coef2 * pow(T,5.0) + coef3 * pow(T, 4.0) + coef4;
-	*dfval = 8.0 * coef1 * pow(T, 7.0) + 5.0 * coef2 * pow(T, 4.0) + 4.0 * coef3 * pow(T,3.0);
-
-	return;
-}
 
 
 
@@ -2949,6 +2937,23 @@ void vector_product(const Real *v1, const Real *v2, const int dim, Real *result)
 /* end radiation_hydro or radiation_MHD */
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD) || defined(FULL_RADIATION_TRANSFER)
+
+
+/* Function to calculate the equilibrium state due to Compton scattering */
+void Tcompton(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval)
+{
+    
+	/* function is
+     *  coef1 * T^8 + coef2 * T^5 + coef3 * T^4 + coef4 == 0 *
+     */
+    
+	*fval = coef1 * pow(T, 8.0) + coef2 * pow(T,5.0) + coef3 * pow(T, 4.0) + coef4;
+	*dfval = 8.0 * coef1 * pow(T, 7.0) + 5.0 * coef2 * pow(T, 4.0) + 4.0 * coef3 * pow(T,3.0);
+    
+	return;
+}
+
+
 
 /* Function to find the equilibrium state */
 void Tequilibrium(double T, double coef1, double coef2, double coef3, double coef4, double * fval, double *dfval)
