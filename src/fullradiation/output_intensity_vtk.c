@@ -37,6 +37,8 @@ void output_ix1_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
+    
+  int l_label;
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -147,13 +149,15 @@ void output_ix1_vtk(MeshS *pM, OutputS *pOut)
 
       
 /* Write left intensities for each frequency and angle */
-
+          
+          
 	for (ifr=0; ifr<pRG->nf; ifr++) {
+        l_label = 0;
 	  for(l=0; l<pRG->noct; l++) {
 	      /* Only write outgoing intensities */
 	    if((l == 1) || (l == 3) || (l == 5) || (l == 7)) {
 	      for(m=0; m<pRG->nang; m++) {
-		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
 		n = nang * l + m;
 		for (k=kl; k<=ku; k++) {
@@ -164,7 +168,8 @@ void output_ix1_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata1,pfile);
 		}
 	      }
-	    }
+            l_label++;
+	    }/* end if l */
 	  }}
 /* close file and free memory */
         fclose(pfile);
@@ -192,6 +197,7 @@ void output_ox1_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
+  int l_label;
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -304,11 +310,12 @@ void output_ox1_vtk(MeshS *pM, OutputS *pOut)
 /* Write right intensities for each frequency and angle */
 
 	for (ifr=0; ifr<pRG->nf; ifr++) {
+        l_label = 0;
 	  for(l=0; l<pRG->noct; l++) {
 	    /* Only write outgoing intensities */
 	    if((l == 0) || (l == 2) || (l == 4) || (l == 6)) {
 	      for(m=0; m<pRG->nang; m++) {
-		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
 		n = nang * l + m;
 		for (k=kl; k<=ku; k++) {
@@ -319,7 +326,8 @@ void output_ox1_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata1,pfile);
 		}
 	      }
-	    }
+            l_label++;
+	    }/* end if l */
 	  }}
 /* close file and free memory */
         fclose(pfile);
@@ -347,6 +355,7 @@ void output_ix2_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
+  int l_label;
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -455,11 +464,12 @@ void output_ix2_vtk(MeshS *pM, OutputS *pOut)
 
 
 	  for (ifr=0; ifr<pRG->nf; ifr++) {
+          l_label = 0;
 	    for(l=0; l<pRG->noct; l++) {
 /* Only write outgoing intensities */
 	      if((l == 2) || (l == 3) || (l == 6) || (l == 7)) {
 		for(m=0; m<pRG->nang; m++) { 
-		  fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+		  fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 		  fprintf(pfile,"LOOKUP_TABLE default\n");
 		  n = nang * l + m;
 		  for (k=kl; k<=ku; k++) {
@@ -470,7 +480,8 @@ void output_ix2_vtk(MeshS *pM, OutputS *pOut)
 		    fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 		  }
 		}
-	      }
+              l_label++;
+	      }/* end if l */
 	    }}
 /* close file and free memory */
         fclose(pfile);
@@ -498,7 +509,8 @@ void output_ox2_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
-
+    int l_label;
+    
 /* Loop over all Domains in Mesh, and output Grid data */
 
   for (nl=0; nl<(pM->NLevels); nl++){
@@ -603,11 +615,12 @@ void output_ox2_vtk(MeshS *pM, OutputS *pOut)
       
 /* Write right intensities for each frequency and angle */
 	for (ifr=0; ifr<pRG->nf; ifr++) {
+        l_label = 0;
 	  for(l=0; l<pRG->noct; l++) {
 /* Only write outgoing intensities */
 	    if((l == 0) || (l == 1) || (l == 4) || (l == 5)) {
 	      for(m=0; m<pRG->nang; m++) { 
-		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+		fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 		fprintf(pfile,"LOOKUP_TABLE default\n");
 		n = nang * l + m;
 		for (k=kl; k<=ku; k++) {
@@ -618,7 +631,8 @@ void output_ox2_vtk(MeshS *pM, OutputS *pOut)
 		  fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 		}
 	      }
-	    }
+            l_label++;
+	    }/* end l */
 	  }}
 /* close file and free memory */
         fclose(pfile);
@@ -647,6 +661,7 @@ void output_ix3_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
+    int l_label;
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -745,9 +760,10 @@ void output_ix3_vtk(MeshS *pM, OutputS *pOut)
       
 /* Write left intensities for each frequency and angle */
 	for (ifr=0; ifr<pRG->nf; ifr++) {
-	  for(l=0; l<=7; l++) {
+        l_label = 0;
+	  for(l=4; l<=7; l++) {
 	    for(m=0; m<pRG->nang; m++) { 
-	      fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 	      fprintf(pfile,"LOOKUP_TABLE default\n");
 	      n = nang * l + m;
 	      for (j=jl; j<=ju; j++) {
@@ -757,7 +773,10 @@ void output_ix3_vtk(MeshS *pM, OutputS *pOut)
 		if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
 		fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 	      }
-	    }}}	 
+	    }
+          l_label++;
+      }/* end l */
+    }
 /* close file and free memory */
 
         fclose(pfile);
@@ -785,6 +804,7 @@ void output_ox3_vtk(MeshS *pM, OutputS *pOut)
   int nf, nang, noct;
   char *basename = NULL;
   int slen;
+    int l_label;
 
 /* Loop over all Domains in Mesh, and output Grid data */
 
@@ -884,9 +904,10 @@ void output_ox3_vtk(MeshS *pM, OutputS *pOut)
 /* Write right intensities for each frequency and angle */
 
 	for (ifr=0; ifr<pRG->nf; ifr++) {
+        l_label++;
 	  for(l=0; l<=3; l++) {
 	    for(m=0; m<pRG->nang; m++) { 
-	      fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l,m);
+	      fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
 	      fprintf(pfile,"LOOKUP_TABLE default\n");
 	      n = nang * l + m;
 	      for (j=jl; j<=ju; j++) {
@@ -896,7 +917,10 @@ void output_ox3_vtk(MeshS *pM, OutputS *pOut)
 		if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
 		fwrite(data,sizeof(float),(size_t)ndata0,pfile);
 	      }
-	    }}}	
+	    }
+          l_label++;
+      }/* end l */
+    }
 /* close file and free memory */
 
         fclose(pfile);

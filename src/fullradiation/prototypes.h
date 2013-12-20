@@ -30,6 +30,7 @@ void RadSsource(RadGridS *pRG, GridS *pG);
 void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
 void GetSpeedfactor(DomainS *pD);
+void ComptTEr(DomainS *pD);
 
 
 /* bvals_fullrad.c */

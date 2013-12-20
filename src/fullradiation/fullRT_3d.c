@@ -571,8 +571,7 @@ void Sourceloop3D(RadGridS *pRG, GridS *pG)
 	
 	Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, AngleVN;
 	Real sigmaa, sigmaaI, sigmas;
-    Real Tgas4, Tgas, Tr;
-    Real Er, coefA, coefK, coefB, coef1, coef2, coef3, coef4, DeltaEr;
+    Real Tgas4;
     
 	
 		
@@ -758,46 +757,10 @@ void Sourceloop3D(RadGridS *pRG, GridS *pG)
 
 						sigmas = pRG->R[k][j][i][ifr].Sigma[2];
                         
-                        /* First, calculate the energy exchange due to Compton scattering */
-                        /* The scattering opacity is Sigma[2] */
-                        /* No momentum exchange at this moment */
-                        
-                        Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
-                        
-                        Tr = sqrt(Er);
-                        Tr = sqrt(Tr);
-                        
-                        Tgas = pG->tgas[k+offset][j+offset][i+offset];
-
-                        
-                        coefA = 4.0 * dt * Crat * sigmas / (T_e/Tunit);
-                        coefK = (Gamma - 1.0) * Prat/(R_ideal * pG->U[k+offset][j+offset][i+offset].d);
-                        coefB = Tgas + coefK * Er;
-                        coef1 = coefA * coefK;
-                        coef2 = coefA;
-                        coef3 = 1.0 - coefA * coefB;
-                        coef4 = -Er;
-                        
-                        if(Tr < Tgas){
-                            Tr = rtsafe(Tcompton, Tr * (1.0 - 0.01), Tgas * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
-                        }
-                        else{
-                            
-                            Tr = rtsafe(Tcompton, Tgas * (1.0 - 0.01), Tr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
-                        }
-                        
-                        
-                        DeltaEr = SQR(SQR(Tr)) - Er;
-                        pG->Radheat[k+offset][j+offset][i+offset] += (-pRG->wnu[ifr] * Prat * DeltaEr);
-                        pG->Pgsource[k+offset][j+offset][i+offset] += ((-pRG->wnu[ifr] * Prat * DeltaEr) * Gamma_1);
-                        
-            
-                        
-                        
 						for(Mi=0; Mi<nelements; Mi++){
 						
 							/* Set RHS */
-							RHS[ifr][Mi] = sol[ifr][Mi]- Divi[k][j][i][ifr][Mi] + QuaPI * DeltaEr;
+							RHS[ifr][Mi] = sol[ifr][Mi]- Divi[k][j][i][ifr][Mi];
 						
 							AngleV = FullAngleV[k][j][i][Mi];
 							AngleV2 = MatrixAngleV2[k][j][i][Mi];

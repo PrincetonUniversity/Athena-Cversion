@@ -333,6 +333,10 @@ void init_grid(MeshS *pM)
 	  if (pG->Frsource == NULL) goto on_error28;
 	  pG->Velguess = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
 	  if (pG->Velguess == NULL) goto on_error29;
+        
+      pG->Tcompt = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      
+      pG->Ercompt = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
 		
 #endif
 

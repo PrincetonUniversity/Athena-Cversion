@@ -244,7 +244,28 @@ void new_dt(MeshS *pM)
 	}
         if (pGrid->Nx[2] > 1) {
           max_v3 = MAX(max_v3,fabs(v3)+sqrt((double)cf3sq));
-	}  
+	}
+          
+          
+#ifdef FULL_RADIATION_TRANSFER
+    if (pGrid->Nx[0] > 1) {
+        max_v1 = MAX(max_v1,Crat);
+    }
+    if (pGrid->Nx[1] > 1) {
+#ifdef CYLINDRICAL
+       cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+       max_v2 = MAX(max_v2,Crat/x1);
+#else
+       max_v2 = MAX(max_v2,Crat);
+        
+#endif
+    }
+    if (pGrid->Nx[2] > 1) {
+       max_v3 = MAX(max_v3,Crat);
+    }
+          
+#endif
+          
  
       }
     }}
@@ -271,16 +292,6 @@ void new_dt(MeshS *pM)
     if (pGrid->Nx[2] > 1)
       max_dti = MAX(max_dti, max_v3/pGrid->dx3);
 
-#ifdef FULL_RADIATION_TRANSFER
-/* Limit to speed of light for explicit time dependent radiation transfer */
-    if (pGrid->Nx[0] > 1)
-      max_dti = MAX(max_dti, Crat/pGrid->dx1);
-    if (pGrid->Nx[1] > 1)
-      max_dti = MAX(max_dti, Crat/pGrid->dx2);
-    if (pGrid->Nx[2] > 1)
-      max_dti = MAX(max_dti, Crat/pGrid->dx3);
-
-#endif
 
 
   }}} /*--- End loop over Domains --------------------------------------------*/

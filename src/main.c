@@ -478,6 +478,7 @@ int main(int argc, char *argv[])
 		  
 	/* Update the opacity for the whole grid */
 	UpdateOpacity(&(Mesh.Domain[nl][nd]));
+
 	
 #endif
       }
@@ -770,6 +771,10 @@ int main(int argc, char *argv[])
 #endif
 		
 #endif /* FARGO */
+            
+#ifdef FULL_RADIATION_TRANSFER
+      ComptTEr(&(Mesh.Domain[nl][nd]));
+#endif
 
         }
       }

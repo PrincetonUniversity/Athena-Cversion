@@ -478,6 +478,32 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	    fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
 	  }
 	}
+/* Write gas temperature with Compton scattering included */
+    fprintf(pfile,"\nSCALARS TCompt float\n");
+      fprintf(pfile,"LOOKUP_TABLE default\n");
+          for (k=kl; k<=ku; k++) {
+              for (j=jl; j<=ju; j++) {
+                  for (i=il; i<=iu; i++) {
+                      data[i-il] = (float)(pGrid->Tcompt[k][j][i]);
+                  }
+                  if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+                  fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+              }
+          }
+          
+/* Write Er with Compton scattering included */
+   fprintf(pfile,"\nSCALARS ErCompt float\n");
+      fprintf(pfile,"LOOKUP_TABLE default\n");
+          for (k=kl; k<=ku; k++) {
+              for (j=jl; j<=ju; j++) {
+                  for (i=il; i<=iu; i++) {
+                      data[i-il] = (float)(pGrid->Ercompt[k][j][i]);
+                  }
+                  if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+                  fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+              }
+        }
+          
 #else
 /* Write frequency integrated moments of the intensities */
 /* Write 0th moment integrated over frequency */
@@ -543,6 +569,33 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
 	    fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
 	  }
 	}
+/* Write gas temperature with Compton scattering included */
+   fprintf(pfile,"\nSCALARS TCompt float\n");
+   fprintf(pfile,"LOOKUP_TABLE default\n");
+   for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+         for (i=il; i<=iu; i++) {
+              data[i-il] = (float)(pGrid->Tcompt[k][j][i]);
+         }
+         if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+           fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+         }
+  }
+          
+  /* Write Er with Compton scattering included */
+  fprintf(pfile,"\nSCALARS ErCompt float\n");
+  fprintf(pfile,"LOOKUP_TABLE default\n");
+  for (k=kl; k<=ku; k++) {
+      for (j=jl; j<=ju; j++) {
+          for (i=il; i<=iu; i++) {
+              data[i-il] = (float)(pGrid->Ercompt[k][j][i]);
+          }
+         if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+         fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+       }
+  }
+          
+          
 #endif /* WRITE_GHOST_CELLS */
 #endif /* FULL_RADIATION_TRANSFER */
 

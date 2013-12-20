@@ -63,8 +63,7 @@ void UpdateRT(DomainS *pD){
 		
 		/* ghost zones also need to be calculated for scattering opacity */
 		RadSsource(pRG, pG);
-
-
+    
 	return;
 }
 

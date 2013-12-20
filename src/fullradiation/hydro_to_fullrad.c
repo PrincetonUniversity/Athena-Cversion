@@ -356,6 +356,104 @@ void RadSsource(RadGridS *pRG, GridS *pG)
 	
 }
 
+/* Function to post processing gas T and Er */
+void ComptTEr(DomainS *pD)
+{
+    
+    RadGridS *pRG=(pD->RadGrid);
+	GridS *pG = (pD->Grid);
+
+    int i, j, k, ig, jg, kg;
+	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
+	int jl = pRG->js, ju = pRG->je;
+	int kl = pRG->ks, ku = pRG->ke;
+	int koff = 0, joff = 0, ioff = 0;
+	int nDim;
+    int nf = pRG->nf;
+    int ifr;
+
+    Real dt =pG->dt;
+    Real Tgas, Er, Ernew, Tr, Ersource, sigmas;
+    Real coefA, coefK, coefB,coef1,coef2,coef3,coef4;
+    PrimS Wtemp;
+
+	
+	nDim = 1;
+	for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
+	
+	ioff = nghost - Radghost;
+	
+	/* Including the ghost zones */
+	
+	if(nDim > 1){
+		jl -= Radghost;
+		ju += Radghost;
+		
+		joff = nghost - Radghost;
+	}
+	
+	if(nDim > 2){
+		kl -= Radghost;
+		ku += Radghost;
+		
+		koff = nghost - Radghost;
+	}
+    
+    
+   
+    
+    for(k=kl; k<=ku; k++){
+		for(j=jl; j<=ju; j++){
+			for(i=il; i<=iu; i++){
+                kg = k + koff;
+                jg = j + joff;
+                ig = i + ioff;
+                
+                Ersource = 0.0;
+                pG->Ercompt[kg][jg][ig] = 0.0;
+                Wtemp = Cons_to_Prim(&(pG->U[kg][jg][ig]));
+                Tgas = Wtemp.P / (R_ideal * Wtemp.d);
+                
+				for(ifr=0; ifr<nf; ifr++){
+                    
+                    Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
+                    sigmas = pRG->R[k][j][i][ifr].Sigma[2];
+                    
+                    Tr = sqrt(Er);
+                    Tr = sqrt(Tr);
+                    
+                    coefA = 4.0 * dt * Crat * sigmas / (T_e/Tunit);
+                    coefK = (Gamma - 1.0) * Prat/(R_ideal * Wtemp.d);
+                    coefB = Tgas + coefK * Er;
+                    coef1 = coefA * coefK;
+                    coef2 = coefA;
+                    coef3 = 1.0 - coefA * coefB;
+                    coef4 = -Er;
+                    
+                    if(Tr < Tgas){
+                        Tr = rtsafe(Tcompton, Tr * (1.0 - 0.01), Tgas * (1.0 + 0.01), 1.e-10, coef1, coef2, coef3, coef4);
+                    }
+                    else{
+                        
+                        Tr = rtsafe(Tcompton, Tgas * (1.0 - 0.01), Tr * (1.0 + 0.01), 1.e-10, coef1, coef2, coef3, coef4);
+                    }
+                    
+                    Ernew = SQR(SQR(Tr));
+                    
+                    pG->Ercompt[kg][jg][ig] += (pRG->wnu[ifr] * Ernew);
+                    Ersource += (pRG->wnu[ifr] * (Ernew - Er));
+                    
+                }/* End ifr */
+                
+                pG->Tcompt[kg][jg][ig] = (Wtemp.P - Prat * Ersource * Gamma_1)/(R_ideal * Wtemp.d);
+                
+            }/* end i */
+        }/* End j */
+    }/* End k */
+    
+    
+}
+
 
 
 /* Update the opacity for the whole grid, including the ghost zones */

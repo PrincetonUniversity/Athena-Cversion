@@ -156,7 +156,7 @@ static Real pres;
 /* Save the initial Er, Fr and rho at ke */
 
 static Real Tfloor = 1.e-4;
-static Real dfloor = 5.e-6;
+static Real dfloor = 1.e-6;
 
 /* The side of the mask region Rmas = 2 in unit of r_g */
 static Real R0 = 30.0;
@@ -289,7 +289,7 @@ void problem(DomainS *pDomain)
 	/* Parameters to setup the initial torus */
 
 	Real Lprofile = 0.0;
-	Real vs0 = 3.0;
+	Real vs0 = 10.0;
 	Real rho0 = 30.0;
 	Real L0 = sqrt(R0/2.0) * R0 * Crat/(R0 - 1.0);
 	Real Effphi, Effphi0, tempphi;
@@ -824,6 +824,7 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
 #ifdef FULL_RADIATION_TRANSFER
        fread(&Tunit,sizeof(Real),1,fp);
+
 #endif
 
 
@@ -1085,6 +1086,7 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	Real dl, eta0, lz;
 	Real jx1, jx2, jx3, jx4, jy1, jy2, jy3, jy4, jz1, jz2, jz3, jz4, jx, jy, jz, J;
         Real x1, x2, x3, distance, Radius;
+	Real VA;
 	dl = pG->dx1;
         if(pG->dx2 < dl) dl = pG->dx2;
         if(pG->dx3 < dl) dl = pG->dx3;
@@ -1178,7 +1180,7 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	cc_pos(pG,i,j,k,&x1,&x2,&x3);
 	
 	
-	if((fabs(x3) > 30.0) || (x1 < 50.0)){
+	if((fabs(x3) > 25.0)){
 		if(Jrhomax > 0.0){
 			if((J > factor * Jrhomax) && (J > 0.01)){
 				*eta_O = eta0 * J * J /( Jrhomax * Jrhomax);
@@ -1198,7 +1200,10 @@ void get_eta_user(GridS *pG, int i, int j, int k,
 	if(*eta_O > eta0)
 		*eta_O = eta0;
 
-	if(x1 < 4 )
+	VA = sqrt(((SQR(pG->U[k][j][i].B1c) + SQR(pG->U[k][j][i].B2c) + SQR(pG->U[k][j][i].B3c)))/pG->U[k][j][i].d);
+
+
+	if((x1 < 4) || (VA > 0.5 * Crat))
 		*eta_O = eta0;
 
 	*eta_H = 0.0;
@@ -1318,9 +1323,9 @@ void disk_ir(GridS *pGrid) {
 		  /* Calculate Keplerian velocity */
 		  cc_pos(pGrid,is-i,j,k,&R,&p,&z);
 		  Vk = Vkep(R,p,z);
-	
+	/*
 		  Wtemp.V2 = Lper/R + Vk;
-
+	*/
 		  
 		  pGrid->U[k][j][is-i].d = rho;
 		  pGrid->U[k][j][is-i].M1 = Wtemp.V1 * rho;
@@ -1867,7 +1872,7 @@ void Userwork_in_loop(MeshS *pM)
         Real pressure, velocity, velocity_x, velocity_y, velocity_z, Bpre, beta;
 	Real temprho, tempT, T0, temperature;
 	PrimS Wtemp;
-	Real Vmax = 0.8 * Crat;
+	Real Vmax = 0.9 * Crat;
 	
         
 	Real x1, x2, x3, distance, distance1;
