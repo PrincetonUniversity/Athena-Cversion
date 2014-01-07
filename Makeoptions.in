@@ -11,7 +11,7 @@
 #
 #-------------------  macro definitions  ---------------------------------------
 
-MACHINE = antares
+MACHINE = default
 
 #-------------------  default definitions  -------------------------------------
 
