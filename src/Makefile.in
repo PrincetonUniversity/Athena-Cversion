@@ -35,6 +35,7 @@ CORE_OBJ = ath_array.o \
            restart.o \
            show_config.o \
 	   smr.o \
+	   units.o \
            utils.o
 
 FFT_OBJ =
@@ -74,6 +75,8 @@ GRAVITY_OBJ = gravity/bvals_grav.o \
 MICROPHYS_OBJ = microphysics/conduction.o \
 		microphysics/cool.o \
 		microphysics/integrate_diffusion.o \
+		microphysics/integrate_cooling.o \
+		microphysics/cool_solver.o \
 		microphysics/get_eta.o \
 	        microphysics/new_dt_diff.o \
                 microphysics/resistivity.o \

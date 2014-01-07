@@ -11,7 +11,7 @@
 #
 #-------------------  macro definitions  ---------------------------------------
 
-MACHINE = default
+MACHINE = antares
 
 #-------------------  default definitions  -------------------------------------
 
@@ -55,6 +55,19 @@ ifeq ($(MACHINE),ophir)
   FFTWLIB = -L/scr1/lemaster/fftw-3.1.2/lib -lfftw3
   FFTWINC = -I/scr1/lemaster/fftw-3.1.2/include
 else
+ifeq ($(MACHINE),antares)
+  CC  = icc
+  LDR = icc
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+  CC  = /usr/peyton/openmpi/bin/mpicc
+  LDR  = /usr/peyton/openmpi/bin/mpicc
+endif
+  OPT = -O3 -g
+  MPIINC = -I/usr/peyton/openmpi/include
+  MPILIB = -L/usr/peyton/openmpi/lib -lmpi
+  FFTWLIB = -L/usr/local/fftw/gcc/3.3.3/lib64 -lfftw3
+  FFTWINC = -I/usr/local/fftw/gcc/3.3.3/include
+else
 ifeq ($(MACHINE),peyton-mpi)
   CC  = /usr/peyton/openmpi/bin/mpicc
   LDR = /usr/peyton/openmpi/bin/mpicc
@@ -97,6 +110,7 @@ ifeq ($(MACHINE),macosx)
   FFTWINC = -I/opt/local/include
 else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif

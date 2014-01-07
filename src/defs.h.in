@@ -52,6 +52,9 @@
 #define @PARTICLES_ALGORITHM@
 #define @FEEDBACK_DEFINE@
 
+/* implicit cooling */
+#define @COOLING_MODE@
+
 /* resistivity, viscosity, and thermal conduction */
 #define @RESISTIVITY_MODE@
 #define @VISCOSITY_MODE@
@@ -144,6 +147,7 @@ enum {
 #endif
 #define SIGN(a) ( ((a) < 0.) ? -1. : 1. )
 #define SQR(x) ( (x)*(x) )
+#define CUBE(x) ( (x)*(x)*(x) )
 #define STR(x) #x
 #define SQRT2 1.4142135623730951
 #define ONE_OVER_SQRT2 0.7071067811865475

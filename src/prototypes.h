@@ -244,6 +244,26 @@ void Prolongate(MeshS *pM);
 void SMR_init(MeshS *pM);
 
 /*----------------------------------------------------------------------------*/
+/* units.c */
+typedef struct Const_S{
+  Real G;
+  Real Msun;
+  Real Lsun;
+  Real Myr;
+  Real pc;
+  Real kpc;
+  Real kms;
+  Real mH;
+  Real aR;
+  Real kB;
+  Real c;
+}ConstS;
+
+
+void init_units(UnitS *unit);
+void init_consts(ConstS *consts);
+
+/*----------------------------------------------------------------------------*/
 /* utils.c */
 char *ath_strdup(const char *in);
 int ath_gcd(int a, int b);
@@ -256,7 +276,8 @@ void minmax3(Real ***data, int nx3, int nx2, int nx1, Real *dmin, Real *dmax);
 void do_nothing_bc(GridS *pG);
 Real compute_div_b(GridS *pG);
 int sign_change(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *a, Real *b);
-int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *root);
+int bisection2(Real (*func)(const Real,const Real), const Real a0, const Real b0, const Real x, Real *root);
+int bisection(Real (*func)(const Real), const Real a0, const Real b0, Real *root);
 Real trapzd(Real (*func)(Real), const Real a, const Real b, const int n, const Real s);
 Real qsimp(Real (*func)(Real), const Real a, const Real b);
 Real avg1d(Real (*func)(Real, Real, Real), const GridS *pG, const int i, const int j, const int k);
@@ -269,6 +290,17 @@ Real vecpot2b2i(Real (*A1)(Real,Real,Real), Real (*A3)(Real,Real,Real),
                 const GridS *pG, const int i, const int j, const int k);
 Real vecpot2b3i(Real (*A1)(Real,Real,Real), Real (*A2)(Real,Real,Real),
                 const GridS *pG, const int i, const int j, const int k);
+void rkqs(Real y[], Real dydx[], int n, Real *x, Real htry, Real eps,
+          Real yscal[], Real *hdid, Real *hnext,
+          void (*derivs)(Real, Real [], Real []));
+void odeint(Real ystart[], int nvar, Real x1, Real x2, Real eps, Real h1,
+            Real hmin, int *nok, int *nbad, int kmax, int *kount,
+            Real *xp, Real **yp, Real dxsav,
+            void (*derivs)(Real, Real [], Real []),
+            void (*rkqs)(Real [], Real [], int, Real *, Real, Real, Real [],
+                         Real *, Real *, void (*)(Real, Real [], Real [])));
+void odeint_lite(Real ystart[], int nvar, Real x1, Real x2, Real eps, Real h1, Real hmin,
+                 void (*derivs)(Real, Real [], Real []));
 #ifdef PARTICLES
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real **b, int m, int n, int l, Real **c);

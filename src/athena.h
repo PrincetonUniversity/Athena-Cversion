@@ -175,6 +175,34 @@ typedef struct Prim1D_s{
 }Prim1DS;
 
 /*----------------------------------------------------------------------------*/
+/* UnitS: Code units and physical constants in the code units
+ *  */
+typedef struct Unit_S{
+  Real cm;
+  Real g;
+  Real s;
+  Real K;
+  Real Lcode;
+  Real Mcode;
+  Real Tcode;
+  Real Vcode;
+  Real Dcode;
+  Real dyne;
+  Real erg;
+  Real G;
+  Real Msun;
+  Real Lsun;
+  Real Myr;
+  Real pc;
+  Real kpc;
+  Real kms;
+  Real mH;
+  Real aR;
+  Real kB;
+  Real c;
+}UnitS;
+
+/*----------------------------------------------------------------------------*/
 /*! \struct GrainS
  *  \brief Basic quantities for one pseudo-particle.
  */
@@ -321,6 +349,11 @@ typedef struct Grid_s{
 #ifdef CYLINDRICAL
   Real *r,*ri;                  /*!< cylindrical scaling factors */ 
 #endif /* CYLINDRICAL */
+
+#ifdef OPERATOR_SPLIT_COOLING
+  Real heat_ratio,heat0;
+  UnitS units;
+#endif
 
 }GridS;
 

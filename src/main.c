@@ -423,6 +423,9 @@ int main(int argc, char *argv[])
   integrate_diff_init(&Mesh);
 #endif
 
+#ifdef OPERATOR_SPLIT_COOLING
+  integrate_cooling_init(&Mesh);
+#endif
 /* For new runs, set initial timestep */
 
   if(ires == 0) new_dt(&Mesh);
@@ -497,6 +500,18 @@ int main(int argc, char *argv[])
 /*--- Step 9b. ---------------------------------------------------------------*/
 /* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
  * Done first since CFL constraint is applied which may change dt  */
+
+#ifdef OPERATOR_SPLIT_COOLING
+    integrate_cooling(&Mesh);
+    for (nl=0; nl<(Mesh.NLevels); nl++){ 
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+        if (Mesh.Domain[nl][nd].Grid != NULL){
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
+        }
+      }
+    }
+#endif
+
 
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
 #ifdef STS
@@ -715,6 +730,9 @@ int main(int argc, char *argv[])
 #endif
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_destruct();
+#endif
+#ifdef OPERATOR_SPLIT_COOLING
+  integrate_cooling_destruct();
 #endif
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
   integrate_diff_destruct();

@@ -535,13 +535,79 @@ int sign_change(Real (*func)(const Real,const Real), const Real a0,
   return 0;
 } 
 
+/*----------------------------------------------------------------------------*/
+/*! \fn int bisection(Real (*func)(const Real), const Real a0, 
+ *                    const Real b0, Real *root) 
+ *  \brief THIS FUNCTION IMPLEMENTS THE BISECTION METHOD FOR ROOT FINDING.
+ */
+
+#define TOL_BISECTION 1.0E-14
+#define MAXSTP_BISECTION 400
+
+int bisection(Real (*func)(const Real), const Real a0, const Real b0, Real *root) 
+{
+//  const Real tol = 1.0E-10;
+//  const int maxiter = 400;
+  Real a=a0, b=b0, c, fa, fb, fc;
+  int i;
+
+  fa = func(a);
+  fb = func(b);
+  if (fabs(fa) < TOL_BISECTION) {
+    *root = a;
+    return 1;
+  }
+  if (fabs(fb) < TOL_BISECTION) {
+    *root = b;
+    return 1;
+  }
+// printf("fa = %f, fb = %f\n", fa, fb);
+
+  for (i = 0; i < MAXSTP_BISECTION; i++) {
+    c = 0.5*(a+b);
+// printf("a = %f, b = %f, c = %f\n", a,b,c);
+#ifdef MYDEBUG
+    printf("c = %f\n", c);
+#endif
+    if (fabs((b-a)/c) < TOL_BISECTION) {
+#ifdef MYDEBUG
+      printf("Bisection converged within tolerance of %f!\n", TOL_BISECTION);
+#endif
+      *root = c;
+      return 1;
+    }
+    fc = func(c);
+    if (fa*fc < 0) {
+      b = c;
+      fb = fc;
+    }
+    else if (fc*fb < 0) {
+      a = c;
+      fa = fc;
+    }
+    else if (fc == 0) {
+      *root = c;
+      return 1;
+    }
+    else {
+      ath_error("[bisection]:  There is no single root in (%f,%f)!!\n", a, b);
+      *root = c;
+      return 0;
+    }
+  }
+
+  ath_error("[bisection]:  Bisection did not converge in %d iterations!!\n", MAXSTP_BISECTION);
+  *root = c;
+  return 0;
+}
+
 
 /*----------------------------------------------------------------------------*/
-/*! \fn int bisection(Real (*func)(const Real,const Real), const Real a0, 
+/*! \fn int bisection2(Real (*func)(const Real,const Real), const Real a0, 
  *                    const Real b0, const Real x, Real *root) 
  *  \brief THIS FUNCTION IMPLEMENTS THE BISECTION METHOD FOR ROOT FINDING.
  */
-int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0,
+int bisection2(Real (*func)(const Real,const Real), const Real a0, const Real b0,
                            const Real x, Real *root) 
 {
   const Real tol = 1.0E-10;
@@ -598,6 +664,245 @@ int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0,
   *root = c;
   return 0;
 }
+
+/*============================================================================
+ * ODE INTEGRATION FUNCTIONS
+ *============================================================================*/
+
+/*----------------------------------------------------------------------------*/
+/* PRIVATE FUNCTION rkck
+ *
+ * Given values for n variables y[1..n] and their derivatives dydx[1..n] known
+ * at x, use the fifth-order Cash-Karp Runge-Kutta method to advance the
+ * solution over an interval h and return the incremented variables as
+ * yout[1..n]. Also return an estimate of the local truncation error in yout
+ * using the embedded fourth-order method. The user supplies the routine
+ * derivs(x,y,dydx), which returns derivatives dydx at x.
+ * ADAPTED FROM NUMERICAL RECIPES IN C BY AARON SKINNER
+ */
+void rkck(Real y[], Real dydx[], int n, Real x, Real h, Real yout[],
+          Real yerr[], void (*derivs)(Real, Real [], Real []))
+{
+  int i;
+  static Real a2=0.2,a3=0.3,a4=0.6,a5=1.0,a6=0.875,b21=0.2,
+              b31=3.0/40.0,b32=9.0/40.0,b41=0.3,b42 = -0.9,b43=1.2,
+              b51=-11.0/54.0,b52=2.5,b53=-70.0/27.0,b54=35.0/27.0,
+              b61=1631.0/55296.0,b62=175.0/512.0,b63=575.0/13824.0,
+              b64=44275.0/110592.0,b65=253.0/4096.0,c1=37.0/378.0,
+              c3=250.0/621.0,c4=125.0/594.0,c6=512.0/1771.0,
+              dc5=-277.00/14336.0;
+  Real dc1=c1-2825.0/27648.0,dc3=c3-18575.0/48384.0,
+       dc4=c4-13525.0/55296.0,dc6=c6-0.25;
+  Real *ak2,*ak3,*ak4,*ak5,*ak6,*ytemp;
+
+  if ((ak2   = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ak2\n");
+  if ((ak3   = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ak3\n");
+  if ((ak4   = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ak4\n");
+  if ((ak5   = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ak5\n");
+  if ((ak6   = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ak6\n");
+  if ((ytemp = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkck]: Error allocating memory for 1D vector ytemp\n");
+
+  for (i=0; i<n; i++)  /* First step. */
+    ytemp[i] = y[i] + b21*h*dydx[i];
+  (*derivs)(x+a2*h,ytemp,ak2);  /* Second step. */
+  for (i=0; i<n; i++)  /* Second step. */
+  ytemp[i] = y[i]+h*(b31*dydx[i] + b32*ak2[i]);
+  (*derivs)(x+a3*h,ytemp,ak3);  /* Third step. */
+  for (i=0; i<n; i++)
+    ytemp[i] = y[i] + h*(b41*dydx[i] + b42*ak2[i] + b43*ak3[i]);
+  (*derivs)(x+a4*h,ytemp,ak4);  /* Fourth step. */
+  for (i=0; i<n; i++)
+    ytemp[i] = y[i] + h*(b51*dydx[i] + b52*ak2[i] + b53*ak3[i] + b54*ak4[i]);
+  (*derivs)(x+a5*h,ytemp,ak5);  /* Fifth step. */
+  for (i=0; i<n; i++)
+    ytemp[i] = y[i] + h*(b61*dydx[i] + b62*ak2[i] + b63*ak3[i] + b64*ak4[i] + b65*ak5[i]);
+  (*derivs)(x+a6*h,ytemp,ak6);  /* Sixth step. */
+  for (i=0; i<n; i++)  /* Accumulate increments with proper weights. */
+    yout[i] = y[i] + h*(c1*dydx[i] + c3*ak3[i] + c4*ak4[i] + c6*ak6[i]);
+  for (i=0; i<n; i++)
+    yerr[i] = h*(dc1*dydx[i] + dc3*ak3[i] + dc4*ak4[i] + dc5*ak5[i] + dc6*ak6[i]);
+    /* Estimate error as difference between fourth and fifth order methods. */
+
+  if (ytemp != NULL) free_1d_array(ytemp);
+  if (ak6   != NULL) free_1d_array(ak6);
+  if (ak5   != NULL) free_1d_array(ak5);
+  if (ak4   != NULL) free_1d_array(ak4);
+  if (ak3   != NULL) free_1d_array(ak3);
+  if (ak2   != NULL) free_1d_array(ak2);
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* FUNCTION rkqs
+ *
+ * Fifth-order Runge-Kutta step with monitoring of local truncation error to
+ * ensure accuracy and adjust stepsize. Input are the dependent variable
+ * vector y[1..n] and its derivative dydx[1..n] at the starting value of the
+ * independent variable x. Also input are the stepsize to be attempted htry,
+ * the required accuracy eps, and the vector yscal[1..n] against which the
+ * error is scaled. On output, y and x are replaced by their new values, hdid
+ * is the stepsize that was actually accomplished, and hnext is the estimated
+ * next stepsize. derivs is the user-supplied routine that computes the
+ * right-hand side derivatives.
+ * ADAPTED FROM NUMERICAL RECIPES IN C BY AARON SKINNER
+ */
+#define SAFETY 0.9
+#define PGROW -0.2
+#define PSHRNK -0.25
+#define ERRCON 1.89e-4
+/* The value ERRCON equals (5/SAFETY) raised to the power (1/PGROW), see use below. */
+void rkqs(Real y[], Real dydx[], int n, Real *x, Real htry, Real eps,
+          Real yscal[], Real *hdid, Real *hnext,
+          void (*derivs)(Real, Real [], Real []))
+{
+  int i;
+  Real errmax,h,htemp,xnew,*yerr,*ytemp;
+
+  if ((yerr  = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkqs]: Error allocating memory for 1D vector yerr\n");
+  if ((ytemp = (Real*)calloc_1d_array(n,sizeof(Real))) == NULL)
+    ath_error("[rkqs]: Error allocating memory for 1D vector ytemp\n");
+
+  h = htry;  /* Set stepsize to the initial trial value. */
+
+  for (;;) {
+    rkck(y,dydx,n,*x,h,ytemp,yerr,derivs);  /* Take a step. */
+    errmax=0.0;  /* Evaluate accuracy. */
+    for (i=0; i<n; i++)
+      errmax = MAX(errmax,fabs(yerr[i]/yscal[i]));
+    errmax /= eps;  /* Scale relative to required tolerance. */
+    if (errmax <= 1.0)
+      break;  /* Step succeeded. Compute size of next step. */
+    htemp = SAFETY*h*pow(errmax,PSHRNK);  /* Truncation error too large, reduce stepsize. */
+    h = (h >= 0.0 ? MAX(htemp,0.1*h) : MIN(htemp,0.1*h));  /* No more than a factor of 10. */
+    xnew = (*x) + h;
+    if (xnew == *x) {
+//      for (i=0; i<n; i++)
+//      printf("%d of %d:  yscal=%1.10e, dydx=%1.10e, y=%1.10e, x=%1.10e\n",i,n,yscal[i],dydx[i],y[i],*x);
+//      printf("\t htry=%1.10e, xoldest=%1.10e, xolder=%1.10e, xold=%1.10e\n",htry,xold,xx[step-2],xx[step-1]);
+      ath_error("[rkqs]:  Stepsize underflow!\n");
+    }
+  }
+
+  if (errmax > ERRCON)
+    *hnext = SAFETY*h*pow(errmax,PGROW);
+  else *hnext = 5.0*h;
+  *x += (*hdid=h);
+  for (i=0; i<n; i++)
+    y[i] = ytemp[i];
+
+  if (ytemp != NULL) free_1d_array(ytemp);
+  if (yerr  != NULL) free_1d_array(yerr);
+}
+
+/*----------------------------------------------------------------------------*/
+/* FUNCTION odeint
+ *
+ * Runge-Kutta driver with adaptive stepsize control. Integrate starting values
+ * ystart[1..nvar] from x1 to x2 with accuracy eps, storing intermediate
+ * results in global variables. h1 should be set as a guessed first stepsize,
+ * hmin as the minimum allowed stepsize (can be zero). On output nok and nbad
+ * are the number of good and bad (but retried and fixed) steps taken, and
+ * ystart is replaced by values at the end of the integration interval.
+ * derivs is the user-supplied routine for calculating the right-hand side
+ * derivative, while rkqs is the name of the stepper routine to be used.
+ * ADAPTED FROM NUMERICAL RECIPES IN C BY AARON SKINNER
+ */
+#define MAXSTP 10000
+// extern int kmax,kount;
+// extern Real *xp,**yp,dxsav;
+/* User storage for intermediate results. Preset kmax and dxsav in the calling
+ * program. If kmax != 0, results are stored at approximate intervals dxsav in
+ * the arrays xp[1..kount], yp[1..nvar] [1..kount], where kount is output by
+ * odeint. Defining declarations for these variables, with memory allocations
+ * xp[1..kmax] and yp[1..nvar][1..kmax] for the arrays, should be in the
+ * calling program. */
+
+void odeint(Real ystart[], int nvar, Real x1, Real x2, Real eps, Real h1,
+            Real hmin, int *nok, int *nbad, int kmax, int *kount,
+            Real *xp, Real **yp, Real dxsav,
+            void (*derivs)(Real, Real [], Real []),
+            void (*rkqs)(Real [], Real [], int, Real *, Real, Real, Real [],
+                         Real *, Real *, void (*)(Real, Real [], Real [])))
+{
+  int nstp,i;
+  Real xsav,x,hnext,hdid,h;
+  Real *yscal,*y,*dydx;
+
+  if ((yscal = (Real*)calloc_1d_array(nvar,sizeof(Real))) == NULL)
+    ath_error("[odeint]: Error allocating memory for 1D vector yscal\n");
+  if ((y     = (Real*)calloc_1d_array(nvar,sizeof(Real))) == NULL)
+    ath_error("[odeint]: Error allocating memory for 1D vector y\n");
+  if ((dydx  = (Real*)calloc_1d_array(nvar,sizeof(Real))) == NULL)
+    ath_error("[odeint]: Error allocating memory for 1D vector dydx\n");
+
+  x = x1;
+  h = fabs(h1)*SIGN(x2-x1);
+  *nok = *nbad = *kount = 0;
+  for (i=0; i<nvar; i++)
+    y[i] = ystart[i];
+  if (kmax > 0)  /* Assures storage of first step. */
+    xsav = x - dxsav*2.0;
+  for (nstp=1; nstp<=MAXSTP; nstp++) {  /* Take at most MAXSTP steps. */
+    (*derivs)(x,y,dydx);
+    for (i=0; i<nvar; i++)
+      yscal[i] = fabs(y[i]) + fabs(dydx[i]*h) + TINY_NUMBER;
+      /* Scaling used to monitor accuracy. This general-purpose choice can be modified if need be. */
+    if (kmax > 0 && *kount < kmax-1 && fabs(x-xsav) > fabs(dxsav)) {  /* Store intermediate results. */
+      xp[++(*kount)] = x;
+      for (i=1; i<=nvar; i++)
+        yp[i][*kount] = y[i];
+      xsav = x;
+    }
+    if ((x+h-x2)*(x+h-x1) > 0.0)  /* If stepsize can overshoot, decrease. */
+      h = x2 - x;
+    (*rkqs)(y,dydx,nvar,&x,h,eps,yscal,&hdid,&hnext,derivs);
+    if (hdid == h)
+      ++(*nok);
+    else
+      ++(*nbad);
+    if ((x-x2)*(x2-x1) >= 0.0) {  /* Are we done? */
+      for (i=0; i<nvar; i++)
+        ystart[i] = y[i];
+      if (kmax) {
+        xp[++(*kount)] = x;  /* Save final step. */
+        for (i=1; i<=nvar; i++)
+          yp[i][*kount] = y[i];
+      }
+      if (dydx  != NULL) free_1d_array(dydx);
+      if (y     != NULL) free_1d_array(y);
+      if (yscal != NULL) free_1d_array(yscal);
+      return;  /* Normal exit. */
+    }
+    if (fabs(hnext) <= hmin)
+      ath_error("[odeint]:  Step size too small!\n");
+    h = hnext;
+  }
+  ath_error("[odeint]:  Too many steps!\n");
+}
+
+
+/*----------------------------------------------------------------------------*/
+/* FUNCTION odeint_lite
+ *
+ * Minimal arguments wrapper function for odeint above.
+ * WRITTEN BY AARON SKINNER.
+ */
+void odeint_lite(Real ystart[], int nvar, Real x1, Real x2, Real eps, Real h1, Real hmin,
+                 void (*derivs)(Real, Real [], Real []))
+{
+  int nok, nbad, kount;
+  odeint(ystart, nvar, x1, x2, eps, h1, hmin, &nok, &nbad, 0, &kount,
+         NULL, NULL, 0.0, derivs, rkqs);
+//printf("nok=%d, nbad=%d\n",nok,nbad);
+}
+
 
 
 /*============================================================================

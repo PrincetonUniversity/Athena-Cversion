@@ -202,6 +202,22 @@ else
 fi
 
 #-------------------------------------------------------------------------------
+# PHYSICS FEATURE: cooling
+#  --enable-cooling
+
+AC_SUBST(COOLING_MODE)
+AC_ARG_ENABLE(cooling,
+        [--enable-cooling  enable implicit cooling (default is no)],
+        coolingok=$enableval, coolingok=no)
+if test "$coolingok" = "yes"; then
+  COOLING_MODE="OPERATOR_SPLIT_COOLING"
+  COOLING_MODE_USER="ON"
+else
+  COOLING_MODE="NO_COOLING"
+  COOLING_MODE_USER="OFF"
+fi
+
+#-------------------------------------------------------------------------------
 # PHYSICS FEATURE: explicit thermal conduction
 #  --enable-conduction
   
@@ -625,6 +641,7 @@ fi
 echo "Resistivity:             $RESISTIVITY_MODE_USER"
 echo "Viscosity:               $VISCOSITY_MODE_USER"
 echo "Thermal conduction:      $CONDUCTION_MODE_USER"
+echo "Cooling:                 $COOLING_MODE_USER"
 echo "Particles:               $PARTICLES_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
