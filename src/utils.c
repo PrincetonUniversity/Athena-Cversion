@@ -536,78 +536,11 @@ int sign_change(Real (*func)(const Real,const Real), const Real a0,
 } 
 
 /*----------------------------------------------------------------------------*/
-/*! \fn int bisection(Real (*func)(const Real), const Real a0, 
- *                    const Real b0, Real *root) 
- *  \brief THIS FUNCTION IMPLEMENTS THE BISECTION METHOD FOR ROOT FINDING.
- */
-
-#define TOL_BISECTION 1.0E-14
-#define MAXSTP_BISECTION 400
-
-int bisection(Real (*func)(const Real), const Real a0, const Real b0, Real *root) 
-{
-//  const Real tol = 1.0E-10;
-//  const int maxiter = 400;
-  Real a=a0, b=b0, c, fa, fb, fc;
-  int i;
-
-  fa = func(a);
-  fb = func(b);
-  if (fabs(fa) < TOL_BISECTION) {
-    *root = a;
-    return 1;
-  }
-  if (fabs(fb) < TOL_BISECTION) {
-    *root = b;
-    return 1;
-  }
-// printf("fa = %f, fb = %f\n", fa, fb);
-
-  for (i = 0; i < MAXSTP_BISECTION; i++) {
-    c = 0.5*(a+b);
-// printf("a = %f, b = %f, c = %f\n", a,b,c);
-#ifdef MYDEBUG
-    printf("c = %f\n", c);
-#endif
-    if (fabs((b-a)/c) < TOL_BISECTION) {
-#ifdef MYDEBUG
-      printf("Bisection converged within tolerance of %f!\n", TOL_BISECTION);
-#endif
-      *root = c;
-      return 1;
-    }
-    fc = func(c);
-    if (fa*fc < 0) {
-      b = c;
-      fb = fc;
-    }
-    else if (fc*fb < 0) {
-      a = c;
-      fa = fc;
-    }
-    else if (fc == 0) {
-      *root = c;
-      return 1;
-    }
-    else {
-      ath_error("[bisection]:  There is no single root in (%f,%f)!!\n", a, b);
-      *root = c;
-      return 0;
-    }
-  }
-
-  ath_error("[bisection]:  Bisection did not converge in %d iterations!!\n", MAXSTP_BISECTION);
-  *root = c;
-  return 0;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/*! \fn int bisection2(Real (*func)(const Real,const Real), const Real a0, 
+/*! \fn int bisection(Real (*func)(const Real,const Real), const Real a0, 
  *                    const Real b0, const Real x, Real *root) 
  *  \brief THIS FUNCTION IMPLEMENTS THE BISECTION METHOD FOR ROOT FINDING.
  */
-int bisection2(Real (*func)(const Real,const Real), const Real a0, const Real b0,
+int bisection(Real (*func)(const Real,const Real), const Real a0, const Real b0,
                            const Real x, Real *root) 
 {
   const Real tol = 1.0E-10;
