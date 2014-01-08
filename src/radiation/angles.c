@@ -32,7 +32,7 @@
  *============================================================================*/
 
 void carlson(RadGridS *pRG, const int nmu);
-void legendre_equal_weight(RadGridS *pRG, const int nmu);
+void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi);
 void single_z_ray(RadGridS *pRG, const int nmu);
 void InverseMatrix(Real **a, int n, Real **b);
 void MatrixMult(Real **a, Real *b, int m, int n, Real *c);
@@ -46,31 +46,26 @@ void lubksb_nr(Real **a, int n, int *indx, Real b[]);
  *  \brief Call appropriate function to initialize angles/quadratures */
 void init_angles(RadGridS *pRG, const int qmeth, const int outflag)
 {
-  int nmu;
+  int nmu, nphi;
+  char *radbl;
+
+  if (outflag == 0) radbl = "radiation"; else radbl = "radiation_output";
 
   switch(qmeth) {
             
     case 1: /* Carlson symmetric S_N method (default) */
-      if (outflag == 0) 
-	nmu = par_geti_def("radiation","nmu",0);
-      else 
-	nmu = par_geti_def("radiation","nmu",0);
+      nmu = par_geti_def(radbl,"nmu",0);
       carlson(pRG,nmu);
       break;
       
     case 2: /* Legendre Equal Weight */
-      if (outflag == 0) 
-	nmu = par_geti_def("radiation","nmu",0);
-      else 
-	nmu = par_geti_def("radiation","nmu",0);
-      legendre_equal_weight(pRG,nmu);
+      nmu = par_geti_def(radbl,"nmu",0);
+      nphi = par_geti_def(radbl,"nphi",1);
+      legendre_equal_weight(pRG,nmu,nphi);
       break;
       
     case 10: /* single mu_z */
-      if (outflag == 0) 
-	nmu = par_geti_def("radiation","nmu",0);
-      else 
-	nmu = par_geti_def("radiation","nmu",0);
+      nmu = par_geti_def(radbl,"nmu",0);
       single_z_ray(pRG,nmu);
       break;
 
@@ -236,7 +231,8 @@ void carlson(RadGridS *pRG, const int nmu)
 	    if (j == 0)
 	      pRG->mu[l][i][1] =  mutmp[i][1];
 	    else
-	      pRG->mu[l][i][1] = -mutmp[i][1];	    
+	      pRG->mu[l][i][1] = -mutmp[i][1];
+	    pRG->mu[l][i][2] =  mutmp[i][2];
 	  }
 	}
 	pRG->wmu[i] *= 0.25;
@@ -314,7 +310,7 @@ void carlson(RadGridS *pRG, const int nmu)
  *  \brief Initialize angles/angle quadratures using Gauss-Legendre
  *  quadrature */
 
-void legendre_equal_weight(RadGridS *pRG, const int nmu) 
+void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi) 
 {
   
   int nDim;
@@ -347,14 +343,14 @@ void legendre_equal_weight(RadGridS *pRG, const int nmu)
     
     k=0;
     for(i=0; i<nmu; i++) {
-      dphi = 0.5 * PI / (Real) (2*i+2);
+      dphi = 0.5 * PI / (Real) (2*(nphi+i));
       l=2*nmu-1-i;
       sintheta = sqrt(1.0 - mutmp1d[l] * mutmp1d[l]);
-      for(j=0; j<=i; j++) {
+      for(j=0; j<=(i+nphi-1); j++) {
 	mutmp[k][0] = sintheta * cos( dphi * (Real)(2*j+1));
 	mutmp[k][1] = sintheta * sin( dphi * (Real)(2*j+1));
 	mutmp[k][2] = mutmp1d[l];
-	pRG->wmu[k] = wtmp1d[l] / (Real)(i+1);
+	pRG->wmu[k] = wtmp1d[l] / (Real)(i+nphi);
 	//	printf("wmu %d %d %g %g\n",k,i,pRG->wmu[k],wtmp1d[l]);
 	//	printf("mu: %d %d %g %g %g %g\n",k,i,mutmp[k][0],mutmp[k][1],mutmp[k][2],dphi * (Real)(2*j+1));
 	k++;
@@ -374,7 +370,8 @@ void legendre_equal_weight(RadGridS *pRG, const int nmu)
 	    if (j == 0)
 	      pRG->mu[l][i][1] =  mutmp[i][1];
 	    else
-	      pRG->mu[l][i][1] = -mutmp[i][1];	    
+	      pRG->mu[l][i][1] = -mutmp[i][1];	  
+	    pRG->mu[l][i][2] =  mutmp[i][2];
 	  }
 	}
 	pRG->wmu[i] *= 0.25;
@@ -467,7 +464,8 @@ void single_z_ray(RadGridS *pRG, const int nmu)
 	 if (j == 0)
 	   pRG->mu[l][i][1] =  mutmp[i][1];
 	 else
-	   pRG->mu[l][i][1] = -mutmp[i][1];	    
+	   pRG->mu[l][i][1] = -mutmp[i][1];
+	 pRG->mu[l][i][2] =  mutmp[i][2];
        }
      }
      pRG->wmu[i] *= 0.25;

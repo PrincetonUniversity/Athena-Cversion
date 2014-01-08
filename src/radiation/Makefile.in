@@ -15,7 +15,7 @@ CORE_OBJ = init_radiation.o\
 	   bvals_rad.o\
 	   bvals_rad_shear.o\
 	   output_intensity_vtk.o\
-	   output_spec.o\
+	   output_rad_mesh.o\
 	   jacobi_1d.o\
 	   gausseid_1d.o\
 	   jacobi_2d.o\

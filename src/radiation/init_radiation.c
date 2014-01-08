@@ -156,14 +156,17 @@ void init_radiation_grid(DomainS *pD, int outflag)
   RadGridS *pRG;
   int nDim,myL,myM,myN;;
   int i,j,k,l,m,n;
-  int nmu, qmeth;
+  int nphi, nmu, qmeth;
+  char *radbl;
 
   if (outflag == 0) { /* Initialize RadGrid array */
       pRG = pD->RadGrid;    /* set ptr to RadGrid */
       pRG->outflag = 0;
+      radbl =  "radiation";
   } else {   /* Initialize RadOutGrid array */
       pRG = pD->RadOutGrid;          /* set ptr to RadOutGrid */
       pRG->outflag = 1;
+      radbl =  "radiation_output";
   }
   pRG->pG = pD->Grid;  /* set correspond Grids pointer */
 
@@ -271,22 +274,22 @@ void init_radiation_grid(DomainS *pD, int outflag)
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
 
 /* Initialize nf, nang, and noct members of RadGrid */
-  if (outflag == 0) {
+ 
 /* -------------------------- Initialize RadGrid array  -------------------------- */
-    pRG->nf  = par_geti("radiation","nf");
-    qmeth = par_geti_def("radiation","ang_quad",1);
-    switch(qmeth) {
+  pRG->nf  = par_geti(radbl,"nf");
+  qmeth = par_geti_def(radbl,"ang_quad",1);
+  switch(qmeth) {
       
-    case 0: /* User defined angular quadrature */
-      pRG->nang = par_geti_def("radiation","nang",0);
-      if (pRG->nang == 0) 
-	ath_error("[init_radiation]: ang_quad = %d with nang = %d.\n",qmeth,pRG->nang);	
-      break;
+  case 0: /* User defined angular quadrature */
+    pRG->nang = par_geti_def(radbl,"nang",0);
+    if (pRG->nang == 0) 
+      ath_error("[init_radiation]: ang_quad = %d with nang = %d.\n",qmeth,pRG->nang);	
+    break;
       
-    case 1: /* Carlson symmetric S_N method (default) */
-      nmu = par_geti_def("radiation","nmu",0);
-      if (nmu <= 0) 
-	ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
+  case 1: /* Carlson symmetric S_N method (default) */
+    nmu = par_geti_def(radbl,"nmu",0);
+    if (nmu <= 0) 
+      ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
     if (nDim == 1) {
       pRG->nang = nmu;
     } else {
@@ -294,71 +297,31 @@ void init_radiation_grid(DomainS *pD, int outflag)
     }
     break;
       
-    case 2: /* Legendre Equal Weight */
-      nmu = par_geti_def("radiation","nmu",0);
-      if (nmu == 0) 
-	ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
-      if (nDim == 1) {
-	pRG->nang = nmu;
-      } else {
-	pRG->nang = nmu * (nmu + 1) / 2;
-      }
-      break;
-
-    case 10: /* single mu_z */
-      nmu = par_geti_def("radiation","nmu",0);
-      if (nmu == 0) 
-	ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
-	pRG->nang = nmu;
-      break;
-
-    default:
-      ath_error("[init_radiation]: ang_quad = %d.\n",qmeth);
+  case 2: /* Legendre Equal Weight */
+    nmu = par_geti_def(radbl,"nmu",0);
+    nphi = par_geti_def(radbl,"nphi",1);
+    if (nmu == 0) 
+      ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
+    if (nDim == 1) {
+      pRG->nang = nmu;
+    } else {
+      pRG->nang = nmu * (nmu - 1 + 2 * nphi) / 2;
     }
-#ifdef RAY_TRACING
-    pRG->nf_rt = par_geti_def("radiation","nf_rt",pRG->nf);
-#endif
-  } else {
-/* -------------------------- Initialize RadOutGrid array  -------------------------- */  
-    pRG->nf  = par_geti("radiation_output","nf");
-    qmeth = par_geti_def("radiation_output","ang_quad",1);
-    switch(qmeth) {
-      
-    case 0: /* User defined angular quadrature */
-      pRG->nang = par_geti_def("radiation_output","nang",0);
-      if (pRG->nang == 0) 
-	ath_error("[init_radiation]: radiation_output: ang_quad = %d with nang = %d.\n",qmeth,pRG->nang);
-      break;
-      
-    case 1: /* Carlson symmetric S_N method (default) */
-      nmu = par_geti_def("radiation_output","nmu",0);
-      if (nmu == 0) 
-	ath_error("[init_radiation]: radiation_output: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
-      if (nDim == 1) {
-	pRG->nang = nmu;
-      } else {
-	pRG->nang = nmu * (nmu + 1) / 2;
-      }
-      break;
-      
-    case 2: /* Legendre Equal Weight */
-      nmu = par_geti_def("radiation_output","nmu",0);
-      if (nmu == 0) 
-	ath_error("[init_radiation]: radiation_output: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
-      if (nDim == 1) {
-	pRG->nang = nmu;
-      } else {
-	pRG->nang = nmu * (nmu + 1) / 2;
-      }
-      break;
-      
-    default:
-      ath_error("[init_radiation]: radiation_output: ang_quad = %d.\n",qmeth);
-    }
-#ifdef RAY_TRACING
-    pRG->nf_rt = par_geti_def("radiation_output","nf_rt",pRG->nf);
-#endif
+    break;
+
+  case 10: /* single mu_z */
+    nmu = par_geti_def(radbl,"nmu",0);
+    if (nmu == 0) 
+      ath_error("[init_radiation]: ang_quad = %d with nmu = %d.\n",qmeth,nmu);
+    pRG->nang = nmu;
+    break;
+    
+  default:
+    ath_error("[init_radiation]: ang_quad = %d.\n",qmeth);
   }
+#ifdef RAY_TRACING
+  pRG->nf_rt = par_geti_def(radbl,"nf_rt",pRG->nf);
+#endif
 
   if (nDim == 1) {
     pRG->noct = 2;

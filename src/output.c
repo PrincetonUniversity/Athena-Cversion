@@ -402,8 +402,8 @@ Now use the default one.\n");
     }
 #endif
 
-/* If solving radiative transfer check for outputs of boundary intensities */ 
 #ifdef RADIATION_TRANSFER
+/* If solving radiative transfer check for outputs of boundary intensities */ 
     if ((strcmp(new_out.out,"ix1") == 0) || (strcmp(new_out.out,"ox1") == 0) ||
         (strcmp(new_out.out,"ix2") == 0) || (strcmp(new_out.out,"ox2") == 0) ||
         (strcmp(new_out.out,"ix3") == 0) || (strcmp(new_out.out,"ox3") == 0)) {
@@ -419,7 +419,6 @@ Now use the default one.\n");
 	rad_out_flag = 1;
       }
     }
-      
 #endif /*  RADIATION_TRANSFER */
     
 /* output the intensity */
@@ -607,7 +606,8 @@ void data_output(MeshS *pM, const int flag)
   int n;
   int dump_flag[MAXOUT_DEFAULT+1];
   char block[80];
-#ifdef RADIATION_TRANSFER
+#if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
+  static int fstflag = 1;
   int nl, nd;
   int rad_out_flag = 0;
 #endif
@@ -697,9 +697,15 @@ void data_output(MeshS *pM, const int flag)
     }
   }
 
-/* Output frequency and angular grid data to file */
+/* Write ascii file containing information about the frequency and anglar
+   mesh on first output only. */ 
+#ifdef RADIATION_TRANSFER
+  if (fstflag == 1) output_rad_mesh(pM);
+  fstflag = 0;
+#endif
 #ifdef FULL_RADIATION_TRANSFER
-  output_spec(pM);
+  if (fstflag == 1) output_spec(pM);
+  fstflag = 0;
 #endif
 
   return;

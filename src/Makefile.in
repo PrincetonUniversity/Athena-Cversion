@@ -145,7 +145,7 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/bvals_rad.o\
 		radiation/bvals_rad_shear.o\
 		radiation/output_intensity_vtk.o\
-		radiation/output_spec.o\
+		radiation/output_rad_mesh.o\
 		radiation/jacobi_1d.o\
 		radiation/gausseid_1d.o\
 		radiation/jacobi_2d.o\
@@ -162,7 +162,8 @@ FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/bvals_fullrad.o\
 		fullradiation/fullRT_2d.o\
 		fullradiation/fullRT_3d.o\
-		fullradiation/output_spec.o\
+                fullradiation/output_intensity_vtk.c\
+		fullradiation/output_rad_mesh.o\
 		fullradiation/FullRT_flux.o \
 		fullradiation/output_intensity_vtk.o \
 		fullradiation/dump_intensity_vtk.o

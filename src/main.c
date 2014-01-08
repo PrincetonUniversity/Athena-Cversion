@@ -498,9 +498,6 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef RADIATION_TRANSFER
-/* Write ascii file containing information about the frequency and anglar
-   mesh */ 
-  output_rad_mesh(&Mesh);
 /* Initialize working arrays for formal solution and, if not a restart, execute
    first formal solution to initialize radiation transfer grid */
   for (nl=0; nl<(Mesh.NLevels); nl++){ 
