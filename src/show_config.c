@@ -67,6 +67,12 @@ void show_config(void)
   ath_pout(0," Viscosity:               OFF\n");
 #endif
 
+#if defined(OPERATOR_SPLIT_COOLING)
+  ath_pout(0," Cooling:                 ON\n");
+#else
+  ath_pout(0," Cooling:                 OFF\n");
+#endif
+
 #if defined(THERMAL_CONDUCTION)
   ath_pout(0," Thermal conduction:      ON\n");
 #else

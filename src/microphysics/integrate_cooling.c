@@ -56,7 +56,7 @@ void integrate_cooling_init(MeshS *pM)
 {   
 #ifdef OPERATOR_SPLIT_COOLING
 #ifdef VL_INTEGRATOR
-  if(pM->Nx[3]>1 && CourNo > 0.33333) ath_error("[integrate_cooling] CourNo should be smaller than 1/3 for 3D VL integrator with operator split cooling.\n");
+  if(pM->Nx[2]>1 && CourNo > 0.33333) ath_error("[integrate_cooling] CourNo should be smaller than 1/3 for 3D VL integrator with operator split cooling.\n");
 #endif
   cooling_solver_init(pM);
 #endif

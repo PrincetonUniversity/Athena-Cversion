@@ -33,7 +33,6 @@
 #ifdef BAROTROPIC
 #error : cooling solver doesn't work with Isothermal EOS
 #endif
-#endif
 
 /* uncomment to use sub_cycle */
 //#define SUB_CYCLE
@@ -451,3 +450,4 @@ Real dLam(Real temp)
   return (dlamtmp);
 }
 
+#endif
