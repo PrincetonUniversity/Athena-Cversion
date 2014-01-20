@@ -777,7 +777,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
       for (i=0; i<*Nx1; i++) {
 	data[j][i] = 0.0;
 	for (k=kstart; k<=kend; k++)
-	  data[j][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[j][i] += (*pout->expr)(pgrid,i+il,j+jl,k);
 	data[j][i] *= factor;
       }
     }
@@ -811,7 +811,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
       for (i=0; i<*Nx1; i++) {
 	data[k][i] = 0.0;
 	for (j=jstart; j<=jend; j++)
-	  data[k][i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[k][i] += (*pout->expr)(pgrid,i+il,j,k+kl);
 	data[k][i] *= factor;
       }
     }
@@ -847,7 +847,7 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
       for (j=0; j<*Nx2; j++) {
 	data[k][j] = 0.0;
 	for (i=istart; i<=iend; i++)
-	  data[k][j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[k][j] += (*pout->expr)(pgrid,i,j+jl,k+kl);
 	data[k][j] *= factor;
       }
     }
@@ -979,7 +979,7 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
       data[i] = 0.0;
       for (k=kstart; k<=kend; k++)
 	for (j=jstart; j<=jend; j++)
-	  data[i] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[i] += (*pout->expr)(pgrid,i+il,j,k);
       data[i] *= factor;
     }
 
@@ -1034,7 +1034,7 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
       data[j] = 0.0;
       for (k=kstart; k<=kend; k++)
 	for (i=istart; i<=iend; i++)
-	  data[j] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[j] += (*pout->expr)(pgrid,i,j+jl,k);
       data[j] *= factor;
     }
     *Nx1 = Nx2; /* return dimensions of array created */
@@ -1085,7 +1085,7 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
       data[k] = 0.0;
       for (j=jstart; j<=jend; j++)
 	for (i=istart; i<=iend; i++)
-	  data[k] += (*pout->expr)(pgrid,i+il,j+jl,k+kl);
+	  data[k] += (*pout->expr)(pgrid,i,j,k+kl);
       data[k] *= factor;
     }
     *Nx1 = Nx3; /* return dimensions of array created */

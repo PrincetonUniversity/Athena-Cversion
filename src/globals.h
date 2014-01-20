@@ -35,7 +35,7 @@ enum SS2DCoord ShBoxCoord;
 #endif
 
 #ifdef ROTATING_FRAME
-Real Omega_0, Rc; /* Rotating frequency, Radius of center of mass */
+Real Omega_0; /* Rotating frequency, Radius of center of mass */
 #endif
 
 #ifdef PARTICLES
@@ -96,7 +96,7 @@ extern enum SS2DCoord ShBoxCoord;
 #endif
 
 #ifdef ROTATING_FRAME
-extern Real Omega_0, Rc; /* Omega_0: rotating frequency of frame; Rc: Distance between Center of Mass to Origin of Coordinate */
+extern Real Omega_0; /* Omega_0: rotating frequency of frame; Rc: Distance between Center of Mass to Origin of Coordinate */
 #endif
 
 #ifdef PARTICLES
