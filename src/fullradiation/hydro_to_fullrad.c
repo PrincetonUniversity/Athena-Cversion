@@ -106,7 +106,7 @@ void hydro_to_fullrad(DomainS *pD)
 /* This function only calculate source terms due to absorption opacity */
 
 
-void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **sol)
+void RadAsource(const int i, const int j, const int k, const int N, const int Absflag, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **sol, Real **Divi)
 {
 
 	int l, n, ifr;
@@ -114,7 +114,7 @@ void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pR
 	
 	Real Sigma, SigmaI;
 	Real Er, Ersource, weightJ;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
+	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3], flux[3]; /* velocity source terms and change of kinetic energy */
 	Real dt = pG->dt;
 	Real Tgas, Tgas4;
 	Real rho;
@@ -145,8 +145,10 @@ void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pR
 	for(ifr=0; ifr<pRG->nf; ifr++){
 		/* calculate Er and Fr used in the update */
 		Er = 0.0;
-		for(l=0; l<3; l++)
+		for(l=0; l<3; l++){
 			Fr[l] = 0.0;
+            flux[l] = 0.0;
+        }
 			
 		for(l=0; l<6; l++)
 			Pr[l] = 0.0;
@@ -161,12 +163,21 @@ void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pR
 				
 			for(l=0; l<6; l++)
 				Pr[l] += weightJ * Coefn[n][3+l];
+            
+            /* The transport flux */
+            /* Change of momentum due to transport flux */
+            for(l=0; l<3; l++)
+                flux[l] += pRG->wmu[k][j][i][n] * Absflag * Divi[ifr][n] * Coefn[n][l];
+            
 		}/* end n */
 			
 	/* multiple by 4 pi */
 		Er *= 4.0 * PI;
 		for(l=0; l<3; l++)
 			Fr[l] *= 4.0 * PI;
+        
+        for(l=0; l<3; l++)
+            flux[l] *= 4.0 * PI;
 			
 		for(l=0; l<6; l++)
 			Pr[l] *= 4.0 * PI;
@@ -180,28 +191,36 @@ void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pR
 			
 		/* Note that velocity used in the source term is guess vel */
 			
-		for(l=0; l<3; l++)
+	/*	for(l=0; l<3; l++)
 			Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
-		
+	*/
 		/* The new gas temperature is in sol[j][i][nelements], the last elements */
-		Sigma = pRG->R[k][j][i][ifr].Sigma[0];
+	/*	Sigma = pRG->R[k][j][i][ifr].Sigma[0];
 		SigmaI = pRG->R[k][j][i][ifr].Sigma[1];
-			
+	*/		
 		/* Only absorption opacity cares about gas temperature */
 			
 		Tgas = sol[ifr][N];
+       /*
 		Tgas4 = SQR(Tgas) * SQR(Tgas);
 			
 			
 		CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
 		CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
 		CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
-			
+		*/
+        
 		/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
 		/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
 		for(l=0; l<3; l++){
-			Msource[l] =  dt * Prat * SigmaI * CoFr[l] - dt * Prat * Velguess[l] * (Sigma * Tgas4 - SigmaI * Er)/Crat; /* This is actually momentum source term */
-			DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
+		/*	Msource[l] =  dt * Prat * SigmaI * CoFr[l] - dt * Prat * Velguess[l] * (Sigma * Tgas4 - SigmaI * Er)/Crat;
+		*/
+            /* Apply overall momentum conservation, instead of calculating source term */
+            /* When sigma is large, the second approach can suffer from roundoff error */
+            
+            Msource[l] = -Prat * (Fr[l] + flux[l] - 4.0 * PI * pRG->R[k][j][i][ifr].H[l])/Crat;
+         
+         DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); /* the kinetic energy change related to the momentum change */
 					
 					
 			if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
@@ -240,120 +259,110 @@ void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pR
 
 /* moments of the radiation are already updated before entering this function */
 /* So no need to calculate the moments again */
+/* The old solution used is at sol while the updated solution is at pRG->imu */
 
-void RadSsource(RadGridS *pRG, GridS *pG)
+void RadSsource(const int i, const int j, const int k, const int N, const int Scatflag, RadGridS *pRG, GridS *pG, Real **Coefn, Real **sol, Real **Divi)
 {
-	int i, j, k, l, nf, ifr;
-	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
-	int jl = pRG->js, ju = pRG->je;
-	int kl = pRG->ks, ku = pRG->ke;
-	int koff = 0, joff = 0, ioff = 0;
-	int nDim; 
-	
-	
-	Real Sigma;
-	Real Er, Ersource;
-	Real Fr[3], Pr[6], Vel[3], Velguess[3], Msource[3], DeltaKin[3], CoFr[3]; /* velocity source terms and change of kinetic energy */
-	Real dt = pG->dt;
-	Real rho;
-	
-	
-	nDim = 1;
-	for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
-	
-	ioff = nghost - Radghost;
-	
-	/* Including the ghost zones */
-	
-	if(nDim > 1){
-		jl -= Radghost;
-		ju += Radghost;
-		
-		joff = nghost - Radghost;
-	}
-	
-	if(nDim > 2){
-		kl -= Radghost;
-		ku += Radghost;
-		
-		koff = nghost - Radghost;
-	}
-	
-	nf = pRG->nf;
-	
 
-	for(k=kl; k<=ku; k++){
-		for(j=jl; j<=ju; j++){
-			for(i=il; i<=iu; i++){
-				for(ifr=0; ifr<nf; ifr++){
-			
-			
-					/* calculate Er and Fr used in the update */
-					Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
-					for(l=0; l<3; l++)
-						Fr[l] = 4.0 * PI * pRG->R[k][j][i][ifr].H[l];
-			
-					for(l=0; l<6; l++)
-						Pr[l] = 4.0 * PI * pRG->R[k][j][i][ifr].K[l];
-			
-						
-					/* Now we have Er, Fr and Pr for this cell */
-					rho = pG->U[k+koff][j+joff][i+ioff].d;
-			
-					Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
-					Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
-					Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
-				
-					for(l=0; l<3; l++)
-						Velguess[l] = pG->Velguess[k+koff][j+joff][i+ioff][l];
-			
-			
-					/* The new gas temperature is in sol[j][i][nelements], the last elements */
-					Sigma = pRG->R[k][j][i][ifr].Sigma[2];
-			
-					CoFr[0] = Fr[0] - (Velguess[0] * Er + Velguess[0] * Pr[0] + Velguess[1] * Pr[1] + Velguess[2] * Pr[3])/Crat;
-					CoFr[1] = Fr[1] - (Velguess[1] * Er + Velguess[0] * Pr[1] + Velguess[1] * Pr[2] + Velguess[2] * Pr[4])/Crat;
-					CoFr[2] = Fr[2] - (Velguess[2] * Er + Velguess[0] * Pr[3] + Velguess[1] * Pr[4] + Velguess[2] * Pr[5])/Crat;
-			
-					/* The energy equation is self-consistent with specific intensity only requires \sum n\dot v=0 */
-					/* However, the momentum equation requies \sum 3nn=1  in order to be consistent with specific intensity */
-					
-
-					/* For scattering opacity, use kinetic energy change to update velocity momentum so that gas temperature is unchanged */
-					for(l=0; l<3; l++){
-				
-						Msource[l] = dt * Prat * Sigma * CoFr[l]; /* This is actually momentum source term */
-						DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]); 
-						
-						
-						if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
-                 			Msource[l] = -rho * Vel[l];
-                 			DeltaKin[l] = 0.5 * rho * Vel[l] * Vel[l];
-        				}
-					
-														
-					}/* end l for three directions */
-				
-					Ersource = DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
-				
-				
+    Real Fr0[3], Fr[3], flux[3];
+    Real weight, rho, Vel[3], Msource[3], DeltaKin[3], Ersource;
+    
+    int nDim, l, n, ifr;
+    
+    nDim = 1;
+	for (l=1; l<3; l++) if (pRG->Nx[l]>1) nDim++;
+    
+    int koff, joff, ioff;
+    ioff = nghost - Radghost;
+    
+    if(nDim > 1)
+        joff = ioff;
+    else
+        joff = 0;
+    
+    if(nDim > 2)
+        koff = ioff;
+    else
+        koff = 0;
+    
+    
+	
+    
+	/* loop through all l and n, nelements = nang * noct */
+	/* weight for each ray is alerady included in sol[][][] */
+	for(ifr=0; ifr<pRG->nf; ifr++){
+		/* calculate Er and Fr used in the update */
+		for(l=0; l<3; l++){
+			Fr0[l] = 0.0;
+            Fr[l] = 0.0;
+            flux[l] = 0.0;
+        }
+        
+	
+        
+		for(n=0; n<N; n++){
+			weight = pRG->wmu[k][j][i][n];
+			         
+			for(l=0; l<3; l++){
+				Fr0[l] += weight * Coefn[n][l] * sol[ifr][n];
+                Fr[l] += weight * Coefn[n][l] * pRG->imu[k][j][i][ifr][n];
+                flux[l] += weight * Scatflag * Coefn[n][l] * Divi[ifr][n];
+                
+            }
+            
+		}/* end n */
+        
+        /* multiple by 4 pi */
 		
-					/* Now put the energy and momentum source term back */	
-					/* This is initialized to be zero before it is called */
-					pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
-			
-					for(l=0; l<3; l++)
-						pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
-					
-					
-				}/* End ifr */
-			
-			}/* end i */
-		}/* end j */
-	}/* end k */
-	
-	
-	
+		for(l=0; l<3; l++){
+			Fr0[l] *= 4.0 * PI;
+            Fr[l] *= 4.0 * PI;
+            flux[l] *= 4.0 * PI;
+        }
+        
+        
+        rho = pG->U[k+koff][j+joff][i+ioff].d;
+        
+		Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
+		Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
+		Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
+
+        
+        
+        for(l=0; l<3; l++){
+            
+         /*   Msource[l] = dt * Prat * Sigma * CoFr[l];
+          */
+            Msource[l] = -Prat * (Fr[l] + flux[l] - Fr0[l])/Crat;
+          
+            DeltaKin[l] = (SQR(Msource[l])*0.5/rho + Vel[l] * Msource[l]);
+            
+            
+            if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
+                Msource[l] = -rho * Vel[l];
+                DeltaKin[l] = 0.5 * rho * Vel[l] * Vel[l];
+            }
+            
+            
+        }/* end l for three directions */
+        
+        Ersource = DeltaKin[0] + DeltaKin[1] + DeltaKin[2];
+        
+        
+		
+        /* Now put the energy and momentum source term back */
+        /* This is initialized to be zero before it is called */
+        pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
+        
+        for(l=0; l<3; l++)
+            pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
+  
+        
+    }/* end ifr */
+    
+    /* Add Compton Scattering energy source term */
+       pG->Radheat[k+koff][j+joff][i+ioff] += Comptflag * pG->ComptSource[k+koff][j+joff][i+ioff];
+		
 }
 
 /* Function to post processing gas T and Er */
@@ -364,7 +373,7 @@ void ComptTEr(DomainS *pD)
 	GridS *pG = (pD->Grid);
 
     int i, j, k, ig, jg, kg;
-	int il = pRG->is-Radghost, iu = pRG->ie+Radghost;
+	int il = pRG->is, iu = pRG->ie;
 	int jl = pRG->js, ju = pRG->je;
 	int kl = pRG->ks, ku = pRG->ke;
 	int koff = 0, joff = 0, ioff = 0;
@@ -386,17 +395,11 @@ void ComptTEr(DomainS *pD)
 	/* Including the ghost zones */
 	
 	if(nDim > 1){
-		jl -= Radghost;
-		ju += Radghost;
-		
 		joff = nghost - Radghost;
 	}
 	
 	if(nDim > 2){
-		kl -= Radghost;
-		ku += Radghost;
-		
-		koff = nghost - Radghost;
+        koff = nghost - Radghost;
 	}
     
     
@@ -410,11 +413,11 @@ void ComptTEr(DomainS *pD)
                 ig = i + ioff;
                 
                 Ersource = 0.0;
-                pG->Ercompt[kg][jg][ig] = 0.0;
                 Wtemp = Cons_to_Prim(&(pG->U[kg][jg][ig]));
                 Tgas = Wtemp.P / (R_ideal * Wtemp.d);
                 
 				for(ifr=0; ifr<nf; ifr++){
+                  if(Comptflag){
                     
                     Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
                     sigmas = pRG->R[k][j][i][ifr].Sigma[2];
@@ -440,12 +443,19 @@ void ComptTEr(DomainS *pD)
                     
                     Ernew = SQR(SQR(Tr));
                     
-                    pG->Ercompt[kg][jg][ig] += (pRG->wnu[ifr] * Ernew);
+                    pRG->Ercompt[k][j][i][ifr] = (Ernew - Er)/(4.0*PI);
                     Ersource += (pRG->wnu[ifr] * (Ernew - Er));
+                  }/* End comptflag */
+                  else{
+                     pRG->Ercompt[k][j][i][ifr] = 0.0;
+                     Ersource = 0.0;
+                  }/* Comptflag */
                     
                 }/* End ifr */
                 
-                pG->Tcompt[kg][jg][ig] = (Wtemp.P - Prat * Ersource * Gamma_1)/(R_ideal * Wtemp.d);
+                pG->ComptSource[kg][jg][ig] = - Prat * Ersource;
+                    
+                
                 
             }/* end i */
         }/* End j */
@@ -558,63 +568,87 @@ void GetVelguess(DomainS *pD)
 	
 	/* estimated the velocity at half time step */
 	dt = 0.5 * pG->dt;
-	
-	
-	for(k=kl; k<=ku; k++){
-		for(j=jl; j<=ju; j++){
-			for(i=il; i<=iu; i++){
-				/* calculate Er and Fr used in the update */
+    
+    
+    if(Vguessflag){
+		
+        for(k=kl; k<=ku; k++){
+            for(j=jl; j<=ju; j++){
+                for(i=il; i<=iu; i++){
+                    /* calculate Er and Fr used in the update */
 				
-				/* first, calculate frequency weighted Er, Pr and Fr */
+                    /* first, calculate frequency weighted Er, Pr and Fr */
 				
-				Er = 0.0;
-				for(n=0; n<3; n++)
-					Fr[n] = 0.0;
-				for(n=0; n<3; n++)
-					Pr[n] = 0.0;
+                    Er = 0.0;
+                    for(n=0; n<3; n++)
+                        Fr[n] = 0.0;
+                    for(n=0; n<3; n++)
+                        Pr[n] = 0.0;
 				
-				sigma = 0.0;
+                    sigma = 0.0;
 								
-				for(ifr=0; ifr<pRG->nf; ifr++){
-					Er += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].J);
-					for(n=0; n<3; n++)
-						Fr[n] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].H[n]);
+                    for(ifr=0; ifr<pRG->nf; ifr++){
+                        Er += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].J);
+                        for(n=0; n<3; n++)
+                            Fr[n] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].H[n]);
 					
 					
-					Pr[0] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[0]);
-					Pr[1] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[2]);
-					Pr[2] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[5]);
+                        Pr[0] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[0]);
+                        Pr[1] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[2]);
+                        Pr[2] += (pRG->wnu[ifr] * pRG->R[k][j][i][ifr].K[5]);
 					
 					
-					sigma += (pRG->wnu[ifr] * (pRG->R[k][j][i][ifr].Sigma[1]+pRG->R[k][j][i][ifr].Sigma[2]));
+                        sigma += (pRG->wnu[ifr] * (pRG->R[k][j][i][ifr].Sigma[1]+pRG->R[k][j][i][ifr].Sigma[2]));
 					
-				}
+                    }
 				
-				Er *= (4.0 * PI);
-				for(n=0; n<3; n++)
-					Fr[n] *= (4.0 * PI);
-				for(n=0; n<3; n++)
-					Pr[n] *= (4.0 * PI);
+                    Er *= (4.0 * PI);
+                    for(n=0; n<3; n++)
+                        Fr[n] *= (4.0 * PI);
+                    for(n=0; n<3; n++)
+                        Pr[n] *= (4.0 * PI);
 				
-					/* Now we have Er, Fr and Pr for this cell */
+                        /* Now we have Er, Fr and Pr for this cell */
 				
-				M0[0] = Prat * Fr[0] / Crat + pG->U[k+koff][j+joff][i+ioff].M1;
-				M0[1] = Prat * Fr[1] / Crat + pG->U[k+koff][j+joff][i+ioff].M2;
-				M0[2] = Prat * Fr[2] / Crat + pG->U[k+koff][j+joff][i+ioff].M3;
+                    M0[0] = Prat * Fr[0] / Crat + pG->U[k+koff][j+joff][i+ioff].M1;
+                    M0[1] = Prat * Fr[1] / Crat + pG->U[k+koff][j+joff][i+ioff].M2;
+                    M0[2] = Prat * Fr[2] / Crat + pG->U[k+koff][j+joff][i+ioff].M3;
+                    
+                    rho = pG->U[k+koff][j+joff][i+ioff].d;
 				
-				rho = pG->U[k+koff][j+joff][i+ioff].d;				
 				
+                    Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
+                    Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
+                    Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
 				
-				Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
-				Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
-				Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
+                    for(n=0; n<3; n++)
+                        pG->Velguess[k+koff][j+joff][i+ioff][n] = (rho * Vel[n] + dt * sigma * M0[n] * Crat)/(rho + dt * sigma * Crat * rho + dt * Prat * sigma * (Er + Pr[n])/Crat);
 				
-				for(n=0; n<3; n++)
-					pG->Velguess[k+koff][j+joff][i+ioff][n] = (rho * Vel[n] + dt * sigma * M0[n] * Crat)/(rho + dt * sigma * Crat * rho + dt * Prat * sigma * (Er + Pr[n])/Crat);
-				
-			}
-		}
-	}
+                }
+            }
+        }/* end k */
+    }else{
+        for(k=kl; k<=ku; k++){
+            for(j=jl; j<=ju; j++){
+                for(i=il; i<=iu; i++){
+                    
+                    
+                    rho = pG->U[k+koff][j+joff][i+ioff].d;
+                    
+                    
+                    Vel[0] = pG->U[k+koff][j+joff][i+ioff].M1 / rho;
+                    Vel[1] = pG->U[k+koff][j+joff][i+ioff].M2 / rho;
+                    Vel[2] = pG->U[k+koff][j+joff][i+ioff].M3 / rho;
+                    
+                    for(n=0; n<3; n++)
+                        pG->Velguess[k+koff][j+joff][i+ioff][n] = Vel[n];
+                    
+                }
+            }
+        }/* end k */
+        
+        
+    }/* end else */
 	
 	
 	
@@ -709,14 +743,14 @@ void GetSpeedfactor(DomainS *pD)
 /* This is for the 3D case */
 
 
-void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, int *flag)
+void Absorption(const int nf, const int N, const int Absflag, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, Real **Divi, int *flag)
 {
 	
 
 	int n;
 	const int MAXIte = 15;
 	int count;
-	const Real TOL = 1.e-16;
+	const Real TOL = 1.e-15;
 	Real Tgas, Tgas3, Tgas4;
 	Real residual;
 	int line=N-1;
@@ -741,7 +775,7 @@ void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma
 			/* set Md, Md is used to invert the matrix */
 			Md[n] = 4.0 * Mdcoef[ifr][n] * Tgas3;
 				
-			RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]);
+			RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]) + Absflag * (Divi[ifr][n] - Divi[ifr][N-1]);
 			RHS[n] += (Ma[ifr][n][0] * sol[ifr][n] - Ma[ifr][N-1][0] * sol[ifr][N-1]);
 				
 		}/* end n */
@@ -749,7 +783,7 @@ void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma
 		/* Now line=N-1 */
 		Md[line] = 4.0 * Mdcoef[ifr][line] * Tgas3;
 			
-		RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line];
+		RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line] + Absflag * Divi[ifr][line];
 		for(n=0; n<N-1; n++){
 			RHS[line] += (Ma[ifr][n][1] * sol[ifr][n]);
 				
@@ -796,14 +830,14 @@ void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma
 				/* set Md, Md is used to invert the matrix */
 				Md[n] = 4.0 * Mdcoef[ifr][n] * Tgas3;
 					
-				RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]);
+				RHS[n] = Mdcoef[ifr][n] * Tgas4 - (inisol[ifr][n] - inisol[ifr][N-1]) + Absflag * (Divi[ifr][n] - Divi[ifr][N-1]);
 				RHS[n] += (Ma[ifr][n][0] * sol[ifr][n] - Ma[ifr][N-1][0] * sol[ifr][N-1]);
 					
 			}/* end n */
 		/* Now the line N-1 */
 		/* Now line=N-1 */
 			Md[line] = 4.0 * Mdcoef[ifr][line] * Tgas3;				
-			RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line];
+			RHS[line] = Mdcoef[ifr][line] * Tgas4 + (Ma[ifr][line][0] + Ma[ifr][line][1]) * sol[ifr][line] - inisol[ifr][line] + Absflag * Divi[ifr][line];
 			for(n=0; n<N-1; n++){
 				RHS[line] += (Ma[ifr][n][1] * sol[ifr][n]);
 						

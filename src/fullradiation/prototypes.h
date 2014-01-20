@@ -24,9 +24,9 @@ void fullradiation_destruct(MeshS *pM);
 
 void hydro_to_fullrad(DomainS *pD);
 
-void Absorption(const int nf, const int N, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, int *flag);
-void RadAsource(const int i, const int j, const int k, const int N, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **inisol);
-void RadSsource(RadGridS *pRG, GridS *pG);
+void Absorption(const int nf, const int N, const int Absflag, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, Real **Divi, int *flag);
+void RadAsource(const int i, const int j, const int k, const int N, const int Absflag, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **inisol, Real **Divi);
+void RadSsource(const int i, const int j, const int k, const int N, const int Scatflag, RadGridS *pRG, GridS *pG, Real **Coefn, Real **sol, Real **Divi);
 void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
 void GetSpeedfactor(DomainS *pD);
@@ -76,6 +76,7 @@ void fullRT_3d_destruct(void);
 void output_spec(MeshS *pM);
 
 /* output_intensity_vtk.c */
+/* only output intensity at the faces */
 void output_ix1_vtk(MeshS *pM, OutputS *pOut);
 void output_ox1_vtk(MeshS *pM, OutputS *pOut);
 void output_ix2_vtk(MeshS *pM, OutputS *pOut);
@@ -84,12 +85,8 @@ void output_ix3_vtk(MeshS *pM, OutputS *pOut);
 void output_ox3_vtk(MeshS *pM, OutputS *pOut);
 
 /* dump_intensity_vtk.c */
-void dump_ix1_vtk(MeshS *pM, OutputS *pOut);
-void dump_ox1_vtk(MeshS *pM, OutputS *pOut);
-void dump_ix2_vtk(MeshS *pM, OutputS *pOut);
-void dump_ox2_vtk(MeshS *pM, OutputS *pOut);
-void dump_ix3_vtk(MeshS *pM, OutputS *pOut);
-void dump_ox3_vtk(MeshS *pM, OutputS *pOut);
+/* Dump intensities for all angles at all grids */
+void dump_intensity_vtk(MeshS *pM, OutputS *pOut);
 
 
 

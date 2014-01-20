@@ -363,6 +363,7 @@ typedef struct RadGrid_s {
 #else
   Real *****imu;     /* specific intensity  for  cell k, j, i, frequency nf, for octant * angle,*/
   Real *****Speedfactor; /* The factor to reduce the speed of light due to opacity */
+  Real ****Ercompt; /* Store the source due to Compton scattering*/
 #endif
 
 
@@ -516,8 +517,7 @@ MPI_Comm Comm_Domain;
   Real ***Pgsource; /* radiation source term for gas pressure */	
   Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */	
   Real ****Velguess;  /* The estimated velocity to reduce momentum error */
-  Real ***Tcompt; /* The gas temperature that should be with Compton scattering */
-  Real ***Ercompt; /* The should be Er with Compton scattering */
+  Real ***ComptSource; /* The gas temperature that should be with Compton scattering */
 #endif
 	
 

@@ -25,7 +25,6 @@
 void UpdateRT(DomainS *pD){
 	
 	RadGridS *pRG=(pD->RadGrid);
-	GridS *pG = (pD->Grid);
 
 	
 	int i;
@@ -61,10 +60,7 @@ void UpdateRT(DomainS *pD){
 
 		CalMoment(il, iu, jl, ju, kl, ku, pRG);
 		
-		/* ghost zones also need to be calculated for scattering opacity */
-		RadSsource(pRG, pG);
-    
-	return;
+    return;
 }
 
 
@@ -464,7 +460,7 @@ void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Rea
 {
 
 	Real swap;
-	Real tempMc,temp,tempup, tempdown, MCB0, MCB1, MCB2, BInv, CInv;
+	Real tempMc,temp,tempup, tempdown, MCB0, MCB1, MCB2, BInv, CInv, norm;
 	int i, Nzl, j; 
 	
 	/* First, subtract the last line from lines 1 to N-1 */
@@ -498,9 +494,15 @@ void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Rea
 	/* Ma[i] and Mb[0] are always no-zero */
 
 	/* Find the first non-zero Mc */
-	i=N-2; 
+	i=N-2;
+    
+    if(fabs(tempMc) > 1.e-15)
+        norm = tempMc;
+    else
+        norm = 1.0;
 
-	while((fabs(Ma[i][2]) < 1.e-15)){
+    
+	while((fabs(Ma[i][2]/norm) < 1.e-13)){
         	i--;
         if( i<0 ) break;
     }
@@ -509,6 +511,8 @@ void SpecialMatrix3(const int N, Real **Ma, Real *Md, Real *RHS,  Real *lN1, Rea
 	
        
 	if(Nzl < 0){
+        /* For the isotripic case, do something special to conserve energy */
+        
      		/* First, Multiple L^-1 and RHS */
 		for(i=0; i<N-1; i++){
 			RHS[N-1] -= Ma[i][1] * RHS[i]/Ma[i][0];
@@ -937,7 +941,7 @@ void ReduceVelocity(const Real sigma, const Real ds, Real *alpha)
 {
 
 	Real tau, y, y2, y3, y4, expression;
-	tau = 10.0 * ds * sigma;
+	tau = Taufactor * ds * sigma;
 	tau = tau * tau;
 
 	/* As this function is called many times, we approximate the function */

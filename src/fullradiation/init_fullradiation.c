@@ -213,6 +213,9 @@ VDFun_t init_fullradiation(MeshS *pM)
     /* Allocate memory for reduction factor of speed of light */
     pRG->Speedfactor = (Real *****)calloc_5d_array(n3z,n2z,n1z,pRG->nf,3,sizeof(Real));
         if (pRG->Speedfactor == NULL) goto on_error16;
+        
+    pRG->Ercompt = (Real ****)calloc_4d_array(n3z,n2z,n1z,pRG->nf,sizeof(Real));
+       if (pRG->Ercompt == NULL) goto on_error17;
 
 /* Allocate memory for intensities, angles and weights for angular quadratures */
 
@@ -685,6 +688,8 @@ VDFun_t init_fullradiation(MeshS *pM)
 
 on_error16:
     free_5d_array(pRG->Speedfactor);
+on_error17:
+    free_4d_array(pRG->Ercompt);
  on_error22:
   free_1d_array(pRG->wnu);  
  on_error21:

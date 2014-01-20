@@ -706,8 +706,13 @@ int main(int argc, char *argv[])
 			GetVelguess(&(Mesh.Domain[nl][nd]));
             /* Also get the reduce factor for speed of light */
             GetSpeedfactor(&(Mesh.Domain[nl][nd]));
+            
+            /* Get Compton scattering source term */
+            if(Comptflag)
+                ComptTEr(&(Mesh.Domain[nl][nd]));
+
 			
-			FullRT(&(Mesh.Domain[nl][nd]));		
+			FullRT(&(Mesh.Domain[nl][nd]));
 
 			/* update boundary condition */
 			bvals_fullrad(&(Mesh.Domain[nl][nd]));
@@ -769,9 +774,7 @@ int main(int argc, char *argv[])
 		
 #endif /* FARGO */
             
-#ifdef FULL_RADIATION_TRANSFER
-      ComptTEr(&(Mesh.Domain[nl][nd]));
-#endif
+
 
         }
       }

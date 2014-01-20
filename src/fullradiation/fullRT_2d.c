@@ -454,9 +454,18 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
 	
 	offset = nghost - Radghost;
 	
-	Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, AngleVN;
+	Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, AngleVN, Jnew;
 	Real sigmaa, sigmaaI, sigmas;
     Real Tgas4;
+    
+    /* The flux term Divi[][] needs to be added in the source term matrix,
+     * To account for the optical depth effect,
+     * Add the flux term with the source term with the shortest time scale
+     * Judge the opacity in each cell
+     */
+    int Absflag, Scatflag;
+    Absflag = 0;
+    Scatflag = 1;
 	
 
 		for(j=js; j<=je; j++){
@@ -481,6 +490,24 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                 /* First, calculate the last element */
                 
                 AngleVN = FullAngleV[j][i][nelements-1];
+                
+                /* judge the frequency integrated opacity */
+                sigmaaI = 0.0;
+                sigmas = 0.0;
+                
+                for(ifr=0; ifr<pRG->nf; ifr++){
+                    sigmaaI += (pRG->wnu[ifr] * pRG->R[ks][j][i][ifr].Sigma[1]);
+                    sigmas += (pRG->wnu[ifr] * pRG->R[ks][j][i][ifr].Sigma[2]);
+                }
+                if(sigmaaI > sigmas){
+                    Absflag = 1;
+                    Scatflag = 0;
+                }
+                else{
+                    Absflag = 0;
+                    Scatflag = 1;
+                }
+
                 
                 /*-----------------------------------------------------------------------------*/
                 /* First, the absorption opacity */
@@ -557,7 +584,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                 /* Solve the absorption opacity related terms */
                 /* Borrow the memory RHS */
                 /* The energy and momentum source terms are already initialized */
-                Absorption(pRG->nf, nelements, sol, inisol, Ma, Mdcoef, Tcoef, Md, RHS[0], &flag);
+                Absorption(pRG->nf, nelements, Absflag, sol, inisol, Ma, Mdcoef, Tcoef, Md, RHS[0], Divi[j][i], &flag);
                 
                 
                 /**********************************************************************/
@@ -576,7 +603,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                         
                         AngleV = FullAngleV[j][i][nelements-1];
                         
-                        RHS[0][nelements-1] = pRG->imu[ks][j][i][ifr][nelements-1] + dt * Crat * sigmaa * Tgas4 * QuaPI + 3.0 * dt * AngleV * sigmaa * QuaPI;
+                        RHS[0][nelements-1] = pRG->imu[ks][j][i][ifr][nelements-1] + (Crat + 3.0 * AngleV) * Tgas4 * QuaPI * sigmaa * dt - Absflag * Divi[j][i][ifr][nelements-1];
                         
                         for(Mi=0; Mi<nelements; Mi++){
                             
@@ -588,7 +615,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                             Ma[0][Mi][1] = dt * sigmaaI * (vel2 + AngleV2) * pRG->wmu[ks][j][i][Mi] * InvCrat;
                             
                             if(Mi < nelements - 1){
-                                RHS[0][Mi] = pRG->imu[ks][j][i][ifr][Mi] + dt * Crat * sigmaa * Tgas4 * QuaPI + 3.0 * dt * AngleV * sigmaa * QuaPI;
+                                RHS[0][Mi] = pRG->imu[ks][j][i][ifr][Mi] + (Crat + 3.0 * AngleV) * Tgas4 * QuaPI * sigmaa * dt - Absflag * Divi[j][i][ifr][Mi];
                                 RHS[0][Mi] -= RHS[0][nelements-1];
                             }
                             
@@ -630,7 +657,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                 /* Now call the solution to add the energy and momentum source term */
                 /* Only do this if absorption matrix is converged properly */
                 if(flag > 0)
-                    RadAsource(i, j, ks, nelements, pRG, pG, Tcoef, Coefn, inisol);
+                    RadAsource(i, j, ks, nelements, Absflag, pRG, pG, Tcoef, Coefn, inisol, Divi[j][i]);
                 
                 
                 
@@ -644,7 +671,7 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                     for(Mi=0; Mi<nelements; Mi++){
 						
                         /* Set RHS */
-                        RHS[ifr][Mi] = sol[ifr][Mi]- Divi[j][i][ifr][Mi];
+                        RHS[ifr][Mi] = sol[ifr][Mi]  + Comptflag * pRG->Ercompt[ks][j][i][ifr] - Scatflag * Divi[j][i][ifr][Mi];
 						
                         AngleV = FullAngleV[j][i][Mi];
                         AngleV2 = MatrixAngleV2[j][i][Mi];
@@ -655,23 +682,39 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
                     }/* end Mi */
                     
                     
-                    /* Solve the scattering matrix for each frequency */
-                    SpecialMatrix3(nelements, Ma[ifr], Md, RHS[ifr], lN1, lN2, lN3, UN1, UN2, UN3);
+                    if(sqrt(vel2) > 1.e-15){
+                    
+                        /* Solve the scattering matrix for each frequency */
+                        SpecialMatrix3(nelements, Ma[ifr], Md, RHS[ifr], lN1, lN2, lN3, UN1, UN2, UN3);
+                    
+                        for(Mi=0; Mi<nelements; Mi++){
+                            pRG->imu[ks][j][i][ifr][Mi] = RHS[ifr][Mi]/pRG->wmu[ks][j][i][Mi];
+                        }/* Mi */
+                    }
+                    else {
+                        /* When the flow velocity is near the roundoff error level */
+                        /* Treat it as zero to avoid roundoff error when sigmas is too large */
+                        
+                        Jnew = 0.0;
+                        for(Mi=0; Mi<nelements; Mi++){
+                            Jnew += pRG->wmu[ks][j][i][Mi] * RHS[ifr][Mi];
+                        }
+                        
+                        for(Mi=0; Mi<nelements; Mi++){
+                            pRG->imu[ks][j][i][ifr][Mi] = (RHS[ifr][Mi] + dt * sigmas * Crat * Jnew)/(1.0 + dt * sigmas * Crat);
+                        }
+                    }/* end vel2 */
                     
                 }/* end ifr */
                 
                 
    
                 
-                /*--------------------------------------------------------------------------------------------------------------*/
-                /* Now set the solution */
-                for(ifr=0; ifr<pRG->nf; ifr++){
-                    for(Mi=0; Mi<nelements; Mi++){
-                        pRG->imu[ks][j][i][ifr][Mi] = RHS[ifr][Mi]/pRG->wmu[ks][j][i][Mi];
-                    }/* Mi */
-                }/* ifr */
                 
-     
+    /*--------------------------------------------------------------------------------------------------------------*/
+             /* Add the scattering energy and momentum source term */
+                RadSsource(i, j, ks, nelements, Scatflag, pRG, pG, Coefn, sol, Divi[j][i]);
+                
                 
             }/* end i */
         }/* End j */

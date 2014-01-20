@@ -191,6 +191,14 @@ void integrate_3d_ctu(DomainS *pD)
   Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
   Real fact, qom, om_dt = Omega_0*pG->dt;
 #endif /* SHEARING_BOX */
+
+#ifdef ROTATING_FRAME
+#ifndef CYLINDRICAL
+#error: ROTATING_FRAME has to be in CYLINDRICAL coordinates.
+#endif
+#endif /* ROTATING_FRAME */
+
+
 #ifdef STATIC_MESH_REFINEMENT
   int ncg,npg,dim;
   int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
@@ -440,6 +448,21 @@ void integrate_3d_ctu(DomainS *pD)
           Wl[i].Vx -= dtodx1*(phifc - phicl);
           Wr[i].Vx -= dtodx1*(phicr - phifc);
 #endif
+
+/* Coriolis force for rotating frame*/
+#ifdef ROTATING_FRAME
+          Wl[i].Vx += (pG->dt)*Omega_0*W[i-1].Vy;
+          #ifdef FARGO
+          Om = (*OrbitalProfile)(x1vc(pG,i-1));
+          Wl[i].Vx += (pG->dt)*Omega_0*Om*x1vc(pG,i-1);
+          #endif
+
+          Wr[i].Vx += (pG->dt)*Omega_0*W[i].Vy;
+          #ifdef FARGO
+          Om = (*OrbitalProfile)(x1vc(pG,i));
+          Wr[i].Vx += (pG->dt)*Omega_0*Om*x1vc(pG,i);
+          #endif
+#endif /*ROTATING_FRAME*/
         }
       }
 
@@ -833,6 +856,11 @@ void integrate_3d_ctu(DomainS *pD)
 
           Wl[j].Vx -= dtodx2*(phifc - phicl);
           Wr[j].Vx -= dtodx2*(phicr - phifc);
+
+#ifdef ROTATING_FRAME
+        Wl[j].Vx -= (pG->dt)*Omega_0*W[j-1].Vz;
+        Wr[j].Vx -= (pG->dt)*Omega_0*W[j].Vz;
+#endif /*ROTATING_FRAME*/
         }
       }
 
@@ -1523,6 +1551,9 @@ void integrate_3d_ctu(DomainS *pD)
         q2 = hdt/(r[i]*pG->dx2);
 #endif
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
+#ifdef ROTATING_FRAME
+        Ur_x1Face[k][j][i].My -= (pG->dt)*Omega_0*pG->U[k][j][i].M1;
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
                                   + x2Flux[k][j+1][i  ].d*(phir - phic));
@@ -1546,6 +1577,9 @@ void integrate_3d_ctu(DomainS *pD)
         q2 = hdt/(r[i-1]*pG->dx2);
 #endif
         Ul_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i-1].d;
+#ifdef ROTATING_FRAME
+        Ul_x1Face[k][j][i].My -= (pG->dt)*Omega_0*pG->U[k][j][i-1].M1;
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
         Ul_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i-1].d*(phic - phil)
                                   + x2Flux[k][j+1][i-1].d*(phir - phic));
@@ -1829,10 +1863,19 @@ void integrate_3d_ctu(DomainS *pD)
 #else
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif
+#ifdef ROTATING_FRAME
+        Ur_x2Face[k][j][i].Mz += (pG->dt)*Omega_0*pG->U[k][j][i].M2;
+        #ifdef FARGO
+        Om = (*OrbitalProfile)(x1vc(pG,i));
+        Ur_x2Face[k][j][i].Mz += (pG->dt)*Omega_0*pG->U[k][j][i].d*Om*x1vc(pG,i);
+        #endif
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
 #ifdef CYLINDRICAL
-		  Ur_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j  ][i  ].d
-											 + rsf*x1Flux[k][j  ][i+1].d);
+
+        Ur_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j  ][i  ].d
+                                         + rsf*x1Flux[k][j  ][i+1].d);
+
 #else
 		  Ur_x2Face[k][j][i].E -= q1*(lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
 									  + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
@@ -1860,9 +1903,19 @@ void integrate_3d_ctu(DomainS *pD)
 #endif
 
         Ul_x2Face[k][j][i].Mz -= hdt*pG->U[k][j-1][i].d*g;
+
 #else
         Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 #endif
+
+#ifdef ROTATING_FRAME
+        Ul_x2Face[k][j][i].Mz += (pG->dt)*Omega_0*pG->U[k][j-1][i].M2;
+        #ifdef FARGO
+        Om = (*OrbitalProfile)(x1vc(pG,i));
+        Ul_x2Face[k][j][i].Mz += (pG->dt)*Omega_0*pG->U[k][j-1][i].d*Om*x1vc(pG,i);
+        #endif
+#endif /*ROTATING_FRAME*/
+
 #ifndef BAROTROPIC
 #ifdef CYLINDRICAL
 		  Ul_x2Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k][j-1][i  ].d
@@ -2256,10 +2309,19 @@ void integrate_3d_ctu(DomainS *pD)
 #else
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif
+#ifdef ROTATING_FRAME
+        Ur_x3Face[k][j][i].My += (pG->dt)*Omega_0*pG->U[k][j][i].M2;
+        #ifdef FARGO
+        Om = (*OrbitalProfile)(x1vc(pG,i));
+        Ur_x3Face[k][j][i].My += (pG->dt)*Omega_0*pG->U[k][j][i].d*Om*x1vc(pG,i);
+        #endif
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
 #ifdef CYLINDRICAL
+
 		  Ur_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k  ][j][i  ].d
 											 + rsf*x1Flux[k  ][j][i+1].d);
+
 #else
 		  Ur_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
 									  + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
@@ -2270,7 +2332,11 @@ void integrate_3d_ctu(DomainS *pD)
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
         Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
+#ifdef ROTATING_FRAME
+        Ur_x3Face[k][j][i].Mz -= (pG->dt)*Omega_0*pG->U[k][j][i].M1;
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
+
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
                                   + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
@@ -2289,10 +2355,20 @@ void integrate_3d_ctu(DomainS *pD)
 #else
         Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 #endif
+
+#ifdef ROTATING_FRAME
+        Ul_x3Face[k][j][i].My += (pG->dt)*Omega_0*pG->U[k-1][j][i].M2;
+        #ifdef FARGO
+        Om = (*OrbitalProfile)(x1vc(pG,i));
+        Ul_x3Face[k][j][i].My += (pG->dt)*Omega_0*pG->U[k-1][j][i].d*Om*x1vc(pG,i);
+        #endif
+#endif /*ROTATING_FRAME*/
+
 #ifndef BAROTROPIC
 #ifdef CYLINDRICAL
 		  Ul_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k-1][j][i  ].d
 											 + rsf*x1Flux[k-1][j][i+1].d);
+
 #else
 		  Ul_x3Face[k][j][i].E -= q1*(lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
 									  + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
@@ -2303,6 +2379,9 @@ void integrate_3d_ctu(DomainS *pD)
         phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
 
         Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
+#ifdef ROTATING_FRAME
+        Ul_x3Face[k][j][i].Mz -= (pG->dt)*Omega_0*pG->U[k-1][j][i].M1;
+#endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
         Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
                                   + x2Flux[k-1][j+1][i].d*(phir - phic));
@@ -2594,9 +2673,22 @@ void integrate_3d_ctu(DomainS *pD)
           M1h -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif 
 
+
+#ifdef ROTATING_FRAME
+          M1h += (pG->dt)*Omega_0*pG->U[k][j][i].M2;
+        #ifdef FARGO
+          Om = (*OrbitalProfile)(x1vc(pG,i));
+          M1h += (pG->dt)*Omega_0*pG->U[k][j][i].d*Om*x1vc(pG,i);
+        #endif
+#endif
+
+
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
+#ifdef ROTATING_FRAME
+          M2h -= (pG->dt)*Omega_0*pG->U[k][j][i].M1;
+#endif
 
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
@@ -3172,12 +3264,6 @@ void integrate_3d_ctu(DomainS *pD)
           - q2*(    x2Flux[k  ][j+1][i  ].d -     x2Flux[k][j][i].d)
           - q3*(    x3Flux[k+1][j  ][i  ].d -     x3Flux[k][j][i].d);
 
-        /* calculate M2 at time n+1/2 */
-        M2h = pG->U[k][j][i].M2
-          - q1*(SQR(rsf)*x1Flux[k  ][j  ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
-          - q2*(         x2Flux[k  ][j+1][i  ].Mx -          x2Flux[k][j][i].Mx)
-          - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
-
 #ifdef FARGO
 		dtodx2 = pG->dt/(r[i]*pG->dx2);
         /* Save current R/phi momenta */
@@ -3186,6 +3272,7 @@ void integrate_3d_ctu(DomainS *pD)
 
         Om = (*OrbitalProfile)(r[i]);
         qshear = (*ShearProfile)(r[i]);
+
 
 
         if (x1GravAcc != NULL){
@@ -3197,17 +3284,36 @@ void integrate_3d_ctu(DomainS *pD)
 
         g -= r[i]*SQR((*OrbitalProfile)(r[i]));
 
+
         /* Use forward euler to approximate R/phi momenta at t^{n+1} */
         Mre = Mrn
                 - dtodx1*(rsf*x1Flux[k][j][i+1].Mx -  lsf*x1Flux[k][j][i].Mx)
                 - dtodx2*(    x2Flux[k][j+1][i].Mz -      x2Flux[k][j][i].Mz)
                 - dtodx3*(    x3Flux[k+1][j][i].My -      x3Flux[k][j][i].My);
-        Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] - pG->U[k][j][i].d*g);
+        Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] );
 
         Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
           - dtodx1*(SQR(rsf)*x1Flux[k ][j ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
           - dtodx2*(         x2Flux[k ][j+1][i ].Mx -          x2Flux[k][j][i].Mx)
           - dtodx3*(         x3Flux[k+1][j ][i ].Mz -          x3Flux[k][j][i].Mz);
+
+        if (StaticGravPot != NULL){
+	  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          g = (phir-phil)/pG->dx1;
+	  Mre -= pG->dt*pG->U[k][j][i].d*g;
+
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          Mpe -= dtodx2*(phir-phil)*pG->U[k][j][i].d;
+        }
+
+          Mre += pG->dt*pG->U[k][j][i].d*r[i]*SQR((*OrbitalProfile)(r[i]));
+#ifdef ROTATING_FRAME
+          Mre += (pG->dt)*2.0*Omega_0*(pG->U[k][j][i].M2+pG->U[k][j][i].d*Om*x1vc(pG,i));
+          Mpe -= (pG->dt)*2.0*Omega_0*pG->U[k][j][i].M1;
+#endif
 
         /* Average forward euler and current values to approximate at t^{n+1/2} */
         Mrav = 0.5*(Mrn+Mre);
@@ -3217,13 +3323,33 @@ void integrate_3d_ctu(DomainS *pD)
         geom_src[k][j][i] = SQR(Mpav)/dhalf[k][j][i];
 #else /* FARGO */
 
+        /* calculate M1 and M2 at time n+1/2 */
+        M1h = pG->U[k][j][i].M1
+           - q1*(rsf*x1Flux[k  ][j  ][i+1].Mx - lsf*x1Flux[k][j][i].Mx)
+           - q2*(    x2Flux[k  ][j+1][i  ].Mz -     x2Flux[k][j][i].Mz)
+           - q3*(    x3Flux[k+1][j  ][i  ].My -     x3Flux[k][j][i].My);
+        M1h += hdt*geom_src[k][j][i];
+        M2h = pG->U[k][j][i].M2
+           - q1*(SQR(rsf)*x1Flux[k  ][j  ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
+           - q2*(         x2Flux[k  ][j+1][i  ].Mx -          x2Flux[k][j][i].Mx)
+           - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
         /* Add source term for fixed gravitational potential for 0.5*dt */
         if (StaticGravPot != NULL){
 		  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          g = (phir-phil)/pG->dx1;
+          M1h -= hdt*pG->U[ks][j][i].d*g;
+
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
           M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
         }
+#ifdef ROTATING_FRAME
+          M1h += (pG->dt)*Omega_0*pG->U[ks][j][i].M2;
+          M2h -= (pG->dt)*Omega_0*pG->U[ks][j][i].M1;
+#endif /*ROTATING_FRAME*/
+
         /* Compute geometric source term at time n+1/2 */
         geom_src[k][j][i] = SQR(M2h)/dhalf[k][j][i];
 #endif /* FARGO */
@@ -3249,9 +3375,17 @@ void integrate_3d_ctu(DomainS *pD)
         /* Use average values to apply source terms for full time-step */
         pG->U[k][j][i].M1 += pG->dt*( 2.0*Om*Mpav + geom_src[k][j][i]);
         pG->U[k][j][i].M2 += pG->dt*( Om*(qshear-2.0)*Mrav);
-#else
+#ifdef ROTATING_FRAME
+        pG->U[ks][j][i].M1 += (pG->dt)*2.0*Omega_0*(Mpav+dhalf[j][i]*Om*x1vc(pG,i));
+        pG->U[ks][j][i].M2 -= (pG->dt)*2.0*Omega_0*Mrav;
+#endif
+#else /* FARGO */
         /* Add time-centered geometric source term for full dt */
         pG->U[k][j][i].M1 += pG->dt*geom_src[k][j][i];
+#ifdef ROTATING_FRAME
+        pG->U[ks][j][i].M1 += (pG->dt)*2.0*Omega_0*M2h;
+        pG->U[ks][j][i].M2 -= (pG->dt)*2.0*Omega_0*M1h;
+#endif /* ROTATING_FRAME */
 #endif /* FARGO */
       }
     }
@@ -3377,13 +3511,18 @@ void integrate_3d_ctu(DomainS *pD)
           pG->U[k][j][i].M1 -= dtodx1*(phir-phil)*dhalf[k][j][i];
 #endif
 #ifndef BAROTROPIC
-#ifdef CYLINDRICAL
-			pG->U[k][j][i].E -= hdt*g*(lsf*x1Flux[k][j][i  ].d +
-									   rsf*x1Flux[k][j][i+1].d);
+/*#ifdef CYLINDRICAL
+
+          pG->U[k][j][i].E -= hdt*g*(lsf*x1Flux[k][j][i  ].d +
+                                     rsf*x1Flux[k][j][i+1].d);
+
 #else
+ */
+            /* use conservative energy update */
 			pG->U[k][j][i].E -= dtodx1*(lsf*x1Flux[k][j][i  ].d*(phic - phil) +
 										rsf*x1Flux[k][j][i+1].d*(phir - phic));
-#endif /* CYLINDRICAL */
+/*#endif 
+ *//* CYLINDRICAL */
 #endif  
           phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
           phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
@@ -3391,7 +3530,10 @@ void integrate_3d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
           pG->U[k][j][i].E -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
                                       x2Flux[k][j+1][i].d*(phir - phic));
+
 #endif  
+
+
           phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
           phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
           pG->U[k][j][i].M3 -= dtodx3*(phir-phil)*dhalf[k][j][i];

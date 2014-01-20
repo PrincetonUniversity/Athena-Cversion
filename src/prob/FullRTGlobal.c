@@ -231,7 +231,9 @@ void problem(DomainS *pDomain)
 #ifdef FULL_RADIATION_TRANSFER
 	Prat = par_getd("problem","Pratio");
 	Crat = par_getd("problem","Cratio");
-	R_ideal = par_getd("problem","R_ideal");	
+	R_ideal = par_getd("problem","R_ideal");
+	Taufactor = 20.0;
+    Vguessflag = 1;
 
 #ifdef MPI_PARALLEL 
   if(myID_Comm_world == 0){

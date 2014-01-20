@@ -39,6 +39,11 @@ Real Omega_0, qshear; /*!< orbital freq and shear parameter dln\Omega/dlnr */
 enum SS2DCoord ShBoxCoord;
 #endif
 
+
+#ifdef ROTATING_FRAME
+Real Omega_0; /* Rotating frequency, Radius of center of mass */
+#endif
+
 #ifdef PARTICLES
 TSFun_t     get_ts    = NULL;     /*!< get the stopping time */
 WeightFun_t getweight = NULL;     /*!< get weight function */
@@ -108,6 +113,8 @@ RRGIIFun_t raytrace_to_radtrans = NULL;
 
 #ifdef FULL_RADIATION_TRANSFER
 FullRadOpacity_t get_full_opacity = NULL;
+int Vguessflag = 1;
+int Comptflag = 0; /* flag to include compton scattering or not */
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -139,6 +146,11 @@ extern VDFun_t SelfGrav_cons;
 extern GravPotFun_t ShearingBoxPot;
 extern Real Omega_0, qshear;
 extern enum SS2DCoord ShBoxCoord;
+#endif
+
+
+#ifdef ROTATING_FRAME
+extern Real Omega_0; /* Omega_0: rotating frequency of frame; Rc: Distance between Center of Mass to Origin of Coordinate */
 #endif
 
 #ifdef PARTICLES
@@ -210,6 +222,8 @@ extern RRGIIFun_t raytrace_to_radtrans;
 
 #ifdef FULL_RADIATION_TRANSFER
 extern FullRadOpacity_t get_full_opacity;
+extern int Vguessflag;
+extern int Comptflag;
 #endif
 
 

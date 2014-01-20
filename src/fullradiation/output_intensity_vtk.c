@@ -904,7 +904,7 @@ void output_ox3_vtk(MeshS *pM, OutputS *pOut)
 /* Write right intensities for each frequency and angle */
 
 	for (ifr=0; ifr<pRG->nf; ifr++) {
-        l_label++;
+        l_label = 0;
 	  for(l=0; l<=3; l++) {
 	    for(m=0; m<pRG->nang; m++) { 
 	      fprintf(pfile,"SCALARS imu_%i_%i_%i float\n",ifr,l_label,m);
