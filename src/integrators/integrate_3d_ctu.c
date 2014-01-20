@@ -2003,13 +2003,8 @@ void integrate_3d_ctu(DomainS *pD)
         Ur_x3Face[k][j][i].Mz -= (pG->dt)*Omega_0*pG->U[k][j][i].M1;
 #endif /*ROTATING_FRAME*/
 #ifndef BAROTROPIC
-#ifdef CYLINDRICAL
-        Ur_x3Face[k][j][i].E -= 0.5*hdt*g*(lsf*x1Flux[k  ][j][i  ].d
-                                         + rsf*x1Flux[k  ][j][i+1].d);
-#else
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
                                   + x2Flux[k  ][j+1][i].d*(phir - phic));
-#endif
 #endif
         /* correct left states; x1 and x2 gradients */
         phic = (*StaticGravPot)((x1            ),x2,(x3-pG->dx3));
