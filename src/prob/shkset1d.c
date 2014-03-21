@@ -666,7 +666,7 @@ void Userwork_after_loop(MeshS *pM)
   if((fp=fopen(fname,"r")) != NULL){
     if((fp = freopen(fname,"a",fp)) == NULL){
       ath_perr(-1,"[Userwork_after_loop]: Unable to reopen file.\n");
-      free(fname);
+//      free(fname);
       return;
     }
   }
@@ -674,7 +674,7 @@ void Userwork_after_loop(MeshS *pM)
   else{
     if((fp = fopen(fname,"w")) == NULL){
       ath_perr(-1,"[Userwork_after_loop]: Unable to open file.\n");
-      free(fname);
+//      free(fname);
       return;
     }
 /* Now write out some header information */

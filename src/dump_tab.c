@@ -85,7 +85,7 @@ void dump_tab_cons(MeshS *pM, OutputS *pOut)
 
 /* open output file */
         if((pfile = fopen(fname,"w")) == NULL){
-          ath_error("[dump_tab]: Unable to open ppm file %s\n",fname);
+          ath_error("[dump_tab]: Unable to open tab file %s\n",fname);
         }
         free(fname);
 

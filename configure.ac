@@ -285,6 +285,7 @@ fi
 # ALGORITHM PACKAGE: set the order and type of the spatial reconstruction
 #   --with-order=[1,2,3] - #-order reconstruction in the characteristic vars
 #   --with-order=[2p,3p] - #-order reconstruction in the primitive      vars
+#   --with-order=[3pck, 3pcl]
 #  (default is 2 -- 2nd-order reconstruction in the characteristic vars)
 
 AC_SUBST(ORDER)
@@ -304,8 +305,12 @@ elif test "$with_order" = "3"; then
   ACCURACY="THIRD_ORDER_CHAR"
 elif test "$with_order" = "3p"; then
   ACCURACY="THIRD_ORDER_PRIM"
+elif test "$with_order" = "3pck"; then
+  ACCURACY="THIRD_ORDER_COMPACT_PRIM_KOREN"
+elif test "$with_order" = "3pcl"; then
+  ACCURACY="THIRD_ORDER_COMPACT_PRIM_LIMO3"
 else
-  AC_MSG_ERROR([expected --with-order=1, 2, 3, 2p, or 3p])
+  AC_MSG_ERROR([expected --with-order=1, 2, 3, 2p, 3p, 3pck,3pcl])
 fi
 
 #-------------------------------------------------------------------------------
