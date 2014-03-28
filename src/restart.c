@@ -254,16 +254,58 @@ void restart_grids(char *res_file, MeshS *pM)
  * centered field if there is more than one cell in that dimension, or just
  * the face centered field if not  */
 
-      for (k=ks; k<=ke; k++) {
-      for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
+      if(ib==1) {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+#if defined(CARTESIAN)
+          pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] +pG->B1i[k][j][i+1]);
+#elif defined(CYLINDRICAL)
+          pG->U[k][j][i].B1c = 0.5*(pG->px1i[i]*pG->B1i[k][j][i] + pG->px1i[i+1]*pG->B1i[k][j][i+1])/pG->px1[i];
+#elif defined(SPHERICAL)
+          pG->U[k][j][i].B1c = ((pG->px1i[i+1]-pG->px1v[i])*pG->B1i[k][j][i] + (pG->px1v[i]-pG->px1i[i])*pG->B1i[k][j][i+1])/pG->dx1;
+#endif
+        }}}
+      }
+      else {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
         pG->U[k][j][i].B1c = pG->B1i[k][j][i];
-        pG->U[k][j][i].B2c = pG->B2i[k][j][i];
-        pG->U[k][j][i].B3c = pG->B3i[k][j][i];
-        if(ib==1) pG->U[k][j][i].B1c=0.5*(pG->B1i[k][j][i] +pG->B1i[k][j][i+1]);
-        if(jb==1) pG->U[k][j][i].B2c=0.5*(pG->B2i[k][j][i] +pG->B2i[k][j+1][i]);
-        if(kb==1) pG->U[k][j][i].B3c=0.5*(pG->B3i[k][j][i] +pG->B3i[k+1][j][i]);
-      }}}
+        }}}
+      }
+      if(jb==1) {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+#ifdef SPHERICAL
+          pG->U[k][j][i].B2c = ((pG->px2i[j+1]-pG->px2v[j])*pG->B2i[k][j][i] + (pG->px2v[j]-pG->px2i[j])*pG->B2i[k][j+1][i])/pG->dx2;
+#else
+          pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] +pG->B2i[k][j+1][i]);
+#endif
+        }}}
+      }
+      else {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          pG->U[k][j][i].B2c = pG->B2i[k][j][i];
+        }}}
+      }
+      if(kb==1) {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] +pG->B3i[k+1][j][i]);
+        }}}
+      }
+      else {
+        for (k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+          pG->U[k][j][i].B3c = pG->B3i[k][j][i];
+        }}}
+      }
 #endif
 
 #if (NSCALARS > 0)
