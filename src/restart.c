@@ -261,7 +261,7 @@ void restart_grids(char *res_file, MeshS *pM)
 #if defined(CARTESIAN)
           pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] +pG->B1i[k][j][i+1]);
 #elif defined(CYLINDRICAL)
-          pG->U[k][j][i].B1c = 0.5*(pG->px1i[i]*pG->B1i[k][j][i] + pG->px1i[i+1]*pG->B1i[k][j][i+1])/pG->px1[i];
+          pG->U[k][j][i].B1c = 0.5*(pG->ri[i]*pG->B1i[k][j][i] + pG->ri[i+1]*pG->B1i[k][j][i+1])/pG->r[i];
 #elif defined(SPHERICAL)
           pG->U[k][j][i].B1c = ((pG->px1i[i+1]-pG->px1v[i])*pG->B1i[k][j][i] + (pG->px1v[i]-pG->px1i[i])*pG->B1i[k][j][i+1])/pG->dx1;
 #endif
