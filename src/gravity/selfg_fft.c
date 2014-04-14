@@ -112,9 +112,10 @@ void selfg_fft_2d_xy(DomainS *pD)
   Real dkx,dky,pcoeff;
 
 #ifdef SHEARING_BOX
-  Real qomt,Lx,Ly,dt;
+  Real qomt,qomL,Lx,Ly,dt,yshear;
   Real kxtdx;
   Real xmin,xmax;
+  int nshear;
   int ip,jp;
   int nx3=pG->Nx[2];
   int nx2=pG->Nx[1]+2*nghost;
@@ -134,7 +135,10 @@ void selfg_fft_2d_xy(DomainS *pD)
   xmax = pD->RootMaxX[1];
   Ly = xmax - xmin;
 
-  dt = pG->time-((int)(qshear*Omega_0*pG->time*Lx/Ly))*Ly/(qshear*Omega_0*Lx);
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
+  nshear =(int)(yshear/Ly);
+  if(nshear != 0) dt = pG->time-nshear*Ly/qomL; else dt = pG->time;
   qomt = qshear*Omega_0*dt;
 #endif
 
@@ -296,10 +300,6 @@ void selfg_fft_2d(DomainS *pD)
     }
   }
 
-#ifdef STAR_PARTICLE
-  assign_starparticles_2d(pD,work);
-#endif /* STAR_PARTICLE */
-
 
   ath_2d_fft(fplan2d, work);
 
@@ -365,10 +365,10 @@ void selfg_fft_3d(DomainS *pD)
   Real dkx,dky,dkz,pcoeff;
 
 #ifdef SHEARING_BOX
-  Real qomt,Lx,Ly,dt;
+  Real qomt,Lx,Ly,dt,qomL,yshear;
   Real kxtdx;
   Real xmin,xmax;
-  int ip,jp;
+  int ip,jp,nshear;
   int nx3=pG->Nx[2]+2*nghost;
   int nx2=pG->Nx[1]+2*nghost;
   int nx1=pG->Nx[0]+2*nghost;
@@ -387,7 +387,11 @@ void selfg_fft_3d(DomainS *pD)
   xmax = pD->RootMaxX[1];
   Ly = xmax - xmin;
 
-  dt = pG->time-((int)(qshear*Omega_0*pG->time*Lx/Ly))*Ly/(qshear*Omega_0*Lx);
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
+  nshear =(int)(yshear/Ly);
+  if(nshear != 0) dt = pG->time-nshear*Ly/qomL; else dt = pG->time;
+
   qomt = qshear*Omega_0*dt;
 #endif
 
@@ -407,6 +411,10 @@ void selfg_fft_3d(DomainS *pD)
 
 /* For shearing-box, need to roll density to the nearest periodic point */
 #ifdef SHEARING_BOX
+#ifdef STAR_PARTICLE
+/* assign star particle density before remapping */
+  assign_starparticles_3d_shear(pD, RollDen);
+#endif
   RemapVar(pD,RollDen,-dt);
 #endif
 

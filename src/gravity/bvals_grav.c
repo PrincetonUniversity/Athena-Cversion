@@ -639,7 +639,9 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain is at L-edge of root Domain */
         } else {
-#ifndef SELF_GRAVITY_USING_FFT_OBC
+#if defined(SELF_GRAVITY_USING_FFT_OBC) || defined(SELF_GRAVITY_USING_FFT_DISK)
+          pD->ix3_GBCFun = obc_fft_Phi_ix3;
+#else
           switch(pM->BCFlag_ix3){
 
           case 1: /* Reflecting */
@@ -667,9 +669,7 @@ void bvals_grav_init(MeshS *pM)
             ath_error("[bvals_grav_init]: BCFlag_ix3 = %d unknown\n",
             pM->BCFlag_ix3);
           }
-#else /* SELF_GRAVITY_USING_FFT_OBC */
-          pD->ix3_GBCFun = obc_fft_Phi_ix3;
-#endif
+#endif /* SELF_GRAVITY_USING_FFT_OBC || SELF_GRAVITY_USING_FFT_DISK*/
         }
       }
 
@@ -683,7 +683,9 @@ void bvals_grav_init(MeshS *pM)
 
 /* Domain is at R-edge of root Domain */
         } else {
-#ifndef SELF_GRAVITY_USING_FFT_OBC
+#if defined(SELF_GRAVITY_USING_FFT_OBC) || defined(SELF_GRAVITY_USING_FFT_DISK)
+          pD->ox3_GBCFun = obc_fft_Phi_ox3;
+#else
           switch(pM->BCFlag_ox3){
 
           case 1: /* Reflecting */
@@ -711,9 +713,7 @@ void bvals_grav_init(MeshS *pM)
             ath_error("[bvals_grav_init]: BCFlag_ox3 = %d unknown\n",
             pM->BCFlag_ox3);
           }
-#else /* SELF_GRAVITY_USING_FFT_OBC */
-          pD->ox3_GBCFun = obc_fft_Phi_ox3;
-#endif
+#endif /* SELF_GRAVITY_USING_FFT_OBC || SELF_GRAVITY_USING_FFT_DISK*/
         }
       }
     }

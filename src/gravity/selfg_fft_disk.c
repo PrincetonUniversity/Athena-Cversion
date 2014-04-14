@@ -1,4 +1,5 @@
 #include "../copyright.h"
+//#define DEBUG
 /*=============================================================================*/
 /*! \file selfg_fft_disk.c
  *  \brief Contains functions to solve Poisson's equation for self-gravity 
@@ -51,6 +52,8 @@
 static struct ath_2d_fft_plan *fplan2d, *bplan2d;
 static struct ath_3d_fft_plan *fplan3d, *bplan3d;
 static ath_fft_data *work=NULL, *work2=NULL;
+static Real ***RollDen=NULL, ***UnRollPhi=NULL;
+static Real ***Acoeff=NULL,***Bcoeff=NULL; 
 
 #ifdef STATIC_MESH_REFINEMENT
 #error self gravity with FFT in DISK not yet implemented to work with SMR
@@ -115,7 +118,7 @@ void selfg_fft_disk_2d(DomainS *pD)
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2);
   Real xmin,xmax,Lperp; 
   static int coeff_set=0;
-  static Real **Acoeff=NULL,**Bcoeff=NULL; 
+  static Real **Acoeff_2d=NULL,**Bcoeff_2d=NULL; 
   static Real dky=0.;
   int ip;
 
@@ -124,10 +127,10 @@ void selfg_fft_disk_2d(DomainS *pD)
   if (!coeff_set){
 
 /*   allocates memory for Acoeff and Bcoeff arrays */
-  if ((Acoeff = (Real**)calloc_2d_array(pG->Nx[0],pG->Nx[1],sizeof(Real))) == NULL)
+  if ((Acoeff_2d = (Real**)calloc_2d_array(pG->Nx[0],pG->Nx[1],sizeof(Real))) == NULL)
     ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
 
-  if ((Bcoeff = (Real**)calloc_2d_array(pG->Nx[0],pG->Nx[1],sizeof(Real))) == NULL)
+  if ((Bcoeff_2d = (Real**)calloc_2d_array(pG->Nx[0],pG->Nx[1],sizeof(Real))) == NULL)
     ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
 
 
@@ -145,13 +148,13 @@ void selfg_fft_disk_2d(DomainS *pD)
     for (j=js; j<=je; j++){
       ip=KCOMP(i-is,pG->Disp[0],pD->Nx[0]);
       if (((j-js)+pG->Disp[1])==0 && ((i-is)+pG->Disp[0])==0) 
-        Acoeff[0][0]=0.0;
+        Acoeff_2d[0][0]=0.0;
       else{
-        Acoeff[i-is][j-js]= 0.5*(1.0-exp(-fabs(ip*dkx/pG->dx1)*Lperp))/ 
+        Acoeff_2d[i-is][j-js]= 0.5*(1.0-exp(-fabs(ip*dkx/pG->dx1)*Lperp))/ 
 	  (((2.0*cos(((i-is)+pG->Disp[0])*dkx)-2.0)/dx1sq) + 
 	   ((2.0*cos(((j-js)+pG->Disp[1])*dky)-2.0)/dx2sq));
       }
-      Bcoeff[i-is][j-js]= 0.5*(1.0+exp(-fabs(ip*dkx/pG->dx1)*Lperp))/ 
+      Bcoeff_2d[i-is][j-js]= 0.5*(1.0+exp(-fabs(ip*dkx/pG->dx1)*Lperp))/ 
         (((2.0*cos((    (i-is)+pG->Disp[0])*dkx)-2.0)/dx1sq) + 
 	 ((2.0*cos((0.5+(j-js)+pG->Disp[1])*dky)-2.0)/dx2sq));
     }
@@ -193,10 +196,10 @@ void selfg_fft_disk_2d(DomainS *pD)
 
   for (i=is; i<=ie; i++){
     for (j=js; j<=je; j++){
-      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Acoeff[i-is][j-js]; 
-      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Acoeff[i-is][j-js]; 
-      work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Bcoeff[i-is][j-js]; 
-      work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Bcoeff[i-is][j-js]; 
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Acoeff_2d[i-is][j-js]; 
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Acoeff_2d[i-is][j-js]; 
+      work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Bcoeff_2d[i-is][j-js]; 
+      work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Bcoeff_2d[i-is][j-js]; 
     }
   }
 
@@ -239,19 +242,14 @@ void selfg_fft_disk_3d(DomainS *pD)
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2),dx3sq=(pG->dx3*pG->dx3); 
   Real xmin,xmax;
   Real Lperp,den; 
-  Real ***Acoeff=NULL,***Bcoeff=NULL; 
 
 #ifdef SHEARING_BOX
   int nx3=pG->Nx[2]+2*nghost;
   int nx2=pG->Nx[1]+2*nghost;
   int nx1=pG->Nx[0]+2*nghost;
-  Real ***RollDen=NULL, ***UnRollPhi=NULL;
   Real Lx,Ly,qomt,dt;
-
-  if((RollDen=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
-    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
-  if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
-    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+  Real qomL,yshear;
+  int nshear;
 
   xmin = pD->RootMinX[0];
   xmax = pD->RootMaxX[0];
@@ -261,16 +259,16 @@ void selfg_fft_disk_3d(DomainS *pD)
   xmax = pD->RootMaxX[1];
   Ly = xmax - xmin;
 
-  dt = pG->time-((int)(qshear*Omega_0*pG->time*Lx/Ly))*Ly/(qshear*Omega_0*Lx);
+
+  qomL = qshear*Omega_0*Lx;
+  yshear = qomL*pG->time;
+  nshear =(int)(yshear/Ly);
+  if(nshear != 0) dt = pG->time-nshear*Ly/qomL; else dt = pG->time;
+
+  dt = pG->time-((int)(qomL*pG->time/Ly))*Ly/qomL;
+
   qomt = qshear*Omega_0*dt;
 #endif
-
-/* allocates memory for Acoeff and Bcoeff arrays */
-  if ((Acoeff = (Real***)calloc_3d_array(pG->Nx[0],pG->Nx[1],pG->Nx[2],sizeof(Real))) == NULL)
-    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
-
-  if ((Bcoeff = (Real***)calloc_3d_array(pG->Nx[0],pG->Nx[1],pG->Nx[2],sizeof(Real))) == NULL)
-    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
 
 /* To compute kx,ky,kz, note indices relative to whole Domain are needed */
   dkx = 2.0*PI/(double)(pD->Nx[0]);
@@ -284,6 +282,9 @@ void selfg_fft_disk_3d(DomainS *pD)
 
 /* Compute potential coeffs in k space. Zero wavenumber is special
    case; need to avoid divide by zero */
+#ifdef DEBUG
+  printf("calculate coefficients...%d\n",myID_Comm_world);
+#endif
   for (i=is; i<=ie; i++){
     for (j=js; j<=je; j++){
       for (k=ks; k<=ke; k++){
@@ -321,15 +322,23 @@ void selfg_fft_disk_3d(DomainS *pD)
         pG->Phi_old[k][j][i] = pG->Phi[k][j][i];
 #ifdef SHEARING_BOX
         RollDen[k][i][j] = pG->U[k][j][i].d;
-/* should add star particle density to RollDen using assign_starparticles_3d(pD,work), where work is the 1D
-version of grid.  Note that assign_starparticles_3d only fills active zones.  Does RemapVar really need
-the ghost zones? */
 #endif
       }
     }
   }
 
+/* For shearing-box, need to roll density to the nearest periodic point */
 #ifdef SHEARING_BOX
+#ifdef STAR_PARTICLE
+/* assign star particle density before remapping */
+#ifdef DEBUG
+  printf("assign stars...%d\n",myID_Comm_world);
+#endif
+  assign_starparticles_3d_shear(pD, RollDen);
+#endif
+#ifdef DEBUG
+  printf("remap variable...%d\n",myID_Comm_world);
+#endif
   RemapVar(pD,RollDen,-dt);
 #endif
 
@@ -351,6 +360,9 @@ the ghost zones? */
 
 #ifndef SHEARING_BOX 
 #ifdef STAR_PARTICLE
+#ifdef DEBUG
+   printf("assign stars...%d\n",myID_Comm_world);
+#endif
    assign_starparticles_3d(pD,work); 
 #endif
 #endif
@@ -371,29 +383,10 @@ the ghost zones? */
     }
   }
 
-/*
-  for (k=ks; k<=ke; k++){
-    for (j=js; j<=je; j++){
-      for (i=is; i<=ie; i++){
-#ifdef SHEARING_BOX
-        den=RollDen[k][i][j]-grav_mean_rho;
-#else
-        den=pG->U[k][j][i].d-grav_mean_rho;
-#endif
-        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
-          four_pi_G*den;
-        work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
-
-        work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = 
-          four_pi_G*den*cos(0.5*((k-ks)+pG->Disp[2])*dkz);
-        work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 
-         -four_pi_G*den*sin(0.5*((k-ks)+pG->Disp[2])*dkz);
-      }
-    }
-  }
-*/
-
 /* Forward FFT of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
+#ifdef DEBUG
+  printf("forward FFT...%d\n",myID_Comm_world);
+#endif
 
   ath_3d_fft(fplan3d, work);
   ath_3d_fft(fplan3d, work2);
@@ -419,6 +412,9 @@ the ghost zones? */
 /* Backward FFT and set potential in real space.  Normalization of Phi is over
  * total number of cells in Domain */
 
+#ifdef DEBUG
+  printf("backward FFT...%d\n",myID_Comm_world);
+#endif
   ath_3d_fft(bplan3d, work);
   ath_3d_fft(bplan3d, work2);
 
@@ -441,6 +437,9 @@ the ghost zones? */
   }
 
 #ifdef SHEARING_BOX
+#ifdef DEBUG
+  printf("unroll density...%d\n",myID_Comm_world);
+#endif
   RemapVar(pD,UnRollPhi,dt);
 
   for (k=ks; k<=ke; k++){
@@ -451,11 +450,7 @@ the ghost zones? */
     }
   }
 
-  free_3d_array(RollDen);
-  free_3d_array(UnRollPhi);
 #endif
-  free_3d_array(Acoeff);
-  free_3d_array(Bcoeff);
 
   return;
 }
@@ -493,6 +488,7 @@ void selfg_fft_disk_3d_init(MeshS *pM)
 {
   DomainS *pD;
   int nl,nd;
+  int size1=1,size2=1,size3=1,Nx1,Nx2,Nx3;
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
       if (pM->Domain[nl][nd].Grid != NULL){
@@ -501,9 +497,30 @@ void selfg_fft_disk_3d_init(MeshS *pM)
         bplan3d = ath_3d_fft_quick_plan(pD, NULL, ATH_FFT_BACKWARD);
         work = ath_3d_fft_malloc(fplan3d);
         work2 = ath_3d_fft_malloc(fplan3d);
+        size1 = MAX(size1,pM->Domain[nl][nd].Grid->Nx[0]);
+        size2 = MAX(size2,pM->Domain[nl][nd].Grid->Nx[1]);
+        size3 = MAX(size3,pM->Domain[nl][nd].Grid->Nx[2]);
       }
     }
   }
+
+/* allocates memory for Acoeff and Bcoeff arrays */
+  if ((Acoeff = (Real***)calloc_3d_array(size1,size2,size3,sizeof(Real))) == NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+
+  if ((Bcoeff = (Real***)calloc_3d_array(size1,size2,size3,sizeof(Real))) == NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+  
+  size1 = size1 + 2*nghost;
+  size2 = size2 + 2*nghost;
+  size3 = size3 + 2*nghost;
+
+  if((RollDen=(Real***)calloc_3d_array(size3,size1,size2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+  if((UnRollPhi=(Real***)calloc_3d_array(size3,size1,size2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+
+
 }
 
 #endif /* SELF_GRAVITY_USING_FFT_DISK */

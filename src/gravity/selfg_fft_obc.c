@@ -63,20 +63,6 @@ void selfg_fft_obc_2d(DomainS *pD)
   int Nx1=pD->Nx[0], Nx2=pD->Nx[1];
   int hNx1=Nx1/2, hNx2=Nx2/2;
   Real dkx=2.0*PI/(double)(Nx1), dky=2.0*PI/(double)(Nx2);
-/*
-#ifdef RADIATION
-  RadParticleS *pSP=NULL;
-  Real x1,x2,x3;
-  Real tmp,W1[3],W2[3],W3[3],d;
-#endif
-*/
-
-#ifdef STAR_PARTICLE
-  StarParS *pSP=NULL;
-  Real x1,x2,x3;
-  Real tmp,W1[3],W2[3],W3[3],d;
-#endif
-
 
 
   /* Copy current potential into old and zero-out */
@@ -100,7 +86,7 @@ void selfg_fft_obc_2d(DomainS *pD)
       }
 
 #ifdef STAR_PARTICLE
-      assign_starparticles_2d(pD,work);
+//      assign_starparticles_2d(pD,work);
 #endif /* STAR_PARTICLE */
 
       /* Copy work array 0 into work array 1, then multiply by complex offsets.
@@ -227,7 +213,7 @@ void selfg_fft_obc_3d(DomainS *pD)
       for (k=ks; k<=ke; k++) {
         for (j=js; j<=je; j++) {
           for (i=is; i<=ie; i++) {
-            work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = pG->U[k][j][i].d;
+            work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = pG->U[k][j][i].d - grav_mean_rho;
           }
         }
       }
