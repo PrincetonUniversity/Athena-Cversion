@@ -8,7 +8,7 @@
  * - 2. output_*(): ONE variable is written in * format with various options
  * - 3. restarts: special form of a dump, includes extra data
  *   The number and types of outputs are all controlled by <ouputN> blocks in
- *   the input files, parsed by the functions in par.c.  
+ *   the input files, parsed by the functions in par.c.
  *
  * TOTAL NUMBER of outputs is controlled by 'maxout' in <job> block in input
  *   file.  Only the first 'maxout' <outputN> blocks are processed, where
@@ -26,7 +26,7 @@
  * - x1,x2,x3  = range over which data is averaged or sliced; see parse_slice()
  * - usr_expr_flag = 1 for user-defined expression (defined in problem.c)
  * - level,domain = integer indices of level and domain to be output with SMR
- *   
+ *
  * EXAMPLE of an <outputN> block for a VTK dump:
  * - <output1>
  * - out_fmt = vtk
@@ -54,17 +54,17 @@
  *     The info in each block is stored in an element of a global array of
  *     "Output_s" structures, including a pointer to the appropriate output
  *     function.
- *  -data_output(): called in main loop, compares integration time with time 
+ *  -data_output(): called in main loop, compares integration time with time
  *     for output for each element in Output array, and calls output functions.
- *    
- *   To add permanently a new type of output X, write a new function output_X, 
+ *
+ *   To add permanently a new type of output X, write a new function output_X,
  *   modify init_output() to set the output function pointer when out_fmt=X
  *   in the input file (see below for examples of pgm, ppm, etc.)
  *
  *   See Users Manual to add a problem-specific user-defined output function in
  *   the problem definition file.
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  * - init_output() -
  * - data_output() -
  * - data_output_destruct()
@@ -198,7 +198,7 @@ void init_output(MeshS *pM)
  * If neither is present we write an error message and move on. */
     if((par_exist(block,"out_fmt") == 0) && (par_exist(block,"name") == 0)){
       ath_perr(-1,"[init_output]: neither %s/out_fmt, nor %s/name exist\n",
-	       block, block);
+               block, block);
       continue;
     }
 
@@ -223,7 +223,7 @@ void init_output(MeshS *pM)
     sprintf(defid,"out%d",outn);
     new_out.id = par_gets_def(block,"id",defid);
 
-    if(par_exist(block,"out_fmt")) 
+    if(par_exist(block,"out_fmt"))
       fmt = new_out.out_fmt = par_gets(block,"out_fmt");
 
 /* out:     controls what variable can be output (all, prim, or any of expr_*)
@@ -260,28 +260,28 @@ Now use the default one.\n");
     if(strcmp(new_out.out,"cons") == 0){
 /* check for valid data dump: dump format = {bin, hst, tab, rst, vtk} */
       if(par_exist(block,"name")){
-	/* The output function is user defined - get its name */
-	char *name = par_gets(block,"name");
-	/* Get a pointer to the output function via its name */
-	new_out.out_fun = get_usr_out_fun(name);
-	if(new_out.out_fun == NULL){
-	  free_output(&new_out);
-	  ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
-		    name,block,fmt);
-	}
-	free(name);  name = NULL;
-	goto add_it;
+        /* The output function is user defined - get its name */
+        char *name = par_gets(block,"name");
+        /* Get a pointer to the output function via its name */
+        new_out.out_fun = get_usr_out_fun(name);
+        if(new_out.out_fun == NULL){
+          free_output(&new_out);
+          ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
+                    name,block,fmt);
+        }
+        free(name);  name = NULL;
+        goto add_it;
       }
       else if (strcmp(fmt,"bin")==0){
-	new_out.out_fun = dump_binary;
+        new_out.out_fun = dump_binary;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
-	goto add_it;
+        goto add_it;
       }
       else if (strcmp(fmt,"hst")==0){
-	new_out.out_fun = dump_history;
-	goto add_it;
+        new_out.out_fun = dump_history;
+        goto add_it;
       }
 #ifdef PARTICLES
       else if (strcmp(fmt,"phst")==0){
@@ -290,34 +290,34 @@ Now use the default one.\n");
       }
 #endif
       else if (strcmp(fmt,"tab")==0){
-	new_out.out_fun = dump_tab_cons;
+        new_out.out_fun = dump_tab_cons;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
-	goto add_it;
+        goto add_it;
       }
       else if (strcmp(fmt,"rst")==0){
-	new_out.res_fun = dump_restart;
+        new_out.res_fun = dump_restart;
         rst_flag = 1;
         rst_out = new_out;
-	ath_pout(0,"Added out%d\n",outn);
-	continue;
+        ath_pout(0,"Added out%d\n",outn);
+        continue;
       }
       else if (strcmp(fmt,"vtk")==0){
-	new_out.out_fun = dump_vtk;
+        new_out.out_fun = dump_vtk;
 #ifdef PARTICLES
         new_out.out_pargrid = 1; /* bin particles */
 #endif
-	goto add_it;
+        goto add_it;
       }
 #ifdef PARTICLES
       else if (strcmp(fmt,"lis")==0){ /* dump particle list */
-	new_out.out_fun = dump_particle_binary; 
-	goto add_it; /* by default do not bin particles */
+        new_out.out_fun = dump_particle_binary;
+        goto add_it; /* by default do not bin particles */
       }
 #endif
       else{    /* Unknown data dump (fatal error) */
-	ath_error("Unsupported dump mode for %s/out_fmt=%s for out=cons\n",
+        ath_error("Unsupported dump mode for %s/out_fmt=%s for out=cons\n",
           block,fmt);
       }
     }
@@ -364,7 +364,7 @@ Now use the default one.\n");
 *  This is only used for RADIATION_HYDRO and RADIATION_MHD
 */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-    
+
     if(strcmp(new_out.out,"Edd") == 0){
 /* check for valid data dump: dump format = {bin, tab, vtk} */
       if(par_exist(block,"name")){
@@ -403,26 +403,26 @@ Now use the default one.\n");
 #endif
 
 #ifdef RADIATION_TRANSFER
-/* If solving radiative transfer check for outputs of boundary intensities */ 
+/* If solving radiative transfer check for outputs of boundary intensities */
     if ((strcmp(new_out.out,"ix1") == 0) || (strcmp(new_out.out,"ox1") == 0) ||
         (strcmp(new_out.out,"ix2") == 0) || (strcmp(new_out.out,"ox2") == 0) ||
         (strcmp(new_out.out,"ix3") == 0) || (strcmp(new_out.out,"ox3") == 0)) {
 /* Set out_grd = 0: integration grid; 1: output grid only; 2: both */
       if (radt_mode == 0)
-	new_out.out_grd == 0;
+        new_out.out_grd == 0;
       else if (radt_mode == 1) {
-	new_out.out_grd == 1;
-	rad_out_flag = 1;
+        new_out.out_grd == 1;
+        rad_out_flag = 1;
       } else if (radt_mode == 2) {
-	/* Default is to only write output grid for outputs*/
-	new_out.out_grd = par_geti_def(block,"out_grd",1);
-	rad_out_flag = 1;
+        /* Default is to only write output grid for outputs*/
+        new_out.out_grd = par_geti_def(block,"out_grd",1);
+        rad_out_flag = 1;
       }
     }
 #endif /*  RADIATION_TRANSFER */
-    
+
 /* output the intensity */
-      
+
 #if defined(RADIATION_TRANSFER) || defined FULL_RADIATION_TRANSFER
 
     if (strcmp(new_out.out,"ix1") == 0){
@@ -449,15 +449,15 @@ Now use the default one.\n");
       new_out.out_fun = output_ox3_vtk;
       goto add_it;
     }
-      
+
 #endif
-      
+
 #ifdef FULL_RADIATION_TRANSFER
     if (strcmp(new_out.out,"intensity") == 0){
         new_out.out_fun = dump_intensity_vtk;
           goto add_it;
     }
-      
+
 #endif /* defined(RADIATION_TRANSFER) || defined FULL_RADIATION_TRANSFER */
 
 /* Now handle data outputs (ouput of SINGLE variable).  There are lots more
@@ -481,7 +481,7 @@ Now use the default one.\n");
 
     if (new_out.expr == NULL) {
       ath_perr(-1,"Could not parse expression %s, skipping it\n",
-	      new_out.out);
+              new_out.out);
       free_output(&new_out);
       continue;
     }
@@ -529,12 +529,12 @@ Now use the default one.\n");
 
       new_out.rgb = getRGB(new_out.palette);
       if ( (new_out.der = (float *) malloc(3*256*sizeof(float))) == NULL) {
-	free_output(&new_out);
-	ath_error("[init_output]: malloc returned a NULL pointer\n");
+        free_output(&new_out);
+        ath_error("[init_output]: malloc returned a NULL pointer\n");
       }
       for(j=0; j<3; j++)    /* compute derivates to speed up interpolations */
-	for (i=0; i<255; i++)
-	  new_out.der[3*i+j] = new_out.rgb[3*(i+1)+j] - new_out.rgb[3*i+j];
+        for (i=0; i<255; i++)
+          new_out.der[3*i+j] = new_out.rgb[3*(i+1)+j] - new_out.rgb[3*i+j];
     }
 
 /* check for valid data output option (output of single variables)
@@ -548,9 +548,9 @@ Now use the default one.\n");
       /* Get a pointer to the output function via its name */
       new_out.out_fun = get_usr_out_fun(name);
       if(new_out.out_fun == NULL){
-	free_output(&new_out);
-	ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
-		  name,block,fmt);
+        free_output(&new_out);
+        ath_error("Unsupported output named %s in %s/out_fmt=%s\n",
+                  name,block,fmt);
       }
       free(name);  name = NULL;
     }
@@ -574,7 +574,7 @@ Now use the default one.\n");
 
 
 /* Now copy data in "new_out" into OutArray structure, and increment index. */
-    
+
     ath_pout(1,"OUTPUT: %d %d %s %s [%g : %g]\n",
              new_out.n, new_out.ndim, new_out.out_fmt,
              new_out.out, new_out.dmin, new_out.dmax); /* DEBUG */
@@ -587,9 +587,9 @@ Now use the default one.\n");
 
 
 #ifdef RADIATION_TRANSFER
-  /* If radiation mode is set to 1 (output only) or 2 (output and integration), confirms 
+  /* If radiation mode is set to 1 (output only) or 2 (output and integration), confirms
      that a radiation output is used. */
-  if ( (rad_out_flag == 0) && !(radt_mode == 0) ) 
+  if ( (rad_out_flag == 0) && !(radt_mode == 0) )
      ath_error("[init_output]: radiation mode set to %d, but no radiation output is specified.\n",radt_mode);
 #endif
 
@@ -599,7 +599,7 @@ Now use the default one.\n");
 /*----------------------------------------------------------------------------*/
 /*! \fn void data_output(MeshS *pM, const int flag)
  *  \brief Called by main(), tests whether time for output, and calls
- *   appropriate output functions.  
+ *   appropriate output functions.
  *
  *   Setting the input argument flag=1 forces a
  *   write of all output's.  If the input argument flag=0, then only those
@@ -649,17 +649,17 @@ void data_output(MeshS *pM, const int flag)
 /* Update the output numbers and times in the output blocks */
       for(n=0; n<out_count; n++){
 /* User enrolled outputs have outn < 0 */
-	if(OutArray[n].n > 0){
-	  sprintf(block,"output%d",OutArray[n].n);
+        if(OutArray[n].n > 0){
+          sprintf(block,"output%d",OutArray[n].n);
           if (dump_flag[n] != 0) {
 /* About to write this output, so increase the output
  * number given in the restart file */
-	    par_seti(block,"num","%d",OutArray[n].num+1,"Next Output Number");
+            par_seti(block,"num","%d",OutArray[n].num+1,"Next Output Number");
           } else {
-	    par_seti(block,"num","%d",OutArray[n].num,"Next Output Number");
+            par_seti(block,"num","%d",OutArray[n].num,"Next Output Number");
           }
-	  par_setd(block,"time","%.15e",OutArray[n].t,"Next Output Time");
-	}
+          par_setd(block,"time","%.15e",OutArray[n].t,"Next Output Time");
+        }
       }
 /* Now do the same for the restart output block */
       sprintf(block,"output%d",rst_out.n);
@@ -676,12 +676,12 @@ void data_output(MeshS *pM, const int flag)
 #ifdef RADIATION_TRANSFER
 /* If RadOutGrid update is required, compute formal solution on this grid. */
   if (rad_out_flag == 1) {
-    for (nl=0; nl<(pM->NLevels); nl++){ 
-      for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){  
-	if (pM->Domain[nl][nd].Grid != NULL){
-	  hydro_to_rad(&(pM->Domain[nl][nd]),1);  
-	  formal_solution(&(pM->Domain[nl][nd]),1,0);
-	}
+    for (nl=0; nl<(pM->NLevels); nl++){
+      for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+        if (pM->Domain[nl][nd].Grid != NULL){
+          hydro_to_rad(&(pM->Domain[nl][nd]),1);
+          formal_solution(&(pM->Domain[nl][nd]),1,0);
+        }
       }
     }
   }
@@ -707,7 +707,7 @@ void data_output(MeshS *pM, const int flag)
   }
 
 /* Write ascii file containing information about the frequency and anglar
-   mesh on first output only. */ 
+   mesh on first output only. */
 #ifdef RADIATION_TRANSFER
   if (fstflag == 1) output_rad_mesh(pM);
   fstflag = 0;
@@ -722,7 +722,7 @@ void data_output(MeshS *pM, const int flag)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void data_output_destruct(void) 
+/*! \fn void data_output_destruct(void)
  *  \brief Free all memory associated with Output, called by
  *   main() at end of run */
 
@@ -751,8 +751,8 @@ void data_output_destruct(void)
         global_min = OutArray[i].gmin;
         global_max = OutArray[i].gmax;
 #endif
-	ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
-		 global_min, global_max);
+        ath_pout(0,"Global min/max for %s: %g %g\n",OutArray[i].out,
+                 global_min, global_max);
       }
 
       free(OutArray[i].out);
@@ -779,7 +779,7 @@ void data_output_destruct(void)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, 
+/*! \fn Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2,
  *                       int *Nx3)
  *  \brief Creates 3D array of output data with dimensions equal to Grid
  * using output expression (function pointer) stored in Output structure.
@@ -842,7 +842,7 @@ Real ***OutData3(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2, int *Nx3)
 /*----------------------------------------------------------------------------*/
 /*! \fn Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
  *  \brief Creates 2D array of output data with two dimensions equal to Grid
- * and one dimension reduced according to range stored in x1l/x1u, etc.  
+ * and one dimension reduced according to range stored in x1l/x1u, etc.
  *
  * Data is computed using output expression (function pointer) stored in Output
  * structure.  If slice range lies outside of coordinate range in Grid, the
@@ -903,14 +903,14 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
     if (data == NULL) ath_error("[OutData2] Error creating 2D data array\n");
     for (j=0; j<*Nx2; j++) {
       for (i=0; i<*Nx1; i++) {
-	data[j][i] = (*pout->expr)(pgrid,i+il,j+jl,kl);
+        data[j][i] = (*pout->expr)(pgrid,i+il,j+jl,kl);
       }
     }
     return data;
   }
 
 /* Slice 3D data into 2D arrays according to reduce_x* flags */
-	  
+
 /* Nx3,Nx2,Nx1 -> Nx2,Nx1 */
   if (pout->reduce_x3 != 0) {
     if (pout->x3u < pgrid->MinX[2] || pout->x3l >= pgrid->MaxX[2]) return NULL;
@@ -938,10 +938,10 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
     factor = 1.0/(kend - kstart + 1);
     for (j=0; j<*Nx2; j++) {
       for (i=0; i<*Nx1; i++) {
-	data[j][i] = 0.0;
-	for (k=kstart; k<=kend; k++)
-	  data[j][i] += (*pout->expr)(pgrid,i+il,j+jl,k);
-	data[j][i] *= factor;
+        data[j][i] = 0.0;
+        for (k=kstart; k<=kend; k++)
+          data[j][i] += (*pout->expr)(pgrid,i+il,j+jl,k);
+        data[j][i] *= factor;
       }
     }
 
@@ -972,10 +972,10 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
     factor = 1.0/(jend - jstart + 1);
     for (k=0; k<Nx3; k++) {
       for (i=0; i<*Nx1; i++) {
-	data[k][i] = 0.0;
-	for (j=jstart; j<=jend; j++)
-	  data[k][i] += (*pout->expr)(pgrid,i+il,j,k+kl);
-	data[k][i] *= factor;
+        data[k][i] = 0.0;
+        for (j=jstart; j<=jend; j++)
+          data[k][i] += (*pout->expr)(pgrid,i+il,j,k+kl);
+        data[k][i] *= factor;
       }
     }
     *Nx2 = Nx3; /* return second dimension of array created */
@@ -1008,10 +1008,10 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
     factor = 1.0/(iend - istart + 1);
     for (k=0; k<Nx3; k++) {
       for (j=0; j<*Nx2; j++) {
-	data[k][j] = 0.0;
-	for (i=istart; i<=iend; i++)
-	  data[k][j] += (*pout->expr)(pgrid,i,j+jl,k+kl);
-	data[k][j] *= factor;
+        data[k][j] = 0.0;
+        for (i=istart; i<=iend; i++)
+          data[k][j] += (*pout->expr)(pgrid,i,j+jl,k+kl);
+        data[k][j] *= factor;
       }
     }
     *Nx1 = *Nx2;
@@ -1024,9 +1024,9 @@ Real **OutData2(GridS *pgrid, OutputS *pout, int *Nx1, int *Nx2)
 /*----------------------------------------------------------------------------*/
 /*! \fn Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
  *  \brief Creates 1D array of output data with one dimensions equal to Grid
- * and two dimensions reduced according to range stored in x1l/x1u, etc.  
+ * and two dimensions reduced according to range stored in x1l/x1u, etc.
  *
- * Data is computed using output expression (function pointer) stored in Output 
+ * Data is computed using output expression (function pointer) stored in Output
  * structure.  If slice range lies outside of coordinate range in Grid, the
  * NULL pointer is returned.  Dimension of array created is also returned in
  * arguments. */
@@ -1141,8 +1141,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     for (i=0; i<*Nx1; i++) {
       data[i] = 0.0;
       for (k=kstart; k<=kend; k++)
-	for (j=jstart; j<=jend; j++)
-	  data[i] += (*pout->expr)(pgrid,i+il,j,k);
+        for (j=jstart; j<=jend; j++)
+          data[i] += (*pout->expr)(pgrid,i+il,j,k);
       data[i] *= factor;
     }
 
@@ -1196,8 +1196,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     for (j=0; j<Nx2; j++) {
       data[j] = 0.0;
       for (k=kstart; k<=kend; k++)
-	for (i=istart; i<=iend; i++)
-	  data[j] += (*pout->expr)(pgrid,i,j+jl,k);
+        for (i=istart; i<=iend; i++)
+          data[j] += (*pout->expr)(pgrid,i,j+jl,k);
       data[j] *= factor;
     }
     *Nx1 = Nx2; /* return dimensions of array created */
@@ -1247,8 +1247,8 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
     for (k=0; k<Nx3; k++) {
       data[k] = 0.0;
       for (j=jstart; j<=jend; j++)
-	for (i=istart; i<=iend; i++)
-	  data[k] += (*pout->expr)(pgrid,i,j,k+kl);
+        for (i=istart; i<=iend; i++)
+          data[k] += (*pout->expr)(pgrid,i,j,k+kl);
       data[k] *= factor;
     }
     *Nx1 = Nx3; /* return dimensions of array created */
@@ -1262,28 +1262,28 @@ Real *OutData1(GridS *pgrid, OutputS *pout, int *Nx1)
 /*=========================== PRIVATE FUNCTIONS ==============================*/
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the conserved variables d,M1,M2,M3,E */
-/*! \fn Real expr_d(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_d(const GridS *pG, const int i, const int j, const int k)
  *  \brief Density */
 Real expr_d(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].d;
 }
-/*! \fn Real expr_M1(const GridS *pG, const int i, const int j, const int k) 
- *  \brief 1-component of momentum */ 
+/*! \fn Real expr_M1(const GridS *pG, const int i, const int j, const int k)
+ *  \brief 1-component of momentum */
 Real expr_M1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1;
 }
-/*! \fn Real expr_M2(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_M2(const GridS *pG, const int i, const int j, const int k)
  *  \brief 2-component of momentum */
 Real expr_M2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2;
 }
-/*! \fn Real expr_M3(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_M3(const GridS *pG, const int i, const int j, const int k)
  *  \brief 3-component of momentum */
 Real expr_M3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3;
 }
 #ifndef BAROTROPIC
-/*! \fn Real expr_E(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_E(const GridS *pG, const int i, const int j, const int k)
  *  \brief Total energy */
 Real expr_E(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].E;
@@ -1291,35 +1291,35 @@ Real expr_E(const GridS *pG, const int i, const int j, const int k) {
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-Real expr_Er	 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Er;
+Real expr_Er     (const GridS *pG, const int i, const int j, const int k) {
+  return pG->U[k][j][i].Er;
 }
 Real expr_Fr1 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fr1;
+  return pG->U[k][j][i].Fr1;
 }
 Real expr_Fr2 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fr2;
+  return pG->U[k][j][i].Fr2;
 }
 Real expr_Fr3 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Fr3;
+  return pG->U[k][j][i].Fr3;
 }
 Real expr_Edd11 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_11;
+  return pG->U[k][j][i].Edd_11;
 }
 Real expr_Edd21 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_21;
+  return pG->U[k][j][i].Edd_21;
 }
 Real expr_Edd22 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_22;
+  return pG->U[k][j][i].Edd_22;
 }
 Real expr_Edd31 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_31;
+  return pG->U[k][j][i].Edd_31;
 }
 Real expr_Edd32 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_32;
+  return pG->U[k][j][i].Edd_32;
 }
 Real expr_Edd33 (const GridS *pG, const int i, const int j, const int k) {
-	return pG->U[k][j][i].Edd_33;
+  return pG->U[k][j][i].Edd_33;
 }
 #endif
 
@@ -1329,61 +1329,61 @@ Real expr_Edd33 (const GridS *pG, const int i, const int j, const int k) {
 /* expr_*: where * are magnetic field variables: B1c, B2c, B3c, B^2 */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-/*! \fn Real expr_B1c(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_B1c(const GridS *pG, const int i, const int j, const int k)
  *  \brief 1-component of cell-centered B-field */
 Real expr_B1c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B1c;
 }
-/*! \fn Real expr_B2c(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_B2c(const GridS *pG, const int i, const int j, const int k)
  *  \brief 2-component of cell-centered B-field */
 Real expr_B2c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B2c;
 }
-/*! \fn Real expr_B3c(const GridS *pG, const int i, const int j, const int k)  
+/*! \fn Real expr_B3c(const GridS *pG, const int i, const int j, const int k)
  *  \brief 3-component of cell-centered B-field */
 Real expr_B3c(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].B3c;
 }
-/*! \fn Real expr_ME(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_ME(const GridS *pG, const int i, const int j, const int k)
  *  \brief Magnetic field energy */
 Real expr_ME(const GridS *pG, const int i, const int j, const int k) {
-  return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c + 
-	      pG->U[k][j][i].B2c*pG->U[k][j][i].B2c + 
-	      pG->U[k][j][i].B3c*pG->U[k][j][i].B3c);
+  return 0.5*(pG->U[k][j][i].B1c*pG->U[k][j][i].B1c +
+              pG->U[k][j][i].B2c*pG->U[k][j][i].B2c +
+              pG->U[k][j][i].B3c*pG->U[k][j][i].B3c);
 }
 #endif
 
 /*--------------------------------------------------------------------------- */
 /* expr_*: where * are the primitive variables */
 
-/*! \fn Real expr_V1(const GridS *pG, const int i, const int j, const int k)  
+/*! \fn Real expr_V1(const GridS *pG, const int i, const int j, const int k)
  *  \brief 1-velocity */
 Real expr_V1(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M1/pG->U[k][j][i].d;
 }
-/*! \fn Real expr_V2(const GridS *pG, const int i, const int j, const int k)  
+/*! \fn Real expr_V2(const GridS *pG, const int i, const int j, const int k)
  *  \brief 2-velocity */
 Real expr_V2(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M2/pG->U[k][j][i].d;
 }
-/*! \fn Real expr_V3(const GridS *pG, const int i, const int j, const int k)  
+/*! \fn Real expr_V3(const GridS *pG, const int i, const int j, const int k)
  *  \brief 3-velocity */
 Real expr_V3(const GridS *pG, const int i, const int j, const int k) {
   return pG->U[k][j][i].M3/pG->U[k][j][i].d;
 }
 
-/*! \fn Real expr_P(const GridS *pG, const int i, const int j, const int k) 
+/*! \fn Real expr_P(const GridS *pG, const int i, const int j, const int k)
  *  \brief Pressure */
 Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 #ifdef ISOTHERMAL
   return  pG->U[k][j][i].d*Iso_csound2;
 #else
   ConsS *gp = &(pG->U[k][j][i]);
-  return Gamma_1*(gp->E 
+  return Gamma_1*(gp->E
 #if defined(MHD) || defined(RADIATION_MHD)
-		  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
+                  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
-		  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
+                  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
 #endif /* ISOTHERMAL */
 }
 
@@ -1395,11 +1395,11 @@ Real expr_P(const GridS *pG, const int i, const int j, const int k) {
 Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 {
   ConsS *gp = &(pG->U[k][j][i]);
-  return (Gamma*Gamma_1*(gp->E 
+  return (Gamma*Gamma_1*(gp->E
 #if defined(MHD) || defined(RADIATION_MHD)
-	  - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
+          - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
-	  - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d);
+          - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d)/gp->d);
 }
 #endif /* ADIABATIC */
 
@@ -1411,11 +1411,11 @@ Real expr_cs2(const GridS *pG, const int i, const int j, const int k)
 Real expr_S(const GridS *pG, const int i, const int j, const int k)
 {
   ConsS *gp = &(pG->U[k][j][i]);
-  Real P = Gamma_1*(gp->E 
+  Real P = Gamma_1*(gp->E
 #if defined(MHD) || defined(RADIATION_MHD)
-		   - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
+                   - 0.5*(gp->B1c*gp->B1c + gp->B2c*gp->B2c + gp->B3c*gp->B3c)
 #endif /* MHD */
-		   - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
+                   - 0.5*(gp->M1*gp->M1 + gp->M2*gp->M2 + gp->M3*gp->M3)/gp->d);
   return P/pow((double)gp->d, (double)Gamma);
 }
 #endif /* ADIABATIC */
@@ -1559,7 +1559,7 @@ static ConsFun_t getexpr(const int n, const char *expr)
 
 /*----------------------------------------------------------------------------*/
 /*! \fn static void free_output(OutputS *pOut)
- *  \brief free memory associated with Output structure.  
+ *  \brief free memory associated with Output structure.
  *
  *   Only used when
  *   error occurs in adding a new output; this function frees memory and returns
@@ -1575,10 +1575,10 @@ static void free_output(OutputS *pOut)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn static void parse_slice(char *block, char *axname, Real *l, Real *u, 
- *			        int *flag)
- *  \brief Sets the lower and upper bounds of a slice along an axis, 
- *   using values of x1, x2 or x3 in the <output> block.  
+/*! \fn static void parse_slice(char *block, char *axname, Real *l, Real *u,
+ *                              int *flag)
+ *  \brief Sets the lower and upper bounds of a slice along an axis,
+ *   using values of x1, x2 or x3 in the <output> block.
  *
  *   These are used to
  *   slice the data for outputs, averaged between l and u.  Valid formats are:
@@ -1610,11 +1610,11 @@ static void parse_slice(char *block, char *axname, Real *l, Real *u, int *flag)
       *cp++ = 0;
       while (*cp && isspace(*cp)) cp++;
       if (*cp)
-	*u = atof(cp);
+        *u = atof(cp);
       cp = expr;
       while (*cp && isspace(*cp)) cp++;
       if (*cp)
-	*l = atof(cp);
+        *l = atof(cp);
     } else {               /* single slice  */
       *l = *u = atof(expr);
     }
@@ -1632,7 +1632,7 @@ static void parse_slice(char *block, char *axname, Real *l, Real *u, int *flag)
 /*! \fn float *getRGB(char *name)
  *  \brief function for accessing palettes stored stored in structure RGB.
  *
- *   Compares argument with strings (names) of palettes in RGB, and returns 
+ *   Compares argument with strings (names) of palettes in RGB, and returns
  *   pointer to first element of matching palette.  */
 
 float *getRGB(char *name)

@@ -10,7 +10,7 @@
  *   shearing box source terms, and the H-correction of Sanders et al.
  *     For adb hydro, requires (9*Cons1DS +  3*Real) = 48 3D arrays
  *     For adb mhd, requires   (9*Cons1DS + 10*Real) = 73 3D arrays
- *   The H-correction of Sanders et al. adds another 3 arrays.  
+ *   The H-correction of Sanders et al. adds another 3 arrays.
  *
  * REFERENCES:
  *   P. Colella, "Multidimensional upwind methods for hyperbolic conservation
@@ -26,7 +26,7 @@
  *   J.M. Stone et al., "Athena: A new code for astrophysical MHD", ApJS,
  *   178, 137 (2008)
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  *   integrate_3d_radMHD()
  *   integrate_init_3d()
  *   integrate_destruct_3d()
@@ -131,11 +131,11 @@ static Real Tfloor = 1.e-20;
 /*static Real T_e = 5.94065e9; */
 /*static Real T0 = 2.63375e7; *
  * Now defined in global */
- 
+
 
 
 /*==============================================================================
- * PRIVATE FUNCTION PROTOTYPES: 
+ * PRIVATE FUNCTION PROTOTYPES:
  *   integrate_emf1_corner() - the upwind CT method in GS05, for emf1
  *   integrate_emf2_corner() - the upwind CT method in GS05, for emf2
  *   integrate_emf3_corner() - the upwind CT method in GS05, for emf3
@@ -156,16 +156,16 @@ static void integrate_emf3_corner_FOFC(const GridS *pG);
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 static void FixCell(GridS *pG, Int3Vect);
-static void ApplyCorr(GridS *pG, int i, int j, int k, 
+static void ApplyCorr(GridS *pG, int i, int j, int k,
                       int lx1, int rx1, int lx2, int rx2, int lx3, int rx3);
-static void ApplyCorr2(GridS *pG, int i, int j, int k, 
-                      int lx1, int rx1, int lx2, int rx2, int lx3, int rx3);
-static void FixMHD(GridS *pG, int i, int j, int k, 
-                      int lx1, int rx1, int lx2, int rx2, int lx3, int rx3);
+static void ApplyCorr2(GridS *pG, int i, int j, int k,
+                       int lx1, int rx1, int lx2, int rx2, int lx3, int rx3);
+static void FixMHD(GridS *pG, int i, int j, int k,
+                   int lx1, int rx1, int lx2, int rx2, int lx3, int rx3);
 
 void FOFC_Flux(const Cons1DS Ul, const Cons1DS Ur,
-                   const Prim1DS Wl, const Prim1DS Wr,
-                   const Real Bxi, Cons1DS *pFlux);
+               const Prim1DS Wl, const Prim1DS Wr,
+               const Real Bxi, Cons1DS *pFlux);
 #endif
 
 
@@ -177,70 +177,70 @@ void updatesource(GridS *pG);
 
 void integrate_3d_radMHD(DomainS *pD)
 {
-	
-	GridS *pG=(pD->Grid);
-	Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2, dtodx3 = pG->dt/pG->dx3;
-	Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2, hdtodx3 = 0.5 * dtodx3;
-	Real q1 = 0.5 *dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
-	Real dx1 = pG->dx1, dx2 = pG->dx2, dx3 = pG->dx3, dx2ri;
-	Real hdt = 0.5*pG->dt, dt = pG->dt;
-  	int i,il,iu,is=pG->is, ie=pG->ie;
-  	int j,jl,ju,js=pG->js, je=pG->je;
-  	int k, kl, ku, ks=pG->ks, ke=pG->ke; 
-	int m, n;
+
+  GridS *pG=(pD->Grid);
+  Real dtodx1 = pG->dt/pG->dx1, dtodx2 = pG->dt/pG->dx2, dtodx3 = pG->dt/pG->dx3;
+  Real hdtodx1 = 0.5*dtodx1, hdtodx2 = 0.5*dtodx2, hdtodx3 = 0.5 * dtodx3;
+  Real q1 = 0.5 *dtodx1, q2 = 0.5*dtodx2, q3 = 0.5*dtodx3;
+  Real dx1 = pG->dx1, dx2 = pG->dx2, dx3 = pG->dx3, dx2ri;
+  Real hdt = 0.5*pG->dt, dt = pG->dt;
+  int i,il,iu,is=pG->is, ie=pG->ie;
+  int j,jl,ju,js=pG->js, je=pG->je;
+  int k, kl, ku, ks=pG->ks, ke=pG->ke;
+  int m, n;
 
 #ifdef STATIC_MESH_REFINEMENT
-  	int ncg,npg,dim;
-  	int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
+  int ncg,npg,dim;
+  int ii,ics,ice,jj,jcs,jce,kk,kcs,kce,ips,ipe,jps,jpe,kps,kpe;
 #endif
 
-	
-  	/* cylindrical variables */
+
+/* cylindrical variables */
 #ifdef CYLINDRICAL
 #ifndef ISOTHERMAL
-  	Real Pavgh;
+  Real Pavgh;
 #endif
-  	Real rinv, geom_src_d, geom_src_Vx, geom_src_Vy, geom_src_P, geom_src_By, geom_src_Bz;
-  	const Real *r=pG->r, *ri=pG->ri;
+  Real rinv, geom_src_d, geom_src_Vx, geom_src_Vy, geom_src_P, geom_src_By, geom_src_Bz;
+  const Real *r=pG->r, *ri=pG->ri;
 #ifdef FARGO
-  	Real Om, qshear, Mrn, Mpn, Mre, Mpe, Mrav, Mpav;
+  Real Om, qshear, Mrn, Mpn, Mre, Mpe, Mrav, Mpav;
 #endif
 #endif /* CYLINDRICAL */
-  	Real g,gl,gr;
-  	Real lsf=1.0, rsf=1.0;
+  Real g,gl,gr;
+  Real lsf=1.0, rsf=1.0;
 
 #if defined(CYLINDRICAL) && defined(FARGO)
-  	if (OrbitalProfile==NULL || ShearProfile==NULL)
-    		ath_error("[integrate_3d_ctu]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
+  if (OrbitalProfile==NULL || ShearProfile==NULL)
+    ath_error("[integrate_3d_ctu]:  OrbitalProfile() and ShearProfile() *must* be defined.\n");
 #endif
 
-	/* For static gravitational potential */
-	Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
-	/* parameters used in Compton Scattering */
-	Real Tr, coefA, coefK, coefB, coef1, coef2, coef3, coef4;
-	Real Ersum;
-	/* decide the way to add source term */
-	int Sourceflag = 1;
-	int Sourceflag2 = 1;
-	int badcellflag = 0;
-	
-	/* The safe factor used in the Riemann solver to decide whether adopt first order 
-	* left and right states or not */
-	const Real fluxfactor = 2.0;
+/* For static gravitational potential */
+  Real x1, x2, x3, phicl, phicr, phifc, phic, phir, phil;
+/* parameters used in Compton Scattering */
+  Real Tr, coefA, coefK, coefB, coef1, coef2, coef3, coef4;
+  Real Ersum;
+/* decide the way to add source term */
+  int Sourceflag = 1;
+  int Sourceflag2 = 1;
+  int badcellflag = 0;
 
-	/* To correct the negative pressure */
-	zmin = 4.0;
-	Real beta, Bpre;
-	Real Bx = 0.0;
-	Real M1h, M2h, M3h;
+/* The safe factor used in the Riemann solver to decide whether adopt first order
+ * left and right states or not */
+  const Real fluxfactor = 2.0;
+
+/* To correct the negative pressure */
+  zmin = 4.0;
+  Real beta, Bpre;
+  Real Bx = 0.0;
+  Real M1h, M2h, M3h;
 #ifdef RADIATION_MHD
-  	Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
-  	Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
-  	Real B1ch,B2ch,B3ch;
+  Real MHD_src_By,MHD_src_Bz,mdb1,mdb2,mdb3;
+  Real db1,db2,db3,l1,l2,l3,B1,B2,B3,V1,V2,V3;
+  Real B1ch,B2ch,B3ch;
 #endif
 
 #if defined(RADIATION_MHD) || defined(SELF_GRAVITY)
-  	Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
+  Real dx1i=1.0/pG->dx1, dx2i=1.0/pG->dx2, dx3i=1.0/pG->dx3;
 #endif
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
@@ -250,8 +250,8 @@ void integrate_3d_radMHD(DomainS *pD)
   PrimS Wtemp1, Wtemp2, Wtemp3, Wtemp4, Wtemp5, Wtemp6;
   int Np; /* number of cells used to average pressure */
 
-#endif 
-	
+#endif
+
   PrimS Wtemp;
   PrimS Wopacity;
 #ifdef SELF_GRAVITY
@@ -261,180 +261,180 @@ void integrate_3d_radMHD(DomainS *pD)
 #endif
 #endif
 
-	
-	
-	int my_iproc,my_jproc,my_kproc;
+
+
+  int my_iproc,my_jproc,my_kproc;
 /* Variables for shearing box */
-#ifdef SHEARING_BOX	
-	Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
-	Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
-	Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
-	Real fact, qom, om_dt = Omega_0*pG->dt;
-	fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
-	qom = qshear*Omega_0;
-	Real ShearSource[4];
-/*	Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
-	Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
- */
+#ifdef SHEARING_BOX
+  Real M1n, dM2n; /* M1, dM2=(My+d*q*Omega_0*x) at time n */
+  Real M1e, dM2e; /* M1, dM2 evolved by dt/2 */
+  Real flx1_dM2, frx1_dM2, flx2_dM2, frx2_dM2, flx3_dM2, frx3_dM2;
+  Real fact, qom, om_dt = Omega_0*pG->dt;
+  fact = om_dt/(2. + (2.-qshear)*om_dt*om_dt);
+  qom = qshear*Omega_0;
+  Real ShearSource[4];
+/*      Real ShearingSource_M1, ShearingSource_M2, ShearingSource_M3, ShearingSource_E;
+        Real Shearingguess_M1, Shearingguess_M2, Shearingguess_M3, Shearingguess_E;
+*/
 #endif /* SHEARING_BOX */
 
-	Real temperature, velocity_x, velocity_y, velocity_z, velocity, pressure, density;
-	Real Fr0x, Fr0y, Fr0z, diffTEr; /* co-moving flux, Fr-vf E_r/C , diffTEr = T^4 - Er*/
-	Real Smx0, Smy0, Smz0; /* the momentum source term v(T^4-E_r)* sigma/Crat */
-	Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
-	/* The opacity function is:0-3 Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE */
-	Real Propa_44, SEE, SErho, SEmx, SEmy, SEmz;
-	Real dSigma[2*NOPACITY];
-	Real Sigma[NOPACITY];
-	/* dSigma for dSigma?/drho and dSigma?/dT */
-	Cons1DS Usource;
-	/* for source term */
+  Real temperature, velocity_x, velocity_y, velocity_z, velocity, pressure, density;
+  Real Fr0x, Fr0y, Fr0z, diffTEr; /* co-moving flux, Fr-vf E_r/C , diffTEr = T^4 - Er*/
+  Real Smx0, Smy0, Smz0; /* the momentum source term v(T^4-E_r)* sigma/Crat */
+  Real Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE;
+/* The opacity function is:0-3 Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE */
+  Real Propa_44, SEE, SErho, SEmx, SEmy, SEmz;
+  Real dSigma[2*NOPACITY];
+  Real Sigma[NOPACITY];
+/* dSigma for dSigma?/drho and dSigma?/dT */
+  Cons1DS Usource;
+/* for source term */
 
-	/* In case momentum becomes stiff */
-	Real SFmx, SFmy, SFmz;
-	/* for radiation work term */
-	Real Prwork1, Prworksource, Prwork2;
-
-
-	Real Source_Inv[NVAR][NVAR], Source_Invnew[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
-	Real Psource, Ersource;
-	Real divFlux1[NVAR], divFlux2[NVAR], divFlux3[NVAR];
-
-	/* SourceFlux is used to calculate flux due to non-stiff source terms, such as gravity */
-
-	/* Initialize them to be zero */
-	/* NVAR is the same as normal hydro code. Rad variables are not included here */
-	for(i=0; i<NVAR; i++){
-		SourceFlux[i] = 0.0;
-		Source_guess[i] = 0.0;
-		Errort[i] = 0.0;
-		divFlux1[i] = 0.0;
-		divFlux2[i] = 0.0;
-		divFlux3[i] = 0.0;
-		tempguess[i] = 0.0;
-		for(j=0; j<NVAR; j++) {
-			Source_Inv[i][j] = 0.0;	
-			Source_Invnew[i][j] = 0.0;
-			
-			if(i==j) {
-		 		Source_Inv[i][j] = 1.0;
-				Source_Invnew[i][j] = 1.0;
-		
-			}
-		}
-	}
-
-	for(i=0; i<4; i++)
-		dSigma[i] = 0.0;
+/* In case momentum becomes stiff */
+  Real SFmx, SFmy, SFmz;
+/* for radiation work term */
+  Real Prwork1, Prworksource, Prwork2;
 
 
-	il = is - 2;
-  	iu = ie + 2;
-  	jl = js - 2;
-  	ju = je + 2;
-  	kl = ks - 2;
-  	ku = ke + 2;
+  Real Source_Inv[NVAR][NVAR], Source_Invnew[NVAR][NVAR], tempguess[NVAR], Uguess[NVAR], Source_guess[NVAR], Errort[NVAR], SourceFlux[NVAR];
+  Real Psource, Ersource;
+  Real divFlux1[NVAR], divFlux2[NVAR], divFlux3[NVAR];
+
+/* SourceFlux is used to calculate flux due to non-stiff source terms, such as gravity */
+
+/* Initialize them to be zero */
+/* NVAR is the same as normal hydro code. Rad variables are not included here */
+  for(i=0; i<NVAR; i++){
+    SourceFlux[i] = 0.0;
+    Source_guess[i] = 0.0;
+    Errort[i] = 0.0;
+    divFlux1[i] = 0.0;
+    divFlux2[i] = 0.0;
+    divFlux3[i] = 0.0;
+    tempguess[i] = 0.0;
+    for(j=0; j<NVAR; j++) {
+      Source_Inv[i][j] = 0.0;
+      Source_Invnew[i][j] = 0.0;
+
+      if(i==j) {
+        Source_Inv[i][j] = 1.0;
+        Source_Invnew[i][j] = 1.0;
+
+      }
+    }
+  }
+
+  for(i=0; i<4; i++)
+    dSigma[i] = 0.0;
 
 
-	/* Check negative pressure */
-	/* This is particular for the ghost zones */
-	
- 	for (k=ks-nghost; k<=ke+nghost; k++){
-                for (j=js-nghost; j<=je+nghost; j++) {
-                        for (i=is-nghost; i<=ie+nghost; i++) {
-
-                                Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-				if(Wtemp.d < dfloor){
-					Wtemp.d = dfloor;
-					pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
-				}
-
-				if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
-					Wtemp.P = Tfloor * Wtemp.d * R_ideal;
-                                        pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+  il = is - 2;
+  iu = ie + 2;
+  jl = js - 2;
+  ju = je + 2;
+  kl = ks - 2;
+  ku = ke + 2;
 
 
-                        	} /* End if wtemp negative */
+/* Check negative pressure */
+/* This is particular for the ghost zones */
 
-				if(pG->U[k][j][i].Er < TINY_NUMBER)
-					pG->U[k][j][i].Er = pow(Tfloor, 4.0);
+  for (k=ks-nghost; k<=ke+nghost; k++){
+    for (j=js-nghost; j<=je+nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
 
-                        }/* end i */
-                }/* end j*/
-        }/* end k*/
+        Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+        if(Wtemp.d < dfloor){
+          Wtemp.d = dfloor;
+          pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+        }
+
+        if(Wtemp.P/(R_ideal * Wtemp.d) < Tfloor){
+          Wtemp.P = Tfloor * Wtemp.d * R_ideal;
+          pG->U[k][j][i] = Prim_to_Cons(&(Wtemp));
+
+
+        } /* End if wtemp negative */
+
+        if(pG->U[k][j][i].Er < TINY_NUMBER)
+          pG->U[k][j][i].Er = pow(Tfloor, 4.0);
+
+      }/* end i */
+    }/* end j*/
+  }/* end k*/
 
 
 
 
 /*=== Step 1: Backward Euler is done in the main function for the whole mesh ===*/
-	
-	/* First, calculate the source term */
-	updatesource(pG);
+
+/* First, calculate the source term */
+  updatesource(pG);
 
 /* Store the initial data */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-	for (k=ks-nghost; k<=ke+nghost; k++){
-		for (j=js-nghost; j<=je+nghost; j++) {
-    			for (i=is-nghost; i<=ie+nghost; i++) {
-				INIdata[k][j][i][0] = pG->U[k][j][i].d;
-				INIdata[k][j][i][1] = pG->U[k][j][i].M1;
-				INIdata[k][j][i][2] = pG->U[k][j][i].M2;
-				INIdata[k][j][i][3] = pG->U[k][j][i].M3;
-				INIdata[k][j][i][4] = pG->U[k][j][i].E;
+  for (k=ks-nghost; k<=ke+nghost; k++){
+    for (j=js-nghost; j<=je+nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+        INIdata[k][j][i][0] = pG->U[k][j][i].d;
+        INIdata[k][j][i][1] = pG->U[k][j][i].M1;
+        INIdata[k][j][i][2] = pG->U[k][j][i].M2;
+        INIdata[k][j][i][3] = pG->U[k][j][i].M3;
+        INIdata[k][j][i][4] = pG->U[k][j][i].E;
 
-				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+        Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
 
-				INIdata[k][j][i][5] = Wtemp.P;
+        INIdata[k][j][i][5] = Wtemp.P;
 
 
-			}
-		}
-	}	
+      }
+    }
+  }
 
 #endif
 
 
-	
+
 /*=== STEP 2: Compute L/R x1-interface states and 1D x1-Fluxes ===============*/
 
 /*--- Step 2a ------------------------------------------------------------------
  * Load 1D vector of conserved variables;
  * U1d = (d, M1, M2, M3, E, B2c, B3c, s[n])
  */
-	for (k=kl; k<=ku; k++){
-		for (j=jl; j<=ju; j++) {
-    			for (i=is-nghost; i<=ie+nghost; i++) {
-      			
-			U1d[i].d  = pG->U[k][j][i].d;
-			U1d[i].Mx = pG->U[k][j][i].M1;
-			U1d[i].My = pG->U[k][j][i].M2;
-			U1d[i].Mz = pG->U[k][j][i].M3;
-			U1d[i].E  = pG->U[k][j][i].E;
+  for (k=kl; k<=ku; k++){
+    for (j=jl; j<=ju; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+
+        U1d[i].d  = pG->U[k][j][i].d;
+        U1d[i].Mx = pG->U[k][j][i].M1;
+        U1d[i].My = pG->U[k][j][i].M2;
+        U1d[i].Mz = pG->U[k][j][i].M3;
+        U1d[i].E  = pG->U[k][j][i].E;
 #ifdef RADIATION_MHD
-			U1d[i].By = pG->U[k][j][i].B2c;
-			U1d[i].Bz = pG->U[k][j][i].B3c;
-			Bxc[i] = pG->U[k][j][i].B1c;
-			Bxi[i] = pG->B1i[k][j][i];
-			B1_x1Face[k][j][i] = pG->B1i[k][j][i];
-#endif /* MHD */	
-					
-			U1d[i].Er  = pG->U[k][j][i].Er;
-			U1d[i].Fr1  = pG->U[k][j][i].Fr1;
-			U1d[i].Fr2  = pG->U[k][j][i].Fr2;
-			U1d[i].Fr3  = pG->U[k][j][i].Fr3;
-			U1d[i].Edd_11  = pG->U[k][j][i].Edd_11;
-			U1d[i].Edd_21  = pG->U[k][j][i].Edd_21;
-			U1d[i].Edd_22  = pG->U[k][j][i].Edd_22;
-			U1d[i].Edd_31  = pG->U[k][j][i].Edd_31;
-			U1d[i].Edd_32  = pG->U[k][j][i].Edd_32;
-			U1d[i].Edd_33  = pG->U[k][j][i].Edd_33;
-			for(m=0; m<NOPACITY;m++){
-				U1d[i].Sigma[m] = pG->U[k][j][i].Sigma[m];
+        U1d[i].By = pG->U[k][j][i].B2c;
+        U1d[i].Bz = pG->U[k][j][i].B3c;
+        Bxc[i] = pG->U[k][j][i].B1c;
+        Bxi[i] = pG->B1i[k][j][i];
+        B1_x1Face[k][j][i] = pG->B1i[k][j][i];
+#endif /* MHD */
 
-			}
+        U1d[i].Er  = pG->U[k][j][i].Er;
+        U1d[i].Fr1  = pG->U[k][j][i].Fr1;
+        U1d[i].Fr2  = pG->U[k][j][i].Fr2;
+        U1d[i].Fr3  = pG->U[k][j][i].Fr3;
+        U1d[i].Edd_11  = pG->U[k][j][i].Edd_11;
+        U1d[i].Edd_21  = pG->U[k][j][i].Edd_21;
+        U1d[i].Edd_22  = pG->U[k][j][i].Edd_22;
+        U1d[i].Edd_31  = pG->U[k][j][i].Edd_31;
+        U1d[i].Edd_32  = pG->U[k][j][i].Edd_32;
+        U1d[i].Edd_33  = pG->U[k][j][i].Edd_33;
+        for(m=0; m<NOPACITY;m++){
+          U1d[i].Sigma[m] = pG->U[k][j][i].Sigma[m];
+
+        }
 
 
-			}
+      }
 
 
 /*--- Step 2b ------------------------------------------------------------------
@@ -444,265 +444,265 @@ void integrate_3d_radMHD(DomainS *pD)
 /* Do not include source terms for the left and right states */
 /* Using first order reconstruction and do not include source terms to the left and right states */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-			
-			for (i=il+1; i<=iu; i++) {
-        			Ul_x1Face[k][j][i] = U1d[i-1];
-        			Ur_x1Face[k][j][i] = U1d[i];
-				
-				Wl[i] = Cons1D_to_Prim1D(&U1d[i-1],&Bxc[i-1]);
-				Wr[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+
+      for (i=il+1; i<=iu; i++) {
+        Ul_x1Face[k][j][i] = U1d[i-1];
+        Ur_x1Face[k][j][i] = U1d[i];
+
+        Wl[i] = Cons1D_to_Prim1D(&U1d[i-1],&Bxc[i-1]);
+        Wr[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
 
 #ifdef RADIATION_MHD
-        			Bx = B1_x1Face[k][j][i];
+        Bx = B1_x1Face[k][j][i];
 #endif
-			/* take the time step with x1Flux */
-				x1FluxP[k][j][i].d = dt;	
-				x1FluxP[k][j][i].Mx = 3;
+/* take the time step with x1Flux */
+        x1FluxP[k][j][i].d = dt;
+        x1FluxP[k][j][i].Mx = 3;
 
-        		FOFC_Flux(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1FluxP[k][j][i]);
-      		}
+        FOFC_Flux(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1FluxP[k][j][i]);
+      }
 
 
 #endif /* End first order flux */
 
-			for (i=is-nghost; i<=ie+nghost; i++) {
-      				W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
-        			/* Calculate the cell-centered geometric source vector now using U^{n}
-         			* This will be used at the end of the integration step as a source term
-         			* for the cell-centered conserved variables (steps 6D,7D,8B) */
+      for (i=is-nghost; i<=ie+nghost; i++) {
+        W[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+/* Calculate the cell-centered geometric source vector now using U^{n}
+ * This will be used at the end of the integration step as a source term
+ * for the cell-centered conserved variables (steps 6D,7D,8B) */
 #ifdef CYLINDRICAL
-        			geom_src[k][j][i]  = W[i].d*SQR(W[i].Vy);
+        geom_src[k][j][i]  = W[i].d*SQR(W[i].Vy);
 #ifdef RADIATION_MHD
-        			geom_src[k][j][i] += 0.5*(SQR(Bxc[i]) - SQR(W[i].By) + SQR(W[i].Bz));
+        geom_src[k][j][i] += 0.5*(SQR(Bxc[i]) - SQR(W[i].By) + SQR(W[i].Bz));
 #endif
 #ifdef ISOTHERMAL
-        			geom_src[k][j][i] += Iso_csound2*W[i].d;
+        geom_src[k][j][i] += Iso_csound2*W[i].d;
 #else
-        			geom_src[k][j][i] += W[i].P;
+        geom_src[k][j][i] += W[i].P;
 #endif
-        			geom_src[k][j][i] /= x1vc(pG,i);
+        geom_src[k][j][i] /= x1vc(pG,i);
 #endif /* CYLINDRICAL */
 
 
 
 
 
-    			}
+      }
 
-			lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,3);
-			
-/*			for (i=il+1; i<=iu; i++) {
-				velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
-				velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
-				if( (velocity > Vmax) || (velocity_x > Vmax) || (velocity!= velocity) || (velocity_x != velocity_x) || (Wl[i].P/(Wl[i].d * R_ideal) < Tfloor) || (Wr[i].P/(Wr[i].d * R_ideal) < Tfloor)){
-					Wl[i] = W[i-1];
-					Wr[i] = W[i];
-				}
-			}
+      lr_states(pG,W,Bxc,pG->dt,pG->dx1,il+1,iu-1,Wl,Wr,3);
+
+/*                      for (i=il+1; i<=iu; i++) {
+                        velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+                        if( (velocity > Vmax) || (velocity_x > Vmax) || (velocity!= velocity) || (velocity_x != velocity_x) || (Wl[i].P/(Wl[i].d * R_ideal) < Tfloor) || (Wr[i].P/(Wr[i].d * R_ideal) < Tfloor)){
+                        Wl[i] = W[i-1];
+                        Wr[i] = W[i];
+                        }
+                        }
 */
 
 /*------Step 2c: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
-		for (i=il+1; i<=iu; i++) {
-		/* NOTICE that we use primitive variables as left and right states to calculate flux */
-		/* For left state */
-			
-			Propa_44 = Alpha[k][j][i-1];
+      for (i=il+1; i<=iu; i++) {
+/* NOTICE that we use primitive variables as left and right states to calculate flux */
+/* For left state */
 
-			velocity_x = U1d[i-1].Mx / U1d[i-1].d;
-			velocity_y = U1d[i-1].My / U1d[i-1].d;
-			velocity_z = U1d[i-1].Mz / U1d[i-1].d;
+        Propa_44 = Alpha[k][j][i-1];
 
-			
+        velocity_x = U1d[i-1].Mx / U1d[i-1].d;
+        velocity_y = U1d[i-1].My / U1d[i-1].d;
+        velocity_z = U1d[i-1].Mz / U1d[i-1].d;
+
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
 
-			/* The velocity here is the perturbed velocity */
-			/* We do not need to add background shearing in */
+/* The velocity here is the perturbed velocity */
+/* We do not need to add background shearing in */
 
-			Psource =  (Gamma - 1.0) * Source[k][j][i-1][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i-1][1] + velocity_y * Source[k][j][i-1][2] + velocity_z * Source[k][j][i-1][3]);
+        Psource =  (Gamma - 1.0) * Source[k][j][i-1][4] - (Gamma - 1.0) * (velocity_x * Source[k][j][i-1][1] + velocity_y * Source[k][j][i-1][2] + velocity_z * Source[k][j][i-1][3]);
 
 
-            if(Erflag){
+        if(Erflag){
 
-                Wl[i].Vx += dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
-                Wl[i].Vy += dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
-                Wl[i].Vz += dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
-                Wl[i].P += dt * Propa_44 * Psource * 0.5;
-			
-                if(Wl[i].P < TINY_NUMBER){
-                    Wl[i].P -= dt * Propa_44 * Psource * 0.5;
-                    Wl[i].Vx -= dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
-                    Wl[i].Vy -= dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
-                    Wl[i].Vz -= dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
-                }
-                
-                
-            }
-	
-			for(m=0; m<NOPACITY; m++)
-				Wl[i].Sigma[m] = U1d[i-1].Sigma[m];
-			
-			Wl[i].Edd_11 = W[i-1].Edd_11;
-			Wl[i].Edd_21 = W[i-1].Edd_21;
-			Wl[i].Edd_22 = W[i-1].Edd_22;
-			Wl[i].Edd_31 = W[i-1].Edd_31;
-			Wl[i].Edd_32 = W[i-1].Edd_32;
-			Wl[i].Edd_33 = W[i-1].Edd_33;
+          Wl[i].Vx += dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
+          Wl[i].Vy += dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
+          Wl[i].Vz += dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
+          Wl[i].P += dt * Propa_44 * Psource * 0.5;
 
-		/* For the right state */
-	
-	
-			Propa_44 = Alpha[k][j][i];
+          if(Wl[i].P < TINY_NUMBER){
+            Wl[i].P -= dt * Propa_44 * Psource * 0.5;
+            Wl[i].Vx -= dt * Source[k][j][i-1][1] * 0.5 * Beta[k][j][i-1][0] / U1d[i-1].d;
+            Wl[i].Vy -= dt * Source[k][j][i-1][2] * 0.5 * Beta[k][j][i-1][1] / U1d[i-1].d;
+            Wl[i].Vz -= dt * Source[k][j][i-1][3] * 0.5 * Beta[k][j][i-1][2] / U1d[i-1].d;
+          }
 
-			velocity_x = U1d[i].Mx / U1d[i].d;
-			velocity_y = U1d[i].My / U1d[i].d;
-			velocity_z = U1d[i].Mz / U1d[i].d;
 
-			
+        }
+
+        for(m=0; m<NOPACITY; m++)
+          Wl[i].Sigma[m] = U1d[i-1].Sigma[m];
+
+        Wl[i].Edd_11 = W[i-1].Edd_11;
+        Wl[i].Edd_21 = W[i-1].Edd_21;
+        Wl[i].Edd_22 = W[i-1].Edd_22;
+        Wl[i].Edd_31 = W[i-1].Edd_31;
+        Wl[i].Edd_32 = W[i-1].Edd_32;
+        Wl[i].Edd_33 = W[i-1].Edd_33;
+
+/* For the right state */
+
+
+        Propa_44 = Alpha[k][j][i];
+
+        velocity_x = U1d[i].Mx / U1d[i].d;
+        velocity_y = U1d[i].My / U1d[i].d;
+        velocity_z = U1d[i].Mz / U1d[i].d;
+
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
-			
-			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-            if(Erflag){
-			
-                Wr[i].Vx += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
-                Wr[i].Vy += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
-                Wr[i].Vz += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
-                Wr[i].P += dt * Propa_44 * Psource * 0.5;
-			
-                if(Wr[i].P < TINY_NUMBER){
-                    Wr[i].P -= dt * Propa_44 * Psource * 0.5;
-                    Wr[i].Vx -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
-                    Wr[i].Vy -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
-                    Wr[i].Vz -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
-                }
-                
-                
-            }
+        Psource =  (Gamma - 1.0) * Source[k][j][i][4]   - (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-			for(m=0; m<NOPACITY; m++)
-				Wr[i].Sigma[m] = U1d[i].Sigma[m];
+        if(Erflag){
 
-			Wr[i].Edd_11 = W[i].Edd_11;
-			Wr[i].Edd_21 = W[i].Edd_21;
-			Wr[i].Edd_22 = W[i].Edd_22;
-			Wr[i].Edd_31 = W[i].Edd_31;
-			Wr[i].Edd_32 = W[i].Edd_32;
-			Wr[i].Edd_33 = W[i].Edd_33;	
+          Wr[i].Vx += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
+          Wr[i].Vy += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
+          Wr[i].Vz += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
+          Wr[i].P += dt * Propa_44 * Psource * 0.5;
 
-/*			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
-                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);	
-			if(velocity != velocity || velocity_x != velocity_x){
-				printf("lvx: %e lvy: %e lvz: %e rvx: %e rvy: %e rvz: %e ls: %e lBeta: %e rs: %e rBeta: %e\n",Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Wr[i].Vx,Wr[i].Vz,Wr[i].Vz,Source[k][j][i-1][1],Beta[k][j][i-1][0],Source[k][j][i][1],Beta[k][j][i][0]);
+          if(Wr[i].P < TINY_NUMBER){
+            Wr[i].P -= dt * Propa_44 * Psource * 0.5;
+            Wr[i].Vx -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[i].d;
+            Wr[i].Vy -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[i].d;
+            Wr[i].Vz -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[i].d;
+          }
 
-			}
-*/			
-		}
+
+        }
+
+        for(m=0; m<NOPACITY; m++)
+          Wr[i].Sigma[m] = U1d[i].Sigma[m];
+
+        Wr[i].Edd_11 = W[i].Edd_11;
+        Wr[i].Edd_21 = W[i].Edd_21;
+        Wr[i].Edd_22 = W[i].Edd_22;
+        Wr[i].Edd_31 = W[i].Edd_31;
+        Wr[i].Edd_32 = W[i].Edd_32;
+        Wr[i].Edd_33 = W[i].Edd_33;
+
+/*                      velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+                        if(velocity != velocity || velocity_x != velocity_x){
+                        printf("lvx: %e lvy: %e lvz: %e rvx: %e rvy: %e rvz: %e ls: %e lBeta: %e rs: %e rBeta: %e\n",Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Wr[i].Vx,Wr[i].Vz,Wr[i].Vz,Source[k][j][i-1][1],Beta[k][j][i-1][0],Source[k][j][i][1],Beta[k][j][i][0]);
+
+                        }
+*/
+      }
 
 /*---------For radiation MHD, source term due to magnetic field is also added---------*/
-		
+
 #ifdef RADIATION_MHD
-      		for (i=il+1; i<=iu; i++) {
+      for (i=il+1; i<=iu; i++) {
 /* Source terms for left states in zone i-1 */
 #ifdef CYLINDRICAL
-        	rsf = ri[i]/r[i-1];  lsf = ri[i-1]/r[i-1];
-        	dx2i = 1.0/(r[i-1]*pG->dx2);
+        rsf = ri[i]/r[i-1];  lsf = ri[i-1]/r[i-1];
+        dx2i = 1.0/(r[i-1]*pG->dx2);
 #endif
-	        db1 = (rsf*pG->B1i[k  ][j  ][i  ] - lsf*pG->B1i[k][j][i-1])*dx1i;
-       		db2 = (    pG->B2i[k  ][j+1][i-1] -     pG->B2i[k][j][i-1])*dx2i;
-        	db3 = (    pG->B3i[k+1][j  ][i-1] -     pG->B3i[k][j][i-1])*dx3i;
+        db1 = (rsf*pG->B1i[k  ][j  ][i  ] - lsf*pG->B1i[k][j][i-1])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i-1] -     pG->B2i[k][j][i-1])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i-1] -     pG->B3i[k][j][i-1])*dx3i;
 
-		if(db1 >= 0.0){
-	  		l3 = db1 < -db3 ? db1 : -db3;
-	  		l3 = l3 > 0.0 ? l3 : 0.0;
+        if(db1 >= 0.0){
+          l3 = db1 < -db3 ? db1 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
 
-	  		l2 = db1 < -db2 ? db1 : -db2;
-	  		l2 = l2 > 0.0 ? l2 : 0.0;
-		}
-		else{
-	  		l3 = db1 > -db3 ? db1 : -db3;
-	  		l3 = l3 < 0.0 ? l3 : 0.0;
+          l2 = db1 < -db2 ? db1 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l3 = db1 > -db3 ? db1 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
 
-	  		l2 = db1 > -db2 ? db1 : -db2;
-	  		l2 = l2 < 0.0 ? l2 : 0.0;
-		}
+          l2 = db1 > -db2 ? db1 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
 
-	        MHD_src_By = (pG->U[k][j][i-1].M2/pG->U[k][j][i-1].d)*l2;
-	        MHD_src_Bz = (pG->U[k][j][i-1].M3/pG->U[k][j][i-1].d)*l3;
+        MHD_src_By = (pG->U[k][j][i-1].M2/pG->U[k][j][i-1].d)*l2;
+        MHD_src_Bz = (pG->U[k][j][i-1].M3/pG->U[k][j][i-1].d)*l3;
 
-	        Wl[i].By += hdt*MHD_src_By;
-	        Wl[i].Bz += hdt*MHD_src_Bz;
+        Wl[i].By += hdt*MHD_src_By;
+        Wl[i].Bz += hdt*MHD_src_Bz;
 
-        /* Source terms for right states in zone i */
+/* Source terms for right states in zone i */
 #ifdef CYLINDRICAL
-        	rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        	dx2i = 1.0/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dx2i = 1.0/(r[i]*pG->dx2);
 #endif
 
-	        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        	db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
-        	db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
+        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
 
-        	if(db1 >= 0.0){
-          		l3 = db1 < -db3 ? db1 : -db3;
-          		l3 = l3 > 0.0 ? l3 : 0.0;
+        if(db1 >= 0.0){
+          l3 = db1 < -db3 ? db1 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
 
-          		l2 = db1 < -db2 ? db1 : -db2;
-          		l2 = l2 > 0.0 ? l2 : 0.0;
-        	}
-        	else{
-          		l3 = db1 > -db3 ? db1 : -db3;
-          		l3 = l3 < 0.0 ? l3 : 0.0;
+          l2 = db1 < -db2 ? db1 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l3 = db1 > -db3 ? db1 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
 
-          		l2 = db1 > -db2 ? db1 : -db2;
-          		l2 = l2 < 0.0 ? l2 : 0.0;
-        	}
+          l2 = db1 > -db2 ? db1 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
 
-        	MHD_src_By = (pG->U[k][j][i].M2/pG->U[k][j][i].d)*l2;
-        	MHD_src_Bz = (pG->U[k][j][i].M3/pG->U[k][j][i].d)*l3;
+        MHD_src_By = (pG->U[k][j][i].M2/pG->U[k][j][i].d)*l2;
+        MHD_src_Bz = (pG->U[k][j][i].M3/pG->U[k][j][i].d)*l3;
 
-        	Wr[i].By += hdt*MHD_src_By;
-        	Wr[i].Bz += hdt*MHD_src_Bz;
-      		}
+        Wr[i].By += hdt*MHD_src_By;
+        Wr[i].Bz += hdt*MHD_src_Bz;
+      }
 #endif
 
 /*-------Add source term due to static gravitational potential for left and right state--------*/
-	
-      		if (StaticGravPot != NULL){
-        		for (i=il+1; i<=iu; i++) {
-         			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+      if (StaticGravPot != NULL){
+        for (i=il+1; i<=iu; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef CYLINDRICAL
-          			gl = (*x1GravAcc)(x1vc(pG,i-1),x2,x3);
-          			gr = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          gl = (*x1GravAcc)(x1vc(pG,i-1),x2,x3);
+          gr = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 #ifdef FARGO
-          /* Correct for force in the rotating frame */
-                                gl = gl - x1vc(pG,i-1)*SQR((*OrbitalProfile)(x1vc(pG,i-1)));
-                                gr = gr - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+/* Correct for force in the rotating frame */
+          gl = gl - x1vc(pG,i-1)*SQR((*OrbitalProfile)(x1vc(pG,i-1)));
+          gr = gr - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-          /* APPLY GRAV. SOURCE TERMS TO VELOCITY USING ACCELERATION
-          * FOR (dt/2) */
-          			Wl[i].Vx -= hdt*gl;
-          			Wr[i].Vx -= hdt*gr;
+/* APPLY GRAV. SOURCE TERMS TO VELOCITY USING ACCELERATION
+ * FOR (dt/2) */
+          Wl[i].Vx -= hdt*gl;
+          Wr[i].Vx -= hdt*gr;
 #else
-          			phicr = (*StaticGravPot)( x1             ,x2,x3);
-          			phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
-          			phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          phicr = (*StaticGravPot)( x1             ,x2,x3);
+          phicl = (*StaticGravPot)((x1-    pG->dx1),x2,x3);
+          phifc = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-          			Wl[i].Vx -= dtodx1*(phifc - phicl);
-          			Wr[i].Vx -= dtodx1*(phicr - phifc);
+          Wl[i].Vx -= dtodx1*(phifc - phicl);
+          Wr[i].Vx -= dtodx1*(phicr - phifc);
 #endif
 
 
-        		}
-      		}
+        }
+      }
 
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add source terms for self-gravity for 0.5*dt to L/R states
@@ -714,54 +714,54 @@ void integrate_3d_radMHD(DomainS *pD)
         Wr[i].Vx -= hdtodx1*(pG->Phi[k][j][i] - pG->Phi[k][j][i-1]);
       }
 #endif
-			
+
 /* Add source terms for shearing box (Coriolis forces) for 0.5*dt to L/R states
  * starting with tidal gravity terms added through the ShearingBoxPot
  *    Vx source term = (dt/2)*( 2 Omega_0 Vy)
  *    Vy source term = (dt/2)*(-2 Omega_0 Vx)
  *    Vy source term = (dt/2)*((q-2) Omega_0 Vx) (with FARGO)
  * (x1,x2,x3) in code = (X,Z,Y) in 2D shearing sheet
- */		
-				
+ */
+
 #ifdef SHEARING_BOX
-		if (ShearingBoxPot != NULL){
-			for (i=il+1; i<=iu; i++) {
-						cc_pos(pG,i,j,k,&x1,&x2,&x3);
-						phicr = (*ShearingBoxPot)( x1             ,x2,x3);
-						phicl = (*ShearingBoxPot)((x1-    pG->dx1),x2,x3);
-						phifc = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-						
-						Wl[i].Vx -= dtodx1*(phifc - phicl);
-						Wr[i].Vx -= dtodx1*(phicr - phifc);
-					}
-				}
-			
-		for (i=il+1; i<=iu; i++) {
-				Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
-				Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
+      if (ShearingBoxPot != NULL){
+        for (i=il+1; i<=iu; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phicr = (*ShearingBoxPot)( x1             ,x2,x3);
+          phicl = (*ShearingBoxPot)((x1-    pG->dx1),x2,x3);
+          phifc = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+          Wl[i].Vx -= dtodx1*(phifc - phicl);
+          Wr[i].Vx -= dtodx1*(phicr - phifc);
+        }
+      }
+
+      for (i=il+1; i<=iu; i++) {
+        Wl[i].Vx += pG->dt*Omega_0*W[i-1].Vy;
+        Wr[i].Vx += pG->dt*Omega_0*W[i].Vy;
 #ifdef FARGO
-				Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
-				Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
+        Wl[i].Vy += hdt*(qshear-2.)*Omega_0*W[i-1].Vx;
+        Wr[i].Vy += hdt*(qshear-2.)*Omega_0*W[i].Vx;
 #else
-				Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
-				Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
+        Wl[i].Vy -= pG->dt*Omega_0*W[i-1].Vx;
+        Wr[i].Vy -= pG->dt*Omega_0*W[i].Vx;
 #endif
-		}
-			
-#endif /* SHEARING_BOX */	
+      }
+
+#endif /* SHEARING_BOX */
 
 #if defined(CYLINDRICAL) && defined(FARGO)
-      		for (i=il+1; i<=iu; i++) {
-        		Om = (*OrbitalProfile)(r[i-1]);
-        		qshear = (*ShearProfile)(r[i-1]);
-        		Wl[i].Vx += (pG->dt)*Om*W[i-1].Vy;
-        		Wl[i].Vy += hdt*(qshear - 2.0)*Om*W[i-1].Vx;
+      for (i=il+1; i<=iu; i++) {
+        Om = (*OrbitalProfile)(r[i-1]);
+        qshear = (*ShearProfile)(r[i-1]);
+        Wl[i].Vx += (pG->dt)*Om*W[i-1].Vy;
+        Wl[i].Vy += hdt*(qshear - 2.0)*Om*W[i-1].Vx;
 
-        		Om = (*OrbitalProfile)(r[i]);
-        		qshear = (*ShearProfile)(r[i]);
-        		Wr[i].Vx += (pG->dt)*Om*W[i].Vy;
-        		Wr[i].Vy += hdt*(qshear - 2.0)*Om*W[i].Vx;
-      		}
+        Om = (*OrbitalProfile)(r[i]);
+        qshear = (*ShearProfile)(r[i]);
+        Wr[i].Vx += (pG->dt)*Om*W[i].Vy;
+        Wr[i].Vy += hdt*(qshear - 2.0)*Om*W[i].Vx;
+      }
 #endif
 
 
@@ -770,124 +770,124 @@ void integrate_3d_radMHD(DomainS *pD)
  * variables at time t^n
  */
 #ifdef CYLINDRICAL
-      		for (i=is-1; i<=ie+2; i++) {
+      for (i=is-1; i<=ie+2; i++) {
 
-        	/* left state geometric source term (uses W[i-1]) */
-        		rinv = 1.0/x1vc(pG,i-1);
-        		geom_src_d  = -W[i-1].d*W[i-1].Vx*rinv;
-        		geom_src_Vx =  SQR(W[i-1].Vy);
-        		geom_src_Vy = -W[i-1].Vx*W[i-1].Vy;
+/* left state geometric source term (uses W[i-1]) */
+        rinv = 1.0/x1vc(pG,i-1);
+        geom_src_d  = -W[i-1].d*W[i-1].Vx*rinv;
+        geom_src_Vx =  SQR(W[i-1].Vy);
+        geom_src_Vy = -W[i-1].Vx*W[i-1].Vy;
 #ifdef RADIATION_MHD
-        		geom_src_Vx -= SQR(W[i-1].By)/W[i-1].d;
-        		geom_src_Vy += Bxc[i-1]*W[i-1].By/W[i-1].d;
-        		geom_src_By =  -W[i-1].Vy*Bxc[i-1]*rinv;
-        		geom_src_Bz =  -W[i-1].Vx*W[i-1].Bz*rinv;
+        geom_src_Vx -= SQR(W[i-1].By)/W[i-1].d;
+        geom_src_Vy += Bxc[i-1]*W[i-1].By/W[i-1].d;
+        geom_src_By =  -W[i-1].Vy*Bxc[i-1]*rinv;
+        geom_src_Bz =  -W[i-1].Vx*W[i-1].Bz*rinv;
 #endif
-        		geom_src_Vx *= rinv;
-        		geom_src_Vy *= rinv;
+        geom_src_Vx *= rinv;
+        geom_src_Vy *= rinv;
 #ifndef ISOTHERMAL
-        		geom_src_P  = -Gamma*W[i-1].P*W[i-1].Vx*rinv;
-#endif
-
-        		/* add source term to left state */
-        		Wl[i].d  += hdt*geom_src_d;
-        		Wl[i].Vx += hdt*geom_src_Vx;
-        		Wl[i].Vy += hdt*geom_src_Vy;
-#ifdef RADIATION_MHD
-        		Wl[i].By += hdt*geom_src_By;
-        		Wl[i].Bz += hdt*geom_src_Bz;
-#endif
-#ifndef ISOTHERMAL
-        		Wl[i].P  += hdt*geom_src_P;
+        geom_src_P  = -Gamma*W[i-1].P*W[i-1].Vx*rinv;
 #endif
 
-        /* right state geometric source term (uses W[i]) */
-        		rinv = 1.0/x1vc(pG,i);
-        		geom_src_d  = -W[i].d*W[i].Vx*rinv;
-        		geom_src_Vx =  SQR(W[i].Vy);
-        		geom_src_Vy = -W[i].Vx*W[i].Vy;
+/* add source term to left state */
+        Wl[i].d  += hdt*geom_src_d;
+        Wl[i].Vx += hdt*geom_src_Vx;
+        Wl[i].Vy += hdt*geom_src_Vy;
 #ifdef RADIATION_MHD
-        		geom_src_Vx -= SQR(W[i].By)/W[i].d;
-        		geom_src_Vy += Bxc[i]*W[i].By/W[i].d;
-        		geom_src_By =  -W[i].Vy*Bxc[i]*rinv;
-        		geom_src_Bz =  -W[i].Vx*W[i].Bz*rinv;
+        Wl[i].By += hdt*geom_src_By;
+        Wl[i].Bz += hdt*geom_src_Bz;
 #endif
-        		geom_src_Vx *= rinv;
-        		geom_src_Vy *= rinv;
 #ifndef ISOTHERMAL
-        		geom_src_P  = -Gamma*W[i].P*W[i].Vx*rinv;
+        Wl[i].P  += hdt*geom_src_P;
 #endif
 
-        /* add source term to right state */
-        		Wr[i].d  += hdt*geom_src_d;
-        		Wr[i].Vx += hdt*geom_src_Vx;
-        		Wr[i].Vy += hdt*geom_src_Vy;
+/* right state geometric source term (uses W[i]) */
+        rinv = 1.0/x1vc(pG,i);
+        geom_src_d  = -W[i].d*W[i].Vx*rinv;
+        geom_src_Vx =  SQR(W[i].Vy);
+        geom_src_Vy = -W[i].Vx*W[i].Vy;
 #ifdef RADIATION_MHD
-        		Wr[i].By += hdt*geom_src_By;
-        		Wr[i].Bz += hdt*geom_src_Bz;
+        geom_src_Vx -= SQR(W[i].By)/W[i].d;
+        geom_src_Vy += Bxc[i]*W[i].By/W[i].d;
+        geom_src_By =  -W[i].Vy*Bxc[i]*rinv;
+        geom_src_Bz =  -W[i].Vx*W[i].Bz*rinv;
+#endif
+        geom_src_Vx *= rinv;
+        geom_src_Vy *= rinv;
+#ifndef ISOTHERMAL
+        geom_src_P  = -Gamma*W[i].P*W[i].Vx*rinv;
+#endif
+
+/* add source term to right state */
+        Wr[i].d  += hdt*geom_src_d;
+        Wr[i].Vx += hdt*geom_src_Vx;
+        Wr[i].Vy += hdt*geom_src_Vy;
+#ifdef RADIATION_MHD
+        Wr[i].By += hdt*geom_src_By;
+        Wr[i].Bz += hdt*geom_src_Bz;
 #endif
 #ifndef ISOTHERMAL
-        		Wr[i].P  += hdt*geom_src_P;
+        Wr[i].P  += hdt*geom_src_P;
 #endif
       }
 #endif /* CYLINDRICAL */
 
-			
+
 
 
 /*--- Step 2d ------------------------------------------------------------------
  * Compute 1D fluxes in x1-direction, storing into 3D array
  */
-	      	for (i=il+1; i<=iu; i++) {
-        		Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
-        		Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
+      for (i=il+1; i<=iu; i++) {
+        Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
+        Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
 
 
-				if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-                                        /* copy left primitive states to be the left sate */
-                                        Wl[i] = Cons1D_to_Prim1D(&U1d[i-1],&Bxc[i-1]);
-                                        Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
+        if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+/* copy left primitive states to be the left sate */
+          Wl[i] = Cons1D_to_Prim1D(&U1d[i-1],&Bxc[i-1]);
+          Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bxi[i]);
 
-                                        /* copy right primitive states to be the right sate */
-                                        Wr[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
-                                        Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
+/* copy right primitive states to be the right sate */
+          Wr[i] = Cons1D_to_Prim1D(&U1d[i],&Bxc[i]);
+          Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bxi[i]);
 
-                                }
+        }
 
 
 #ifdef RADIATION_MHD
-        		Bx = B1_x1Face[k][j][i];
+        Bx = B1_x1Face[k][j][i];
 #endif
-			/* take the time step with x1Flux */
-			x1Flux[k][j][i].d = dt;	
-				x1Flux[k][j][i].Mx = 3;
+/* take the time step with x1Flux */
+        x1Flux[k][j][i].d = dt;
+        x1Flux[k][j][i].Mx = 3;
 
-        		fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
+        fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
 
-			 /* revert to predictor flux if this flux Nan'ed */
+/* revert to predictor flux if this flux Nan'ed */
 /*
-                                if ((x1Flux[k][j][i].d  != x1Flux[k][j][i].d)  ||
-#ifndef BAROTROPIC
-                                        (x1Flux[k][j][i].E  != x1Flux[k][j][i].E)  ||
-#endif
-#ifdef RADIATION_MHD
-                                        (x1Flux[k][j][i].By != x1Flux[k][j][i].By) ||
-                                        (x1Flux[k][j][i].Bz != x1Flux[k][j][i].Bz) ||
-#endif
-                                        (x1Flux[k][j][i].Mx != x1Flux[k][j][i].Mx) ||
-                                        (x1Flux[k][j][i].My != x1Flux[k][j][i].My) ||
-                                        (x1Flux[k][j][i].Mz != x1Flux[k][j][i].Mz)) {
-                                        printf("1nd flux1: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[i].d,Wl[i].P, Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Bx,Wl[i].By,Wl[i].Bz,pG->U[k][j][i-1].d,pG->U[k][j][i-1].E,pG->U[k][j][i-1].M1,pG->U[k][j][i-1].M2,pG->U[k][j][i-1].M3,Wr[i].d,Wr[i].P,Wr[i].Vx,Wr[i].Vy,Wr[i].Vz,Wr[i].By,Wr[i].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
-                                         printf("i: %d j: %d k: %d ID: %d\n",i,j,k,myID_Comm_world);
-                                }
+  if ((x1Flux[k][j][i].d  != x1Flux[k][j][i].d)  ||
+  #ifndef BAROTROPIC
+  (x1Flux[k][j][i].E  != x1Flux[k][j][i].E)  ||
+  #endif
+  #ifdef RADIATION_MHD
+  (x1Flux[k][j][i].By != x1Flux[k][j][i].By) ||
+  (x1Flux[k][j][i].Bz != x1Flux[k][j][i].Bz) ||
+  #endif
+  (x1Flux[k][j][i].Mx != x1Flux[k][j][i].Mx) ||
+  (x1Flux[k][j][i].My != x1Flux[k][j][i].My) ||
+  (x1Flux[k][j][i].Mz != x1Flux[k][j][i].Mz)) {
+  printf("1nd flux1: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[i].d,Wl[i].P, Wl[i].Vx,Wl[i].Vy,Wl[i].Vz,Bx,Wl[i].By,Wl[i].Bz,pG->U[k][j][i-1].d,pG->U[k][j][i-1].E,pG->U[k][j][i-1].M1,pG->U[k][j][i-1].M2,pG->U[k][j][i-1].M3,Wr[i].d,Wr[i].P,Wr[i].Vx,Wr[i].Vy,Wr[i].Vz,Wr[i].By,Wr[i].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
+  printf("i: %d j: %d k: %d ID: %d\n",i,j,k,myID_Comm_world);
+  }
 */
 
-      		}
-		
+      }
 
-		} /* End j */
 
-	}/* End k */	
+    } /* End j */
+
+  }/* End k */
 
 
 /*=== STEP 3: Compute L/R x2-interface states and 1D x2-Fluxes ===============*/
@@ -896,327 +896,327 @@ void integrate_3d_radMHD(DomainS *pD)
  * U1d = (d, M2, M3, M1, E, B3c, B1c, s[n])
  * NOTICE that momentum is rotated but flux and Eddington tensor are not *
  */
-	for (k=kl; k<=ku; k++){
-		for (i=il; i<=iu; i++) {
+  for (k=kl; k<=ku; k++){
+    for (i=il; i<=iu; i++) {
 #ifdef CYLINDRICAL
-      			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-      			dx2 = r[i]*pG->dx2;
-      			dtodx2 = pG->dt/dx2;
-			q2 = 0.5 * dtodx2;
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+      dx2 = r[i]*pG->dx2;
+      dtodx2 = pG->dt/dx2;
+      q2 = 0.5 * dtodx2;
 #endif
-    			for (j=js-nghost; j<=je+nghost; j++) {
-      				U1d[j].d  = pG->U[k][j][i].d;
-      				U1d[j].Mx = pG->U[k][j][i].M2;
-      				U1d[j].My = pG->U[k][j][i].M3;
-      				U1d[j].Mz = pG->U[k][j][i].M1;
-      				U1d[j].E  = pG->U[k][j][i].E;
-				U1d[j].Er  = pG->U[k][j][i].Er;
-    				U1d[j].Fr1  = pG->U[k][j][i].Fr1;
-				U1d[j].Fr2  = pG->U[k][j][i].Fr2;
-    				U1d[j].Fr3  = pG->U[k][j][i].Fr3;
-				U1d[j].Edd_11  = pG->U[k][j][i].Edd_11;
-				U1d[j].Edd_21  = pG->U[k][j][i].Edd_21;
-				U1d[j].Edd_22  = pG->U[k][j][i].Edd_22;
-				U1d[j].Edd_31  = pG->U[k][j][i].Edd_31;
-				U1d[j].Edd_32  = pG->U[k][j][i].Edd_32;
-				U1d[j].Edd_33  = pG->U[k][j][i].Edd_33;
-				for(m=0; m<NOPACITY;m++)
-					U1d[j].Sigma[m] = pG->U[k][j][i].Sigma[m];
-		
-				
+      for (j=js-nghost; j<=je+nghost; j++) {
+        U1d[j].d  = pG->U[k][j][i].d;
+        U1d[j].Mx = pG->U[k][j][i].M2;
+        U1d[j].My = pG->U[k][j][i].M3;
+        U1d[j].Mz = pG->U[k][j][i].M1;
+        U1d[j].E  = pG->U[k][j][i].E;
+        U1d[j].Er  = pG->U[k][j][i].Er;
+        U1d[j].Fr1  = pG->U[k][j][i].Fr1;
+        U1d[j].Fr2  = pG->U[k][j][i].Fr2;
+        U1d[j].Fr3  = pG->U[k][j][i].Fr3;
+        U1d[j].Edd_11  = pG->U[k][j][i].Edd_11;
+        U1d[j].Edd_21  = pG->U[k][j][i].Edd_21;
+        U1d[j].Edd_22  = pG->U[k][j][i].Edd_22;
+        U1d[j].Edd_31  = pG->U[k][j][i].Edd_31;
+        U1d[j].Edd_32  = pG->U[k][j][i].Edd_32;
+        U1d[j].Edd_33  = pG->U[k][j][i].Edd_33;
+        for(m=0; m<NOPACITY;m++)
+          U1d[j].Sigma[m] = pG->U[k][j][i].Sigma[m];
+
+
 #ifdef RADIATION_MHD
-      				U1d[j].By = pG->U[k][j][i].B3c;
-      				U1d[j].Bz = pG->U[k][j][i].B1c;
-      				Bxc[j] = pG->U[k][j][i].B2c;
-      				Bxi[j] = pG->B2i[k][j][i];
-      				B2_x2Face[k][j][i] = pG->B2i[k][j][i];
+        U1d[j].By = pG->U[k][j][i].B3c;
+        U1d[j].Bz = pG->U[k][j][i].B1c;
+        Bxc[j] = pG->U[k][j][i].B2c;
+        Bxi[j] = pG->B2i[k][j][i];
+        B2_x2Face[k][j][i] = pG->B2i[k][j][i];
 #endif /* MHD */
-			}
+      }
 
 /* Do not include source terms for the left and right states */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-			
-			for (j=jl+1; j<=ju; j++) {
-        			Ul_x2Face[k][j][i] = U1d[j-1];
-        			Ur_x2Face[k][j][i] = U1d[j];
 
-				Wl[j] = Cons1D_to_Prim1D(&U1d[j-1],&Bxc[j-1]);
-				Wr[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+      for (j=jl+1; j<=ju; j++) {
+        Ul_x2Face[k][j][i] = U1d[j-1];
+        Ur_x2Face[k][j][i] = U1d[j];
+
+        Wl[j] = Cons1D_to_Prim1D(&U1d[j-1],&Bxc[j-1]);
+        Wr[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
 
 
 #ifdef RADIATION_MHD
-        			Bx = B2_x2Face[k][j][i];
+        Bx = B2_x2Face[k][j][i];
 #endif
-				/* Take the time step with x2Flux[][][].d */
-				x2FluxP[k][j][i].d = dt;
-				x2FluxP[k][j][i].Mx = 3;
-			
-        			FOFC_Flux(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2FluxP[k][j][i]);
-      			}
+/* Take the time step with x2Flux[][][].d */
+        x2FluxP[k][j][i].d = dt;
+        x2FluxP[k][j][i].Mx = 3;
+
+        FOFC_Flux(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2FluxP[k][j][i]);
+      }
 
 
 #endif /* End first order flux */
 
 
-		for (j=js-nghost; j<=je+nghost; j++) {
-        		W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
-      		}
+      for (j=js-nghost; j<=je+nghost; j++) {
+        W[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+      }
 
-      		lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,3);
-
-
+      lr_states(pG,W,Bxc,pG->dt,dx2,jl+1,ju-1,Wl,Wr,3);
 
 
-/*		for (j=jl+1; j<=ju; j++) {
-				velocity = sqrt(Wl[j].Vx * Wl[j].Vx + Wl[j].Vy * Wl[j].Vy + Wl[j].Vz * Wl[j].Vz);
-				velocity_x = sqrt(Wr[j].Vx * Wr[j].Vx + Wr[j].Vy * Wr[j].Vy + Wr[j].Vz * Wr[j].Vz);
-				if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[j].P/(Wl[j].d * R_ideal) < Tfloor) || (Wr[j].P/(Wr[j].d * R_ideal) < Tfloor)){
-					Wl[j] = W[j-1];
-					Wr[j] = W[j];
-				}
-		}
+
+
+/*              for (j=jl+1; j<=ju; j++) {
+                velocity = sqrt(Wl[j].Vx * Wl[j].Vx + Wl[j].Vy * Wl[j].Vy + Wl[j].Vz * Wl[j].Vz);
+                velocity_x = sqrt(Wr[j].Vx * Wr[j].Vx + Wr[j].Vy * Wr[j].Vy + Wr[j].Vz * Wr[j].Vz);
+                if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[j].P/(Wl[j].d * R_ideal) < Tfloor) || (Wr[j].P/(Wr[j].d * R_ideal) < Tfloor)){
+                Wl[j] = W[j-1];
+                Wr[j] = W[j];
+                }
+                }
 */
 
 /*------Step 3b: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
 
-		for (j=jl+1; j<=ju; j++) {
-		/* NOTICE that we use primitive variables as left and right states to calculate flux */
-		/* For left state */
-			Propa_44 = Alpha[k][j-1][i];
+      for (j=jl+1; j<=ju; j++) {
+/* NOTICE that we use primitive variables as left and right states to calculate flux */
+/* For left state */
+        Propa_44 = Alpha[k][j-1][i];
 
-			velocity_x = U1d[j-1].Mz / U1d[j-1].d;
-			velocity_y = U1d[j-1].Mx / U1d[j-1].d;
-			velocity_z = U1d[j-1].My / U1d[j-1].d;
+        velocity_x = U1d[j-1].Mz / U1d[j-1].d;
+        velocity_y = U1d[j-1].Mx / U1d[j-1].d;
+        velocity_z = U1d[j-1].My / U1d[j-1].d;
 
-			
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
 
-			Psource =  (Gamma - 1.0) * Source[k][j-1][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j-1][i][1] + velocity_y * Source[k][j-1][i][2] + velocity_z * Source[k][j-1][i][3]);
+        Psource =  (Gamma - 1.0) * Source[k][j-1][i][4] - (Gamma - 1.0) * (velocity_x * Source[k][j-1][i][1] + velocity_y * Source[k][j-1][i][2] + velocity_z * Source[k][j-1][i][3]);
 
-            if(Erflag){
-			
-                Wl[j].Vx += dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
-                Wl[j].Vy += dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
-                Wl[j].Vz += dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
-                Wl[j].P += dt * Propa_44 * Psource * 0.5;
-			
-                if(Wl[j].P < TINY_NUMBER){
-                    Wl[j].P -= dt * Propa_44 * Psource * 0.5;
-                    Wl[j].Vx -= dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
-                    Wl[j].Vy -= dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
-                    Wl[j].Vz -= dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
-                }
+        if(Erflag){
 
-			}
-            
-            
-			for(m=0; m<NOPACITY;m++){
-				Wl[j].Sigma[m] = U1d[j-1].Sigma[m];
-			}
+          Wl[j].Vx += dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
+          Wl[j].Vy += dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
+          Wl[j].Vz += dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
+          Wl[j].P += dt * Propa_44 * Psource * 0.5;
 
-			Wl[j].Edd_11 = W[j-1].Edd_11;
-			Wl[j].Edd_21 = W[j-1].Edd_21;
-			Wl[j].Edd_22 = W[j-1].Edd_22;
-			Wl[j].Edd_31 = W[j-1].Edd_31;
-			Wl[j].Edd_32 = W[j-1].Edd_32;
-			Wl[j].Edd_33 = W[j-1].Edd_33;
+          if(Wl[j].P < TINY_NUMBER){
+            Wl[j].P -= dt * Propa_44 * Psource * 0.5;
+            Wl[j].Vx -= dt * Source[k][j-1][i][2] * 0.5 * Beta[k][j-1][i][1] / U1d[j-1].d;
+            Wl[j].Vy -= dt * Source[k][j-1][i][3] * 0.5 * Beta[k][j-1][i][2] / U1d[j-1].d;
+            Wl[j].Vz -= dt * Source[k][j-1][i][1] * 0.5 * Beta[k][j-1][i][0] / U1d[j-1].d;
+          }
+
+        }
 
 
+        for(m=0; m<NOPACITY;m++){
+          Wl[j].Sigma[m] = U1d[j-1].Sigma[m];
+        }
 
-		/* For the right state */
-	
-	
-			Propa_44 = Alpha[k][j][i];
+        Wl[j].Edd_11 = W[j-1].Edd_11;
+        Wl[j].Edd_21 = W[j-1].Edd_21;
+        Wl[j].Edd_22 = W[j-1].Edd_22;
+        Wl[j].Edd_31 = W[j-1].Edd_31;
+        Wl[j].Edd_32 = W[j-1].Edd_32;
+        Wl[j].Edd_33 = W[j-1].Edd_33;
 
-			velocity_x = U1d[j].Mz / U1d[j].d;
-			velocity_y = U1d[j].Mx / U1d[j].d;
-			velocity_z = U1d[j].My / U1d[j].d;
 
-			
+
+/* For the right state */
+
+
+        Propa_44 = Alpha[k][j][i];
+
+        velocity_x = U1d[j].Mz / U1d[j].d;
+        velocity_y = U1d[j].Mx / U1d[j].d;
+        velocity_z = U1d[j].My / U1d[j].d;
+
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
 
-			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
+        Psource =  (Gamma - 1.0) * Source[k][j][i][4]   - (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-			if(Erflag){
-            
-                Wr[j].Vx += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
-                Wr[j].Vy += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
-                Wr[j].Vz += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
-                Wr[j].P += dt * Propa_44 * Psource * 0.5;
+        if(Erflag){
 
-                if(Wr[j].P < TINY_NUMBER){
-                    Wr[j].P -= dt * Propa_44 * Psource * 0.5;
-                    Wr[j].Vx -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
-                    Wr[j].Vy -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
-                    Wr[j].Vz -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
-                }
-                
-                
-            }
-			
-			for(m=0; m<NOPACITY; m++){
-				Wr[j].Sigma[m] = U1d[j].Sigma[m];
+          Wr[j].Vx += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
+          Wr[j].Vy += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
+          Wr[j].Vz += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
+          Wr[j].P += dt * Propa_44 * Psource * 0.5;
 
-			}
+          if(Wr[j].P < TINY_NUMBER){
+            Wr[j].P -= dt * Propa_44 * Psource * 0.5;
+            Wr[j].Vx -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[j].d;
+            Wr[j].Vy -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[j].d;
+            Wr[j].Vz -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[j].d;
+          }
 
 
-			Wr[j].Edd_11 = W[j].Edd_11;
-			Wr[j].Edd_21 = W[j].Edd_21;
-			Wr[j].Edd_22 = W[j].Edd_22;
-			Wr[j].Edd_31 = W[j].Edd_31;
-			Wr[j].Edd_32 = W[j].Edd_32;
-			Wr[j].Edd_33 = W[j].Edd_33;		
-			
-		}
+        }
+
+        for(m=0; m<NOPACITY; m++){
+          Wr[j].Sigma[m] = U1d[j].Sigma[m];
+
+        }
+
+
+        Wr[j].Edd_11 = W[j].Edd_11;
+        Wr[j].Edd_21 = W[j].Edd_21;
+        Wr[j].Edd_22 = W[j].Edd_22;
+        Wr[j].Edd_31 = W[j].Edd_31;
+        Wr[j].Edd_32 = W[j].Edd_32;
+        Wr[j].Edd_33 = W[j].Edd_33;
+
+      }
 
 
 #ifdef RADIATION_MHD
 
 #ifdef CYLINDRICAL
-      		dx2i = 1.0/dx2;
+      dx2i = 1.0/dx2;
 #endif
 
-	      	for (j=jl+1; j<=ju; j++) {
+      for (j=jl+1; j<=ju; j++) {
 /* Source terms for left states in zone j-1 */
-        		db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
-        		db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
-        		db3 = (    pG->B3i[k+1][j-1][i  ] -     pG->B3i[k][j-1][i])*dx3i;
+        db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j-1][i  ] -     pG->B3i[k][j-1][i])*dx3i;
 
-			if(db2 >= 0.0){
-	  			l1 = db2 < -db1 ? db2 : -db1;
-	  			l1 = l1 > 0.0 ? l1 : 0.0;
+        if(db2 >= 0.0){
+          l1 = db2 < -db1 ? db2 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
 
-	  			l3 = db2 < -db3 ? db2 : -db3;
-	  			l3 = l3 > 0.0 ? l3 : 0.0;
-			}
-			else{
-				l1 = db2 > -db1 ? db2 : -db1;
-	  			l1 = l1 < 0.0 ? l1 : 0.0;
+          l3 = db2 < -db3 ? db2 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
+        }
+        else{
+          l1 = db2 > -db1 ? db2 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
 
-				l3 = db2 > -db3 ? db2 : -db3;
-	  			l3 = l3 < 0.0 ? l3 : 0.0;
-			}
+          l3 = db2 > -db3 ? db2 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
+        }
 
-			MHD_src_By = (pG->U[k][j-1][i].M3/pG->U[k][j-1][i].d)*l3;
-			MHD_src_Bz = (pG->U[k][j-1][i].M1/pG->U[k][j-1][i].d)*l1;
+        MHD_src_By = (pG->U[k][j-1][i].M3/pG->U[k][j-1][i].d)*l3;
+        MHD_src_Bz = (pG->U[k][j-1][i].M1/pG->U[k][j-1][i].d)*l1;
 
-       	 		Wl[j].By += hdt*MHD_src_By;
-        		Wl[j].Bz += hdt*MHD_src_Bz;
+        Wl[j].By += hdt*MHD_src_By;
+        Wl[j].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone j */
-        		db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        		db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
-        		db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
+        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
 
-        		if(db2 >= 0.0){
-          			l1 = db2 < -db1 ? db2 : -db1;
-          			l1 = l1 > 0.0 ? l1 : 0.0;
+        if(db2 >= 0.0){
+          l1 = db2 < -db1 ? db2 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
 
-          			l3 = db2 < -db3 ? db2 : -db3;
-          			l3 = l3 > 0.0 ? l3 : 0.0;
-        		}
-        		else{
-          			l1 = db2 > -db1 ? db2 : -db1;
-          			l1 = l1 < 0.0 ? l1 : 0.0;
+          l3 = db2 < -db3 ? db2 : -db3;
+          l3 = l3 > 0.0 ? l3 : 0.0;
+        }
+        else{
+          l1 = db2 > -db1 ? db2 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
 
-          			l3 = db2 > -db3 ? db2 : -db3;
-          			l3 = l3 < 0.0 ? l3 : 0.0;
-        		}
+          l3 = db2 > -db3 ? db2 : -db3;
+          l3 = l3 < 0.0 ? l3 : 0.0;
+        }
 
-        		MHD_src_By = (pG->U[k][j][i].M3/pG->U[k][j][i].d)*l3;
-        		MHD_src_Bz = (pG->U[k][j][i].M1/pG->U[k][j][i].d)*l1;
+        MHD_src_By = (pG->U[k][j][i].M3/pG->U[k][j][i].d)*l3;
+        MHD_src_Bz = (pG->U[k][j][i].M1/pG->U[k][j][i].d)*l1;
 
-        		Wr[j].By += hdt*MHD_src_By;
-        		Wr[j].Bz += hdt*MHD_src_Bz;
-      		}	
+        Wr[j].By += hdt*MHD_src_By;
+        Wr[j].Bz += hdt*MHD_src_Bz;
+      }
 #endif
 
 
-		
-      		if (StaticGravPot != NULL){
-        		for (j=jl+1; j<=ju; j++) {
-          			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-          			phicr = (*StaticGravPot)(x1, x2             ,x3);
-         	 		phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
-          			phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+      if (StaticGravPot != NULL){
+        for (j=jl+1; j<=ju; j++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-          		 	Wl[j].Vx -= dtodx2*(phifc - phicl);
-          			Wr[j].Vx -= dtodx2*(phicr - phifc);
-        	
-			}
-      		}
+          phicr = (*StaticGravPot)(x1, x2             ,x3);
+          phicl = (*StaticGravPot)(x1,(x2-    pG->dx2),x3);
+          phifc = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+          Wl[j].Vx -= dtodx2*(phifc - phicl);
+          Wr[j].Vx -= dtodx2*(phicr - phifc);
+
+        }
+      }
 
 
- /* Add source terms for self-gravity for 0.5*dt to L/R states
-  * q2 already includes the gemotric factor for cylindrical case 
+/* Add source terms for self-gravity for 0.5*dt to L/R states
+ * q2 already includes the gemotric factor for cylindrical case
  */
 
 #ifdef SELF_GRAVITY
-      		for (j=jl+1; j<=ju; j++) {
-        		Wl[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
-        		Wr[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
-      		}
+      for (j=jl+1; j<=ju; j++) {
+        Wl[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
+        Wr[j].Vx -= q2*(pG->Phi[k][j][i] - pG->Phi[k][j-1][i]);
+      }
 #endif
 
 
 
 /*-----Calculate flux along x2 direction ---------*/
 
-		for (j=jl+1; j<=ju; j++) {
-        		Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
-        		Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
-				
- 				if((Wl[j].P < 2.0 * TINY_NUMBER) || (Wl[j].d < dfloor) || (Wr[j].P < 2.0 * TINY_NUMBER) || (Wr[j].d < dfloor) ){
-                                        /* copy left primitive states to be the left sate */
-                                        Wl[j] = Cons1D_to_Prim1D(&U1d[j-1],&Bxc[j-1]);
-                                        Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
+      for (j=jl+1; j<=ju; j++) {
+        Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
+        Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
 
-                                        /* copy right primitive states to be the right sate */
-                                        Wr[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
-                                        Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
+        if((Wl[j].P < 2.0 * TINY_NUMBER) || (Wl[j].d < dfloor) || (Wr[j].P < 2.0 * TINY_NUMBER) || (Wr[j].d < dfloor) ){
+/* copy left primitive states to be the left sate */
+          Wl[j] = Cons1D_to_Prim1D(&U1d[j-1],&Bxc[j-1]);
+          Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[j],&Bxi[j]);
 
-                                }
+/* copy right primitive states to be the right sate */
+          Wr[j] = Cons1D_to_Prim1D(&U1d[j],&Bxc[j]);
+          Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[j],&Bxi[j]);
+
+        }
 
 
 #ifdef RADIATION_MHD
-        		Bx = B2_x2Face[k][j][i];
+        Bx = B2_x2Face[k][j][i];
 #endif
-			/* Take the time step with x2Flux[][][].d */
-			x2Flux[k][j][i].d = dt;
-			x2Flux[k][j][i].Mx = 3;
-			
-        		fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2Flux[k][j][i]);
+/* Take the time step with x2Flux[][][].d */
+        x2Flux[k][j][i].d = dt;
+        x2Flux[k][j][i].Mx = 3;
+
+        fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[j],Wr[j],Bx,&x2Flux[k][j][i]);
 
 /*
-                        if ((x2Flux[k][j][i].d  != x2Flux[k][j][i].d)  ||
-#ifndef BAROTROPIC
-                                (x2Flux[k][j][i].E  != x2Flux[k][j][i].E)  ||
-#endif
-#if defined(MHD) || defined(RADIATION_MHD)
-                                (x2Flux[k][j][i].By != x2Flux[k][j][i].By) ||
-                                (x2Flux[k][j][i].Bz != x2Flux[k][j][i].Bz) ||
-#endif
-                                (x2Flux[k][j][i].Mx != x2Flux[k][j][i].Mx) ||
-                                (x2Flux[k][j][i].My != x2Flux[k][j][i].My) ||
-                                (x2Flux[k][j][i].Mz != x2Flux[k][j][i].Mz)) {
-                                printf("1nd flux2: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[j].d,Wl[j].P, Wl[j].Vx,Wl[j].Vy,Wl[j].Vz,Bx,Wl[j].By,Wl[j].Bz,pG->U[k][j-1][i].d,pG->U[k][j-1][i].E,pG->U[k][j-1][i].M1,pG->U[k][j-1][i].M2,pG->U[k][j-1][i].M3,Wr[j].d,Wr[j].P,Wr[j].Vx,Wr[j].Vy,Wr[j].Vz,Wr[j].By,Wr[j].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
-                        }
+  if ((x2Flux[k][j][i].d  != x2Flux[k][j][i].d)  ||
+  #ifndef BAROTROPIC
+  (x2Flux[k][j][i].E  != x2Flux[k][j][i].E)  ||
+  #endif
+  #if defined(MHD) || defined(RADIATION_MHD)
+  (x2Flux[k][j][i].By != x2Flux[k][j][i].By) ||
+  (x2Flux[k][j][i].Bz != x2Flux[k][j][i].Bz) ||
+  #endif
+  (x2Flux[k][j][i].Mx != x2Flux[k][j][i].Mx) ||
+  (x2Flux[k][j][i].My != x2Flux[k][j][i].My) ||
+  (x2Flux[k][j][i].Mz != x2Flux[k][j][i].Mz)) {
+  printf("1nd flux2: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[j].d,Wl[j].P, Wl[j].Vx,Wl[j].Vy,Wl[j].Vz,Bx,Wl[j].By,Wl[j].Bz,pG->U[k][j-1][i].d,pG->U[k][j-1][i].E,pG->U[k][j-1][i].M1,pG->U[k][j-1][i].M2,pG->U[k][j-1][i].M3,Wr[j].d,Wr[j].P,Wr[j].Vx,Wr[j].Vy,Wr[j].Vz,Wr[j].By,Wr[j].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[k][j][i].M3);
+  }
 */
 
-      		}
+      }
 
-		}/* END i */
-	}/* end k */	
+    }/* END i */
+  }/* end k */
 
 
 
@@ -1227,312 +1227,312 @@ void integrate_3d_radMHD(DomainS *pD)
  * U1d = (d, M3, M1, M2, E, B1c, B2c, s[n])
  * NOTICE that momentum is rotated but flux and Eddington tensor are not *
  */
-	for (j=jl; j<=ju; j++){
-		for (i=il; i<=iu; i++) {
-    			for (k=ks-nghost; k<=ke+nghost; k++) {
-      				U1d[k].d  = pG->U[k][j][i].d;
-      				U1d[k].Mx = pG->U[k][j][i].M3;
-      				U1d[k].My = pG->U[k][j][i].M1;
-      				U1d[k].Mz = pG->U[k][j][i].M2;
-      				U1d[k].E  = pG->U[k][j][i].E;
-				U1d[k].Er  = pG->U[k][j][i].Er;
-    				U1d[k].Fr1  = pG->U[k][j][i].Fr1;
-				U1d[k].Fr2  = pG->U[k][j][i].Fr2;
-    				U1d[k].Fr3  = pG->U[k][j][i].Fr3;
-				U1d[k].Edd_11  = pG->U[k][j][i].Edd_11;
-				U1d[k].Edd_21  = pG->U[k][j][i].Edd_21;
-				U1d[k].Edd_22  = pG->U[k][j][i].Edd_22;
-				U1d[k].Edd_31  = pG->U[k][j][i].Edd_31;
-				U1d[k].Edd_32  = pG->U[k][j][i].Edd_32;
-				U1d[k].Edd_33  = pG->U[k][j][i].Edd_33;
+  for (j=jl; j<=ju; j++){
+    for (i=il; i<=iu; i++) {
+      for (k=ks-nghost; k<=ke+nghost; k++) {
+        U1d[k].d  = pG->U[k][j][i].d;
+        U1d[k].Mx = pG->U[k][j][i].M3;
+        U1d[k].My = pG->U[k][j][i].M1;
+        U1d[k].Mz = pG->U[k][j][i].M2;
+        U1d[k].E  = pG->U[k][j][i].E;
+        U1d[k].Er  = pG->U[k][j][i].Er;
+        U1d[k].Fr1  = pG->U[k][j][i].Fr1;
+        U1d[k].Fr2  = pG->U[k][j][i].Fr2;
+        U1d[k].Fr3  = pG->U[k][j][i].Fr3;
+        U1d[k].Edd_11  = pG->U[k][j][i].Edd_11;
+        U1d[k].Edd_21  = pG->U[k][j][i].Edd_21;
+        U1d[k].Edd_22  = pG->U[k][j][i].Edd_22;
+        U1d[k].Edd_31  = pG->U[k][j][i].Edd_31;
+        U1d[k].Edd_32  = pG->U[k][j][i].Edd_32;
+        U1d[k].Edd_33  = pG->U[k][j][i].Edd_33;
 
-				for(m=0; m<NOPACITY;m++){
-					U1d[k].Sigma[m] = pG->U[k][j][i].Sigma[m];
-				}
+        for(m=0; m<NOPACITY;m++){
+          U1d[k].Sigma[m] = pG->U[k][j][i].Sigma[m];
+        }
 
 #ifdef RADIATION_MHD
-      				U1d[k].By = pG->U[k][j][i].B1c;
-      				U1d[k].Bz = pG->U[k][j][i].B2c;
-      				Bxc[k] = pG->U[k][j][i].B3c;
-      				Bxi[k] = pG->B3i[k][j][i];
-      				B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+        U1d[k].By = pG->U[k][j][i].B1c;
+        U1d[k].Bz = pG->U[k][j][i].B2c;
+        Bxc[k] = pG->U[k][j][i].B3c;
+        Bxi[k] = pG->B3i[k][j][i];
+        B3_x3Face[k][j][i] = pG->B3i[k][j][i];
 #endif /* MHD */
-			}
+      }
 
 
 /* Do not include source terms for the left and right states */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-			
-			for (k=kl+1; k<=ku; k++) {
-        			Ul_x3Face[k][j][i] = U1d[k-1];
-        			Ur_x3Face[k][j][i] = U1d[k];
 
-				Wl[k] = Cons1D_to_Prim1D(&U1d[k-1],&Bxc[k-1]);
-				Wr[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+      for (k=kl+1; k<=ku; k++) {
+        Ul_x3Face[k][j][i] = U1d[k-1];
+        Ur_x3Face[k][j][i] = U1d[k];
+
+        Wl[k] = Cons1D_to_Prim1D(&U1d[k-1],&Bxc[k-1]);
+        Wr[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
 
 
 #ifdef RADIATION_MHD
-        			Bx = B3_x3Face[k][j][i];
+        Bx = B3_x3Face[k][j][i];
 #endif
-			/* Take the time step with x3Flux[][][].d */
-				x3FluxP[k][j][i].d = dt;
-				x3FluxP[k][j][i].Mx = 3;
-			
-        			FOFC_Flux(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3FluxP[k][j][i]);
-      		}
+/* Take the time step with x3Flux[][][].d */
+        x3FluxP[k][j][i].d = dt;
+        x3FluxP[k][j][i].Mx = 3;
+
+        FOFC_Flux(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3FluxP[k][j][i]);
+      }
 
 #endif /* End first order flux */
 
 
 
 
-		for (k=ks-nghost; k<=ke+nghost; k++) {
-        		W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
-      		}
+      for (k=ks-nghost; k<=ke+nghost; k++) {
+        W[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+      }
 
-      		lr_states(pG,W,Bxc,pG->dt,dx3,kl+1,ku-1,Wl,Wr,3);
+      lr_states(pG,W,Bxc,pG->dt,dx3,kl+1,ku-1,Wl,Wr,3);
 
-/*		for (k=kl+1; k<=ku; k++) {
-				velocity = sqrt(Wl[k].Vx * Wl[k].Vx + Wl[k].Vy * Wl[k].Vy + Wl[k].Vz * Wl[k].Vz);
-				velocity_x = sqrt(Wr[k].Vx * Wr[k].Vx + Wr[k].Vy * Wr[k].Vy + Wr[k].Vz * Wr[k].Vz);
-				if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[k].P/(Wl[k].d * R_ideal) < Tfloor) || (Wr[k].P/(Wr[k].d * R_ideal) < Tfloor)){
-					Wl[k] = W[k-1];
-					Wr[k] = W[k];
-				}
-		}
+/*              for (k=kl+1; k<=ku; k++) {
+                velocity = sqrt(Wl[k].Vx * Wl[k].Vx + Wl[k].Vy * Wl[k].Vy + Wl[k].Vz * Wl[k].Vz);
+                velocity_x = sqrt(Wr[k].Vx * Wr[k].Vx + Wr[k].Vy * Wr[k].Vy + Wr[k].Vz * Wr[k].Vz);
+                if((velocity > Vmax) || (velocity_x > Vmax) || (velocity_x != velocity_x) || (Wl[k].P/(Wl[k].d * R_ideal) < Tfloor) || (Wr[k].P/(Wr[k].d * R_ideal) < Tfloor)){
+                Wl[k] = W[k-1];
+                Wr[k] = W[k];
+                }
+                }
 */
 /*------Step 3b: Add radiation source terms to the left and right state for 0.5*dt--------*/
 
 
-		for (k=kl+1; k<=ku; k++) {
-		/* NOTICE that we use primitive variables as left and right states to calculate flux */
-		/* For left state */
-			Propa_44 = Alpha[k-1][j][i];
+      for (k=kl+1; k<=ku; k++) {
+/* NOTICE that we use primitive variables as left and right states to calculate flux */
+/* For left state */
+        Propa_44 = Alpha[k-1][j][i];
 
-			velocity_x = U1d[k-1].My / U1d[k-1].d;
-			velocity_y = U1d[k-1].Mz / U1d[k-1].d;
-			velocity_z = U1d[k-1].Mx / U1d[k-1].d;
+        velocity_x = U1d[k-1].My / U1d[k-1].d;
+        velocity_y = U1d[k-1].Mz / U1d[k-1].d;
+        velocity_z = U1d[k-1].Mx / U1d[k-1].d;
 
-			
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
 
-			Psource =  (Gamma - 1.0) * Source[k-1][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k-1][j][i][1] + velocity_y * Source[k-1][j][i][2] + velocity_z * Source[k-1][j][i][3]);
+        Psource =  (Gamma - 1.0) * Source[k-1][j][i][4] - (Gamma - 1.0) * (velocity_x * Source[k-1][j][i][1] + velocity_y * Source[k-1][j][i][2] + velocity_z * Source[k-1][j][i][3]);
 
-			if(Erflag){
-            
-                Wl[k].Vx += dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
-                Wl[k].Vy += dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
-                Wl[k].Vz += dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
-                Wl[k].P += dt * Propa_44 * Psource * 0.5;
-			
-                if(Wl[k].P < TINY_NUMBER){
-                    Wl[k].P -= dt * Propa_44 * Psource * 0.5;
-                    Wl[k].Vx -= dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
-                    Wl[k].Vy -= dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
-                    Wl[k].Vz -= dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
-                }
-                
-            }
-			
-	
-			for(m=0;m<NOPACITY;m++){
-				Wl[k].Sigma[m] = U1d[k-1].Sigma[m];
-			}
+        if(Erflag){
 
-			Wl[k].Edd_11 = W[k-1].Edd_11;
-			Wl[k].Edd_21 = W[k-1].Edd_21;
-			Wl[k].Edd_22 = W[k-1].Edd_22;
-			Wl[k].Edd_31 = W[k-1].Edd_31;
-			Wl[k].Edd_32 = W[k-1].Edd_32;
-			Wl[k].Edd_33 = W[k-1].Edd_33;
+          Wl[k].Vx += dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
+          Wl[k].Vy += dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
+          Wl[k].Vz += dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
+          Wl[k].P += dt * Propa_44 * Psource * 0.5;
 
-		/* For the right state */
-	
-	
-			
-			Propa_44 = Alpha[k][j][i];
+          if(Wl[k].P < TINY_NUMBER){
+            Wl[k].P -= dt * Propa_44 * Psource * 0.5;
+            Wl[k].Vx -= dt * Source[k-1][j][i][3] * 0.5 * Beta[k-1][j][i][2] / U1d[k-1].d;
+            Wl[k].Vy -= dt * Source[k-1][j][i][1] * 0.5 * Beta[k-1][j][i][0] / U1d[k-1].d;
+            Wl[k].Vz -= dt * Source[k-1][j][i][2] * 0.5 * Beta[k-1][j][i][1] / U1d[k-1].d;
+          }
 
-			velocity_x = U1d[k].My / U1d[k].d;
-			velocity_y = U1d[k].Mz / U1d[k].d;
-			velocity_z = U1d[k].Mx / U1d[k].d;
+        }
 
-			
+
+        for(m=0;m<NOPACITY;m++){
+          Wl[k].Sigma[m] = U1d[k-1].Sigma[m];
+        }
+
+        Wl[k].Edd_11 = W[k-1].Edd_11;
+        Wl[k].Edd_21 = W[k-1].Edd_21;
+        Wl[k].Edd_22 = W[k-1].Edd_22;
+        Wl[k].Edd_31 = W[k-1].Edd_31;
+        Wl[k].Edd_32 = W[k-1].Edd_32;
+        Wl[k].Edd_33 = W[k-1].Edd_33;
+
+/* For the right state */
+
+
+
+        Propa_44 = Alpha[k][j][i];
+
+        velocity_x = U1d[k].My / U1d[k].d;
+        velocity_y = U1d[k].Mz / U1d[k].d;
+        velocity_z = U1d[k].Mx / U1d[k].d;
+
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			velocity_y -= qom * x1;		
+/* With FARGO, we should add background shearing to the source terms */
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        velocity_y -= qom * x1;
 #endif
 
-			Psource =  (Gamma - 1.0) * Source[k][j][i][4]	- (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
+        Psource =  (Gamma - 1.0) * Source[k][j][i][4]   - (Gamma - 1.0) * (velocity_x * Source[k][j][i][1] + velocity_y * Source[k][j][i][2] + velocity_z * Source[k][j][i][3]);
 
-            if(Erflag){
-			
-                Wr[k].Vx += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
-                Wr[k].Vy += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
-                Wr[k].Vz += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
-                Wr[k].P += dt * Propa_44 * Psource * 0.5;
-			
-                if(Wr[k].P < TINY_NUMBER){
-                    Wr[k].P -= dt * Propa_44 * Psource * 0.5;
-                    Wr[k].Vx -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
-                    Wr[k].Vy -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
-                    Wr[k].Vz -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
-                }
-                
-            }
+        if(Erflag){
 
-			for(m=0; m<NOPACITY;m++){
-				Wr[k].Sigma[m] = U1d[k].Sigma[m];
-			}
-	
-			Wr[k].Edd_11 = W[k].Edd_11;
-			Wr[k].Edd_21 = W[k].Edd_21;
-			Wr[k].Edd_22 = W[k].Edd_22;
-			Wr[k].Edd_31 = W[k].Edd_31;
-			Wr[k].Edd_32 = W[k].Edd_32;
-			Wr[k].Edd_33 = W[k].Edd_33;		
-			
-		}
+          Wr[k].Vx += dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
+          Wr[k].Vy += dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
+          Wr[k].Vz += dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
+          Wr[k].P += dt * Propa_44 * Psource * 0.5;
+
+          if(Wr[k].P < TINY_NUMBER){
+            Wr[k].P -= dt * Propa_44 * Psource * 0.5;
+            Wr[k].Vx -= dt * Source[k][j][i][3] * 0.5 * Beta[k][j][i][2] / U1d[k].d;
+            Wr[k].Vy -= dt * Source[k][j][i][1] * 0.5 * Beta[k][j][i][0] / U1d[k].d;
+            Wr[k].Vz -= dt * Source[k][j][i][2] * 0.5 * Beta[k][j][i][1] / U1d[k].d;
+          }
+
+        }
+
+        for(m=0; m<NOPACITY;m++){
+          Wr[k].Sigma[m] = U1d[k].Sigma[m];
+        }
+
+        Wr[k].Edd_11 = W[k].Edd_11;
+        Wr[k].Edd_21 = W[k].Edd_21;
+        Wr[k].Edd_22 = W[k].Edd_22;
+        Wr[k].Edd_31 = W[k].Edd_31;
+        Wr[k].Edd_32 = W[k].Edd_32;
+        Wr[k].Edd_33 = W[k].Edd_33;
+
+      }
 
 
 #ifdef RADIATION_MHD
 #ifdef CYLINDRICAL
-      		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-      		dx2i = 1.0/(r[i]*pG->dx2);
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+      dx2i = 1.0/(r[i]*pG->dx2);
 #endif
- 		for (k=kl+1; k<=ku; k++) {
+      for (k=kl+1; k<=ku; k++) {
 /* Source terms for left states in zone k-1 */
-        		db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
-        		db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;
-        		db3 = (    pG->B3i[k  ][j  ][i  ] -     pG->B3i[k-1][j][i])*dx3i;
+        db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
+        db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;
+        db3 = (    pG->B3i[k  ][j  ][i  ] -     pG->B3i[k-1][j][i])*dx3i;
 
-			if(db3 >= 0.0){
-	  			l1 = db3 < -db1 ? db3 : -db1;
-	  			l1 = l1 > 0.0 ? l1 : 0.0;
+        if(db3 >= 0.0){
+          l1 = db3 < -db1 ? db3 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
 
-	  			l2 = db3 < -db2 ? db3 : -db2;
-	  			l2 = l2 > 0.0 ? l2 : 0.0;
-			}
-			else{
-	  			l1 = db3 > -db1 ? db3 : -db1;
-	  			l1 = l1 < 0.0 ? l1 : 0.0;
+          l2 = db3 < -db2 ? db3 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l1 = db3 > -db1 ? db3 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
 
-	  			l2 = db3 > -db2 ? db3 : -db2;
-	  			l2 = l2 < 0.0 ? l2 : 0.0;
-			}
+          l2 = db3 > -db2 ? db3 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
 
-				MHD_src_By = (pG->U[k-1][j][i].M1/pG->U[k-1][j][i].d)*l1;
-				MHD_src_Bz = (pG->U[k-1][j][i].M2/pG->U[k-1][j][i].d)*l2;
+        MHD_src_By = (pG->U[k-1][j][i].M1/pG->U[k-1][j][i].d)*l1;
+        MHD_src_Bz = (pG->U[k-1][j][i].M2/pG->U[k-1][j][i].d)*l2;
 
-        			Wl[k].By += hdt*MHD_src_By;
-        			Wl[k].Bz += hdt*MHD_src_Bz;
+        Wl[k].By += hdt*MHD_src_By;
+        Wl[k].Bz += hdt*MHD_src_Bz;
 
 /* Source terms for right states in zone k */
-        			db1 = (rsf*pG->B1i[k][j][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        			db2 = (    pG->B2i[k][j+1][i] -     pG->B2i[k][j][i])*dx2i;
-        			db3 = (    pG->B3i[k+1][j][i] -     pG->B3i[k][j][i])*dx3i;
+        db1 = (rsf*pG->B1i[k][j][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k][j+1][i] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j][i] -     pG->B3i[k][j][i])*dx3i;
 
-			if(db3 >= 0.0){
-         			 l1 = db3 < -db1 ? db3 : -db1;
-          			l1 = l1 > 0.0 ? l1 : 0.0;
+        if(db3 >= 0.0){
+          l1 = db3 < -db1 ? db3 : -db1;
+          l1 = l1 > 0.0 ? l1 : 0.0;
 
-          			l2 = db3 < -db2 ? db3 : -db2;
-          			l2 = l2 > 0.0 ? l2 : 0.0;
-        		}
-        		else{
-          			l1 = db3 > -db1 ? db3 : -db1;
-          			l1 = l1 < 0.0 ? l1 : 0.0;
+          l2 = db3 < -db2 ? db3 : -db2;
+          l2 = l2 > 0.0 ? l2 : 0.0;
+        }
+        else{
+          l1 = db3 > -db1 ? db3 : -db1;
+          l1 = l1 < 0.0 ? l1 : 0.0;
 
-          			l2 = db3 > -db2 ? db3 : -db2;
-          			l2 = l2 < 0.0 ? l2 : 0.0;
-        		}
+          l2 = db3 > -db2 ? db3 : -db2;
+          l2 = l2 < 0.0 ? l2 : 0.0;
+        }
 
-        		MHD_src_By = (pG->U[k][j][i].M1/pG->U[k][j][i].d)*l1;
-       		 	MHD_src_Bz = (pG->U[k][j][i].M2/pG->U[k][j][i].d)*l2;
+        MHD_src_By = (pG->U[k][j][i].M1/pG->U[k][j][i].d)*l1;
+        MHD_src_Bz = (pG->U[k][j][i].M2/pG->U[k][j][i].d)*l2;
 
-       		 	Wr[k].By += hdt*MHD_src_By;
-        		Wr[k].Bz += hdt*MHD_src_Bz;
-      }			
+        Wr[k].By += hdt*MHD_src_By;
+        Wr[k].Bz += hdt*MHD_src_Bz;
+      }
 #endif
 
 
-		
-      		if (StaticGravPot != NULL){
-        		for (k=kl+1; k<=ku; k++) {
-          			cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-          			phicr = (*StaticGravPot)(x1,x2, x3             );
-          			phicl = (*StaticGravPot)(x1,x2,(x3-    pG->dx3));
-          			phifc = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+      if (StaticGravPot != NULL){
+        for (k=kl+1; k<=ku; k++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-          			Wl[k].Vx -= dtodx3*(phifc - phicl);
-          			Wr[k].Vx -= dtodx3*(phicr - phifc);
-        	
-			}
-      		}
+          phicr = (*StaticGravPot)(x1,x2, x3             );
+          phicl = (*StaticGravPot)(x1,x2,(x3-    pG->dx3));
+          phifc = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+
+          Wl[k].Vx -= dtodx3*(phifc - phicl);
+          Wr[k].Vx -= dtodx3*(phicr - phifc);
+
+        }
+      }
 
 #ifdef SELF_GRAVITY
-      		for (k=kl+1; k<=ku; k++) {
-        		Wl[k].Vx -= hdtodx3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
-        		Wr[k].Vx -= hdtodx3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
-      		}
+      for (k=kl+1; k<=ku; k++) {
+        Wl[k].Vx -= hdtodx3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
+        Wr[k].Vx -= hdtodx3*(pG->Phi[k][j][i] - pG->Phi[k-1][j][i]);
+      }
 #endif
 
 
 
 /*-----Calculate flux along x3 direction ---------*/
 
-		for (k=kl+1; k<=ku; k++) {
-        		Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
-        		Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
+      for (k=kl+1; k<=ku; k++) {
+        Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
+        Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
 
-				 if((Wl[k].P < 2.0 * TINY_NUMBER) || (Wl[k].d < dfloor) || (Wr[k].P < 2.0 * TINY_NUMBER) || (Wr[k].d < dfloor)){
-                                        /* copy left primitive states to be the left sate */
-                                        Wl[k] = Cons1D_to_Prim1D(&U1d[k-1],&Bxc[k-1]);
-                                        Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
+        if((Wl[k].P < 2.0 * TINY_NUMBER) || (Wl[k].d < dfloor) || (Wr[k].P < 2.0 * TINY_NUMBER) || (Wr[k].d < dfloor)){
+/* copy left primitive states to be the left sate */
+          Wl[k] = Cons1D_to_Prim1D(&U1d[k-1],&Bxc[k-1]);
+          Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[k],&Bxi[k]);
 
-                                        /* copy right primitive states to be the right sate */
-                                        Wr[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
-                                        Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
+/* copy right primitive states to be the right sate */
+          Wr[k] = Cons1D_to_Prim1D(&U1d[k],&Bxc[k]);
+          Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[k],&Bxi[k]);
 
-                                }
-			
+        }
+
 
 #ifdef RADIATION_MHD
-        		Bx = B3_x3Face[k][j][i];
+        Bx = B3_x3Face[k][j][i];
 #endif
-			/* Take the time step with x3Flux[][][].d */
-			x3Flux[k][j][i].d = dt;
-			x3Flux[k][j][i].Mx = 3;
-			
-        		fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3Flux[k][j][i]);
+/* Take the time step with x3Flux[][][].d */
+        x3Flux[k][j][i].d = dt;
+        x3Flux[k][j][i].Mx = 3;
+
+        fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[k],Wr[k],Bx,&x3Flux[k][j][i]);
 
 /*
-                        if ((x3Flux[k][j][i].d  != x3Flux[k][j][i].d)  ||
-#ifndef BAROTROPIC
-                                (x3Flux[k][j][i].E  != x3Flux[k][j][i].E)  ||
-#endif
-#if defined(MHD) || defined(RADIATION_MHD)
-                                (x3Flux[k][j][i].By != x3Flux[k][j][i].By) ||
-                                (x3Flux[k][j][i].Bz != x3Flux[k][j][i].Bz) ||
-#endif
-                                (x3Flux[k][j][i].Mx != x3Flux[k][j][i].Mx) ||
-                                (x3Flux[k][j][i].My != x3Flux[k][j][i].My) ||
-                                (x3Flux[k][j][i].Mz != x3Flux[k][j][i].Mz)) {
-                                printf("1nd flux3: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[k].d,Wl[k].P,Wl[k]
-.Vx,Wl[k].Vy,Wl[k].Vz,Bx,Wl[k].By,Wl[k].Bz,pG->U[k-1][j][i].d,pG->U[k-1][j][i].E,pG->U[k-1][j][i].M1,pG->U[k-1][j][i].M2,pG->U[k-1][j][i].M3,Wr[k].d,Wr[k].P,Wr[k].Vx,Wr[k].Vy,Wr[k].Vz,Wr[k].By,Wr[k].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[
-k][j][i].M3);
-                        }
+  if ((x3Flux[k][j][i].d  != x3Flux[k][j][i].d)  ||
+  #ifndef BAROTROPIC
+  (x3Flux[k][j][i].E  != x3Flux[k][j][i].E)  ||
+  #endif
+  #if defined(MHD) || defined(RADIATION_MHD)
+  (x3Flux[k][j][i].By != x3Flux[k][j][i].By) ||
+  (x3Flux[k][j][i].Bz != x3Flux[k][j][i].Bz) ||
+  #endif
+  (x3Flux[k][j][i].Mx != x3Flux[k][j][i].Mx) ||
+  (x3Flux[k][j][i].My != x3Flux[k][j][i].My) ||
+  (x3Flux[k][j][i].Mz != x3Flux[k][j][i].Mz)) {
+  printf("1nd flux3: ld: %e lp: %e lvx: %e lvy: %e lvz: %e lBx: %e lby: %e lbz: %e Uld: %e ulE: %e UlMx: %e Ulmy: %e Ulmz: %e rd: %e rp: %e rvx: %e rvy: %e rvz: %e rby: %e rbz: %e Urd: %e urE: %e UrMx: %e Urmy: %e Urmz: %e \n",Wl[k].d,Wl[k].P,Wl[k]
+  .Vx,Wl[k].Vy,Wl[k].Vz,Bx,Wl[k].By,Wl[k].Bz,pG->U[k-1][j][i].d,pG->U[k-1][j][i].E,pG->U[k-1][j][i].M1,pG->U[k-1][j][i].M2,pG->U[k-1][j][i].M3,Wr[k].d,Wr[k].P,Wr[k].Vx,Wr[k].Vy,Wr[k].Vz,Wr[k].By,Wr[k].Bz,pG->U[k][j][i].d,pG->U[k][j][i].E,pG->U[k][j][i].M1,pG->U[k][j][i].M2,pG->U[
+  k][j][i].M3);
+  }
 */
 
-      		}
+      }
 
-		}/* END i */
-	}/* end j */	
+    }/* END i */
+  }/* end j */
 
 
 
@@ -1546,73 +1546,73 @@ k][j][i].M3);
 
 #ifdef RADIATION_MHD
 /* emf1 */
-  		for (k=kl; k<=ku; k++) {
-    			for (j=jl; j<=ju; j++) {
-      				for (i=il; i<=iu; i++) {
-        				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
-			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)
-                              		/pG->U[k][j][i].d;
-        				emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
-			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)
-                              		/pG->U[k][j][i].d;
-        				emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
-			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)
-                              		/pG->U[k][j][i].d;
-      				}
-    			}
-  		}
-  		
-		integrate_emf1_corner(pG);
-  		integrate_emf2_corner(pG);
-  		integrate_emf3_corner(pG);
+  for (k=kl; k<=ku; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+        emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+                            pG->U[k][j][i].B3c*pG->U[k][j][i].M2)
+          /pG->U[k][j][i].d;
+        emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+                            pG->U[k][j][i].B1c*pG->U[k][j][i].M3)
+          /pG->U[k][j][i].d;
+        emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+                            pG->U[k][j][i].B2c*pG->U[k][j][i].M1)
+          /pG->U[k][j][i].d;
+      }
+    }
+  }
+
+  integrate_emf1_corner(pG);
+  integrate_emf2_corner(pG);
+  integrate_emf3_corner(pG);
 
 /*--- Step 5b ------------------------------------------------------------------
  * Update the interface magnetic fields using CT for a half time step.
  */
 
-  		for (k=kl+1; k<=ku-1; k++) {
-    			for (j=jl+1; j<=ju-1; j++) {
-      				for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        			q2 = hdt/(ri[i]*pG->dx2);
+        q2 = hdt/(ri[i]*pG->dx2);
 #endif
 
-        			B1_x1Face[k][j][i] += 	q3 * (emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
-                              				q2 * (emf3[k  ][j+1][i  ] - emf3[k][j][i]);
-        			B2_x2Face[k][j][i] +=	q1 * (emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
-                              				q3 * (emf1[k+1][j  ][i  ] - emf1[k][j][i]);
+        B1_x1Face[k][j][i] +=   q3 * (emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
+          q2 * (emf3[k  ][j+1][i  ] - emf3[k][j][i]);
+        B2_x2Face[k][j][i] +=   q1 * (emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
+          q3 * (emf1[k+1][j  ][i  ] - emf1[k][j][i]);
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        			q2 = hdt/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        q2 = hdt/(r[i]*pG->dx2);
 #endif
 
-        			B3_x3Face[k][j][i] +=	q2 * (    emf1[k  ][j+1][i  ] -     emf1[k][j][i]) -
-                              				q1 * (rsf*emf2[k  ][j  ][i+1] - lsf*emf2[k][j][i]);
-      			}
+        B3_x3Face[k][j][i] +=   q2 * (    emf1[k  ][j+1][i  ] -     emf1[k][j][i]) -
+          q1 * (rsf*emf2[k  ][j  ][i+1] - lsf*emf2[k][j][i]);
+      }
 #ifdef CYLINDRICAL
-      			q2 = hdt/(ri[iu]*pG->dx2);
+      q2 = hdt/(ri[iu]*pG->dx2);
 #endif
 
-      			B1_x1Face[k][j][iu] += 	q3 * (emf2[k+1][j  ][iu]-emf2[k][j][iu]) -
-                               			q2 * (emf3[k  ][j+1][iu]-emf3[k][j][iu]);
-    			}
-    			
-			for (i=il+1; i<=iu-1; i++) {
-      				B2_x2Face[k][ju][i] += 	q1 * (emf3[k  ][ju][i+1]-emf3[k][ju][i]) -
-                               				q3 * (emf1[k+1][ju][i  ]-emf1[k][ju][i]);
-    				}
-  			}
+      B1_x1Face[k][j][iu] +=    q3 * (emf2[k+1][j  ][iu]-emf2[k][j][iu]) -
+        q2 * (emf3[k  ][j+1][iu]-emf3[k][j][iu]);
+    }
 
-  			for (j=jl+1; j<=ju-1; j++) {
-    				for (i=il+1; i<=iu-1; i++) {
+    for (i=il+1; i<=iu-1; i++) {
+      B2_x2Face[k][ju][i] +=    q1 * (emf3[k  ][ju][i+1]-emf3[k][ju][i]) -
+        q3 * (emf1[k+1][ju][i  ]-emf1[k][ju][i]);
+    }
+  }
+
+  for (j=jl+1; j<=ju-1; j++) {
+    for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-      					rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-      					q2 = hdt/(r[i]*pG->dx2);
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+      q2 = hdt/(r[i]*pG->dx2);
 #endif
-      					B3_x3Face[ku][j][i] += 	q2 * (    emf1[ku][j+1][i  ] -     emf1[ku][j][i]) -
-                             					q1 * (rsf*emf2[ku][j  ][i+1] - lsf*emf2[ku][j][i]);
-    				}
-  			}
+      B3_x3Face[ku][j][i] +=    q2 * (    emf1[ku][j+1][i  ] -     emf1[ku][j][i]) -
+        q1 * (rsf*emf2[ku][j  ][i+1] - lsf*emf2[ku][j][i]);
+    }
+  }
 #endif /* MHD */
 
 
@@ -1621,44 +1621,44 @@ k][j][i].M3);
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /* Save first order flux */
 #if defined(MHD) || defined(RADIATION_MHD)
-	/* calculate the EMF with the first order flux */
-	/* emf1,2, 3 P are updated there */
-  	integrate_emf1_corner_FOFC(pG);
-  	integrate_emf2_corner_FOFC(pG);
-  	integrate_emf3_corner_FOFC(pG);
+/* calculate the EMF with the first order flux */
+/* emf1,2, 3 P are updated there */
+  integrate_emf1_corner_FOFC(pG);
+  integrate_emf2_corner_FOFC(pG);
+  integrate_emf3_corner_FOFC(pG);
 #endif
 #if defined (RADIATION_MHD) && defined (SHEARING_BOX)
   get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 
 /* compute remapped Ey from opposite side of grid */
   if (my_iproc == 0) {
-      RemapEyFlux_ix1(pD, emf2P, remapEyiib, x1FluxP, remapx1Fiib);
+    RemapEyFlux_ix1(pD, emf2P, remapEyiib, x1FluxP, remapx1Fiib);
   }
   if (my_iproc == (pD->NGrid[0]-1)) {
-      RemapEyFlux_ox1(pD, emf2P, remapEyoib, x1FluxP, remapx1Foib);
+    RemapEyFlux_ox1(pD, emf2P, remapEyoib, x1FluxP, remapx1Foib);
   }
 
 
 /* Now average Ey and remapped Ey */
 
-	
-    if (my_iproc == 0) {
-		for(k=ks; k<=ke+1; k++) {
-			for(j=js; j<=je; j++){
-				emf2P[k][j][is]  = 0.5*(emf2P[k][j][is] + remapEyiib[k][j]);
-				x1FluxP[k][j][is].d = 0.5*(x1FluxP[k][j][is].d + remapx1Fiib[k][j]);
-			}
-		}
+
+  if (my_iproc == 0) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        emf2P[k][j][is]  = 0.5*(emf2P[k][j][is] + remapEyiib[k][j]);
+        x1FluxP[k][j][is].d = 0.5*(x1FluxP[k][j][is].d + remapx1Fiib[k][j]);
+      }
     }
-	
-    if (my_iproc == (pD->NGrid[0]-1)) {
-		for(k=ks; k<=ke+1; k++) {
-			for(j=js; j<=je; j++){
-				emf2P[k][j][ie+1]  = 0.5*(emf2P[k][j][ie+1] + remapEyoib[k][j]);
-				x1FluxP[k][j][ie+1].d = 0.5*(x1FluxP[k][j][ie+1].d + remapx1Foib[k][j]);
-			}
-		}
+  }
+
+  if (my_iproc == (pD->NGrid[0]-1)) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
+        emf2P[k][j][ie+1]  = 0.5*(emf2P[k][j][ie+1] + remapEyoib[k][j]);
+        x1FluxP[k][j][ie+1].d = 0.5*(x1FluxP[k][j][ie+1].d + remapx1Foib[k][j]);
+      }
     }
+  }
 
 
 #endif /* MHD & SHEARING_BOX */
@@ -1674,39 +1674,39 @@ k][j][i].M3);
  * The order is rotated-------------------------------------------
  */
 
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
 #ifdef CYLINDRICAL
-        		q2 = hdt/(r[i-1]*pG->dx2);
+        q2 = hdt/(r[i-1]*pG->dx2);
 #endif
-			
 
-        		Ul_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
-        		Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
-        		Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
-        		Ul_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i-1].My-x2Flux[k][j][i-1].My);
 
-        		Ul_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i-1].E -x2Flux[k][j][i-1].E );
+        Ul_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i-1].d -x2Flux[k][j][i-1].d );
+        Ul_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i-1].Mz-x2Flux[k][j][i-1].Mz);
+        Ul_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i-1].Mx-x2Flux[k][j][i-1].Mx);
+        Ul_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i-1].My-x2Flux[k][j][i-1].My);
+
+        Ul_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i-1].E -x2Flux[k][j][i-1].E );
 
 #ifdef RADIATION_MHD
 /* Update B3 */
-			Ul_x1Face[k][j][i].Bz+=q2*0.5*((emf1[k  ][j+1][i-1] - emf1[k  ][j][i-1]) 
-					+ (emf1[k+1][j+1][i-1] - emf1[k+1][j][i-1]));
+        Ul_x1Face[k][j][i].Bz+=q2*0.5*((emf1[k  ][j+1][i-1] - emf1[k  ][j][i-1])
+                                       + (emf1[k+1][j+1][i-1] - emf1[k+1][j][i-1]));
 #endif
 
 #ifdef CYLINDRICAL
-        		q2 = hdt/(r[i]*pG->dx2);
+        q2 = hdt/(r[i]*pG->dx2);
 #endif
 
-       			Ur_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i  ].d -x2Flux[k][j][i  ].d );
-        		Ur_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i  ].Mz-x2Flux[k][j][i  ].Mz);
-        		Ur_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i  ].Mx-x2Flux[k][j][i  ].Mx);
-        		Ur_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i  ].My-x2Flux[k][j][i  ].My);
-        		Ur_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i  ].E -x2Flux[k][j][i  ].E );
+        Ur_x1Face[k][j][i].d -=q2*(x2Flux[k][j+1][i  ].d -x2Flux[k][j][i  ].d );
+        Ur_x1Face[k][j][i].Mx-=q2*(x2Flux[k][j+1][i  ].Mz-x2Flux[k][j][i  ].Mz);
+        Ur_x1Face[k][j][i].My-=q2*(x2Flux[k][j+1][i  ].Mx-x2Flux[k][j][i  ].Mx);
+        Ur_x1Face[k][j][i].Mz-=q2*(x2Flux[k][j+1][i  ].My-x2Flux[k][j][i  ].My);
+        Ur_x1Face[k][j][i].E -=q2*(x2Flux[k][j+1][i  ].E -x2Flux[k][j][i  ].E );
 #ifdef RADIATION_MHD
 /* Update B3 */
-			Ur_x1Face[k][j][i].Bz+=q2* 0.5 * ((emf1[k  ][j+1][i] - emf1[k  ][j][i]) + (emf1[k+1][j+1][i] - emf1[k+1][j][i]));
+        Ur_x1Face[k][j][i].Bz+=q2* 0.5 * ((emf1[k  ][j+1][i] - emf1[k  ][j][i]) + (emf1[k+1][j+1][i] - emf1[k+1][j][i]));
 #endif
 
 
@@ -1715,28 +1715,28 @@ k][j][i].M3);
  * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
  */
 
-        		Ul_x1Face[k][j][i].d  -= q3 * (x3Flux[k+1][j][i-1].d -x3Flux[k][j][i-1].d );
-        		Ul_x1Face[k][j][i].Mx -= q3 * (x3Flux[k+1][j][i-1].My-x3Flux[k][j][i-1].My);
-        		Ul_x1Face[k][j][i].My -= q3 * (x3Flux[k+1][j][i-1].Mz-x3Flux[k][j][i-1].Mz);
-        		Ul_x1Face[k][j][i].Mz -= q3 * (x3Flux[k+1][j][i-1].Mx-x3Flux[k][j][i-1].Mx);
+        Ul_x1Face[k][j][i].d  -= q3 * (x3Flux[k+1][j][i-1].d -x3Flux[k][j][i-1].d );
+        Ul_x1Face[k][j][i].Mx -= q3 * (x3Flux[k+1][j][i-1].My-x3Flux[k][j][i-1].My);
+        Ul_x1Face[k][j][i].My -= q3 * (x3Flux[k+1][j][i-1].Mz-x3Flux[k][j][i-1].Mz);
+        Ul_x1Face[k][j][i].Mz -= q3 * (x3Flux[k+1][j][i-1].Mx-x3Flux[k][j][i-1].Mx);
 
-        		Ul_x1Face[k][j][i].E -= q3 * (x3Flux[k+1][j][i-1].E -x3Flux[k][j][i-1].E );
+        Ul_x1Face[k][j][i].E -= q3 * (x3Flux[k+1][j][i-1].E -x3Flux[k][j][i-1].E );
 #ifdef RADIATION_MHD
 /* Update B2 */
-			Ul_x1Face[k][j][i].By -= q3 * 0.5* ((emf1[k+1][j  ][i-1] - emf1[k][j  ][i-1]) +
-	   					(emf1[k+1][j+1][i-1] - emf1[k][j+1][i-1]));
+        Ul_x1Face[k][j][i].By -= q3 * 0.5* ((emf1[k+1][j  ][i-1] - emf1[k][j  ][i-1]) +
+                                            (emf1[k+1][j+1][i-1] - emf1[k][j+1][i-1]));
 #endif
 
-        		Ur_x1Face[k][j][i].d  -= q3 * (x3Flux[k+1][j][i  ].d -x3Flux[k][j][i  ].d );
-        		Ur_x1Face[k][j][i].Mx -= q3 * (x3Flux[k+1][j][i  ].My-x3Flux[k][j][i  ].My);
-        		Ur_x1Face[k][j][i].My -= q3 * (x3Flux[k+1][j][i  ].Mz-x3Flux[k][j][i  ].Mz);
-        		Ur_x1Face[k][j][i].Mz -= q3 * (x3Flux[k+1][j][i  ].Mx-x3Flux[k][j][i  ].Mx);
-        		Ur_x1Face[k][j][i].E  -= q3 * (x3Flux[k+1][j][i  ].E -x3Flux[k][j][i  ].E );
+        Ur_x1Face[k][j][i].d  -= q3 * (x3Flux[k+1][j][i  ].d -x3Flux[k][j][i  ].d );
+        Ur_x1Face[k][j][i].Mx -= q3 * (x3Flux[k+1][j][i  ].My-x3Flux[k][j][i  ].My);
+        Ur_x1Face[k][j][i].My -= q3 * (x3Flux[k+1][j][i  ].Mz-x3Flux[k][j][i  ].Mz);
+        Ur_x1Face[k][j][i].Mz -= q3 * (x3Flux[k+1][j][i  ].Mx-x3Flux[k][j][i  ].Mx);
+        Ur_x1Face[k][j][i].E  -= q3 * (x3Flux[k+1][j][i  ].E -x3Flux[k][j][i  ].E );
 
 #ifdef RADIATION_MHD
 /* Update B2 */
-			Ur_x1Face[k][j][i].By -= q3 * 0.5*((emf1[k+1][j  ][i] - emf1[k][j  ][i]) +
-	   					(emf1[k+1][j+1][i] - emf1[k][j+1][i]));
+        Ur_x1Face[k][j][i].By -= q3 * 0.5*((emf1[k+1][j  ][i] - emf1[k][j  ][i]) +
+                                           (emf1[k+1][j+1][i] - emf1[k][j+1][i]));
 #endif
 
       }
@@ -1750,88 +1750,88 @@ k][j][i].M3);
  */
 
 #ifdef RADIATION_MHD
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu; i++) {
 #ifdef CYLINDRICAL
-        			rsf = ri[i]/r[i-1];  lsf = ri[i-1]/r[i-1];
-        			dx2i = 1.0/(r[i-1]*pG->dx2);
+        rsf = ri[i]/r[i-1];  lsf = ri[i-1]/r[i-1];
+        dx2i = 1.0/(r[i-1]*pG->dx2);
 #endif
 
-        			db1 = (rsf*pG->B1i[k  ][j  ][i  ] - lsf*pG->B1i[k][j][i-1])*dx1i;
-        			db2 = (    pG->B2i[k  ][j+1][i-1] -     pG->B2i[k][j][i-1])*dx2i;
-        			db3 = (    pG->B3i[k+1][j  ][i-1] -     pG->B3i[k][j][i-1])*dx3i;
-        			B1 = pG->U[k][j][i-1].B1c;
-        			B2 = pG->U[k][j][i-1].B2c;
-        			B3 = pG->U[k][j][i-1].B3c;
-        			V2 = pG->U[k][j][i-1].M2/pG->U[k][j][i-1].d;
-        			V3 = pG->U[k][j][i-1].M3/pG->U[k][j][i-1].d;
+        db1 = (rsf*pG->B1i[k  ][j  ][i  ] - lsf*pG->B1i[k][j][i-1])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i-1] -     pG->B2i[k][j][i-1])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i-1] -     pG->B3i[k][j][i-1])*dx3i;
+        B1 = pG->U[k][j][i-1].B1c;
+        B2 = pG->U[k][j][i-1].B2c;
+        B3 = pG->U[k][j][i-1].B3c;
+        V2 = pG->U[k][j][i-1].M2/pG->U[k][j][i-1].d;
+        V3 = pG->U[k][j][i-1].M3/pG->U[k][j][i-1].d;
 
 /* Calculate mdb2 = min_mod(-db1,db2) */
-        			if(db1 > 0.0 && db2 < 0.0){
-          				mdb2 = db2 > -db1 ? db2 : -db1;
-        			}
-        			else if(db1 < 0.0 && db2 > 0.0){
-          				mdb2 = db2 < -db1 ? db2 : -db1;
-        			}
-        			else mdb2 = 0.0;
+        if(db1 > 0.0 && db2 < 0.0){
+          mdb2 = db2 > -db1 ? db2 : -db1;
+        }
+        else if(db1 < 0.0 && db2 > 0.0){
+          mdb2 = db2 < -db1 ? db2 : -db1;
+        }
+        else mdb2 = 0.0;
 
 /* Calculate mdb3 = min_mod(-db1,db3) */
-        			if(db1 > 0.0 && db3 < 0.0){
-          				mdb3 = db3 > -db1 ? db3 : -db1;
-        			}
-        			else if(db1 < 0.0 && db3 > 0.0){
-          				mdb3 = db3 < -db1 ? db3 : -db1;
-        			}
-        			else mdb3 = 0.0;
+        if(db1 > 0.0 && db3 < 0.0){
+          mdb3 = db3 > -db1 ? db3 : -db1;
+        }
+        else if(db1 < 0.0 && db3 > 0.0){
+          mdb3 = db3 < -db1 ? db3 : -db1;
+        }
+        else mdb3 = 0.0;
 
-        			Ul_x1Face[k][j][i].Mx += hdt*B1*db1;
-        			Ul_x1Face[k][j][i].My += hdt*B2*db1;
-        			Ul_x1Face[k][j][i].Mz += hdt*B3*db1;
-        			Ul_x1Face[k][j][i].By += hdt*V2*(-mdb3);
-        			Ul_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
+        Ul_x1Face[k][j][i].Mx += hdt*B1*db1;
+        Ul_x1Face[k][j][i].My += hdt*B2*db1;
+        Ul_x1Face[k][j][i].Mz += hdt*B3*db1;
+        Ul_x1Face[k][j][i].By += hdt*V2*(-mdb3);
+        Ul_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
 
-        			Ul_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
+        Ul_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
 
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        			dx2i = 1.0/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dx2i = 1.0/(r[i]*pG->dx2);
 #endif
 
-        			db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        			db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
-        			db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
-        			B1 = pG->U[k][j][i].B1c;
-        			B2 = pG->U[k][j][i].B2c;
-        			B3 = pG->U[k][j][i].B3c;
-        			V2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
-        			V3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
+        B1 = pG->U[k][j][i].B1c;
+        B2 = pG->U[k][j][i].B2c;
+        B3 = pG->U[k][j][i].B3c;
+        V2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
+        V3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
 
 /* Calculate mdb2 = min_mod(-db1,db2) */
-        			if(db1 > 0.0 && db2 < 0.0){
-          				mdb2 = db2 > -db1 ? db2 : -db1;
-        			}
-        			else if(db1 < 0.0 && db2 > 0.0){
-          				mdb2 = db2 < -db1 ? db2 : -db1;
-        			}
-        			else mdb2 = 0.0;
+        if(db1 > 0.0 && db2 < 0.0){
+          mdb2 = db2 > -db1 ? db2 : -db1;
+        }
+        else if(db1 < 0.0 && db2 > 0.0){
+          mdb2 = db2 < -db1 ? db2 : -db1;
+        }
+        else mdb2 = 0.0;
 
 /* Calculate mdb3 = min_mod(-db1,db3) */
-        			if(db1 > 0.0 && db3 < 0.0){
-          				mdb3 = db3 > -db1 ? db3 : -db1;
-        			}
-        			else if(db1 < 0.0 && db3 > 0.0){
-         	 			mdb3 = db3 < -db1 ? db3 : -db1;
-        			}
-        			else mdb3 = 0.0;
+        if(db1 > 0.0 && db3 < 0.0){
+          mdb3 = db3 > -db1 ? db3 : -db1;
+        }
+        else if(db1 < 0.0 && db3 > 0.0){
+          mdb3 = db3 < -db1 ? db3 : -db1;
+        }
+        else mdb3 = 0.0;
 
-        			Ur_x1Face[k][j][i].Mx += hdt*B1*db1;
-        			Ur_x1Face[k][j][i].My += hdt*B2*db1;
-        			Ur_x1Face[k][j][i].Mz += hdt*B3*db1;
-        			Ur_x1Face[k][j][i].By += hdt*V2*(-mdb3);
-        			Ur_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
+        Ur_x1Face[k][j][i].Mx += hdt*B1*db1;
+        Ur_x1Face[k][j][i].My += hdt*B2*db1;
+        Ur_x1Face[k][j][i].Mz += hdt*B3*db1;
+        Ur_x1Face[k][j][i].By += hdt*V2*(-mdb3);
+        Ur_x1Face[k][j][i].Bz += hdt*V3*(-mdb2);
 
-        			Ur_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
+        Ur_x1Face[k][j][i].E  += hdt*(B2*V2*(-mdb3) + B3*V3*(-mdb2) );
 
       }
     }
@@ -1847,62 +1847,62 @@ k][j][i].M3);
  */
 
   if (StaticGravPot != NULL){
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
-        			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        			
-				phic = (*StaticGravPot)(x1, x2             ,x3);
-        			phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-        			phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+    for (k=kl+1; k<=ku-1; k++) {
+      for (j=jl+1; j<=ju-1; j++) {
+        for (i=il+1; i<=iu; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+          phic = (*StaticGravPot)(x1, x2             ,x3);
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
 /* correct right states; x2 and x3 gradients */
 #ifdef CYLINDRICAL
-        			q2 = hdt/(r[i]*pG->dx2);
+          q2 = hdt/(r[i]*pG->dx2);
 #endif
 
-        			Ur_x1Face[k][j][i].My -= q2 * (phir-phil)*pG->U[k][j][i].d;
+          Ur_x1Face[k][j][i].My -= q2 * (phir-phil)*pG->U[k][j][i].d;
 
-        			Ur_x1Face[k][j][i].E -= q2 * (x2Flux[k][j  ][i  ].d*(phic - phil)
-                                  + x2Flux[k][j+1][i  ].d*(phir - phic));
+          Ur_x1Face[k][j][i].E -= q2 * (x2Flux[k][j  ][i  ].d*(phic - phil)
+                                        + x2Flux[k][j+1][i  ].d*(phir - phic));
 
 
-        			phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-        			phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
-        
-        			Ur_x1Face[k][j][i].Mz -= q3 * (phir-phil)*pG->U[k][j][i].d;
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
-        			Ur_x1Face[k][j][i].E -= q3 * (x3Flux[k  ][j][i  ].d*(phic - phil)
-                                  			+ x3Flux[k+1][j][i  ].d*(phir - phic));
+          Ur_x1Face[k][j][i].Mz -= q3 * (phir-phil)*pG->U[k][j][i].d;
+
+          Ur_x1Face[k][j][i].E -= q3 * (x3Flux[k  ][j][i  ].d*(phic - phil)
+                                        + x3Flux[k+1][j][i  ].d*(phir - phic));
 
 
 /* correct left states; x2 and x3 gradients */
-        			phic = (*StaticGravPot)((x1-pG->dx1), x2             ,x3);
-        			phir = (*StaticGravPot)((x1-pG->dx1),(x2+0.5*pG->dx2),x3);
-        			phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
+          phic = (*StaticGravPot)((x1-pG->dx1), x2             ,x3);
+          phir = (*StaticGravPot)((x1-pG->dx1),(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)((x1-pG->dx1),(x2-0.5*pG->dx2),x3);
 
 #ifdef CYLINDRICAL
-        			q2 = hdt/(r[i-1]*pG->dx2);
+          q2 = hdt/(r[i-1]*pG->dx2);
 #endif
 
-        			Ul_x1Face[k][j][i].My -= q2 * (phir-phil)*pG->U[k][j][i-1].d;
+          Ul_x1Face[k][j][i].My -= q2 * (phir-phil)*pG->U[k][j][i-1].d;
 
-        			Ul_x1Face[k][j][i].E -= q2 * (x2Flux[k][j  ][i-1].d*(phic - phil)
-                                  	+ x2Flux[k][j+1][i-1].d*(phir - phic));
+          Ul_x1Face[k][j][i].E -= q2 * (x2Flux[k][j  ][i-1].d*(phic - phil)
+                                        + x2Flux[k][j+1][i-1].d*(phir - phic));
 
 
-        			phir = (*StaticGravPot)((x1-pG->dx1),x2,(x3+0.5*pG->dx3));
-        			phil = (*StaticGravPot)((x1-pG->dx1),x2,(x3-0.5*pG->dx3));
-        
-        			Ul_x1Face[k][j][i].Mz -= q3 * (phir-phil)*pG->U[k][j][i-1].d;
+          phir = (*StaticGravPot)((x1-pG->dx1),x2,(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)((x1-pG->dx1),x2,(x3-0.5*pG->dx3));
 
-        			Ul_x1Face[k][j][i].E -= q3 * (x3Flux[k  ][j][i-1].d*(phic - phil)
-                                  		+ x3Flux[k+1][j][i-1].d*(phir - phic));
+          Ul_x1Face[k][j][i].Mz -= q3 * (phir-phil)*pG->U[k][j][i-1].d;
 
-      				}
-    			}
-  		}
-	}
+          Ul_x1Face[k][j][i].E -= q3 * (x3Flux[k  ][j][i-1].d*(phic - phil)
+                                        + x3Flux[k+1][j][i-1].d*(phir - phic));
+
+        }
+      }
+    }
+  }
 
 
 /*--- Step 5d (cont) -----------------------------------------------------------
@@ -1925,7 +1925,7 @@ k][j][i].M3);
         Ur_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i  ].d*(phic - phil)
-                                  + x2Flux[k][j+1][i  ].d*(phir - phic));
+                                    + x2Flux[k][j+1][i  ].d*(phir - phic));
 
 
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
@@ -1934,7 +1934,7 @@ k][j][i].M3);
         Ur_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i  ].d*(phic - phil)
-                                  + x3Flux[k+1][j][i  ].d*(phir - phic));
+                                    + x3Flux[k+1][j][i  ].d*(phir - phic));
 
 
 /* correct left states; x2 and x3 gradients */
@@ -1949,7 +1949,7 @@ k][j][i].M3);
         Ul_x1Face[k][j][i].My -= q2*(phir-phil)*pG->U[k][j][i-1].d;
 
         Ul_x1Face[k][j][i].E -= q2*(x2Flux[k][j  ][i-1].d*(phic - phil)
-                                  + x2Flux[k][j+1][i-1].d*(phir - phic));
+                                    + x2Flux[k][j+1][i-1].d*(phir - phic));
 
 
         phir = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k+1][j][i-1]);
@@ -1958,7 +1958,7 @@ k][j][i].M3);
         Ul_x1Face[k][j][i].Mz -= q3*(phir-phil)*pG->U[k][j][i-1].d;
 
         Ul_x1Face[k][j][i].E -= q3*(x3Flux[k  ][j][i-1].d*(phic - phil)
-                                  + x3Flux[k+1][j][i-1].d*(phir - phic));
+                                    + x3Flux[k+1][j][i-1].d*(phir - phic));
 
       }
     }
@@ -1971,256 +1971,256 @@ k][j][i].M3);
 /*============================================================================*/
 /*== Add radiation momentum source terms along the perpendicular direction */
 /*
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
-
-
-				
-				density = pG->U[k][j][i].d;
-				velocity_x = pG->U[k][j][i].M1 / density;
-				velocity_y = pG->U[k][j][i].M2 / density;
-				velocity_z = pG->U[k][j][i].M3 / density;
-
-				
-				Sigma_t    = pG->U[k][j][i].Sigma_t;
-				Sigma_a	   = pG->U[k][j][i].Sigma_a;
-					
-#ifdef FARGO
-
-					
-				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-			
-				
-				Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
-				Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
-
-
-				
-				Source[2] = -Prat * (-Sigma_t * Fr0y );
-				Source[3] = -Prat * (-Sigma_t * Fr0z);
-
-
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y + velocity_z * Fr0z)/Crat);
-
-				Ur_x1Face[k][j][i].My += hdt * Source[2];
-				Ur_x1Face[k][j][i].Mz += hdt * Source[3];
-				
-				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+  #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  for (k=kl+1; k<=ku-1; k++) {
+  for (j=jl+1; j<=ju-1; j++) {
+  for (i=il+1; i<=iu; i++) {
 
 
 
-				
-				density = pG->U[k][j][i-1].d;
-				velocity_x = pG->U[k][j][i-1].M1 / density;
-				velocity_y = pG->U[k][j][i-1].M2 / density;
-				velocity_z = pG->U[k][j][i-1].M3 / density;
-
-				
-				Sigma_t    = pG->U[k][j][i-1].Sigma_t;
-				Sigma_a	   = pG->U[k][j][i-1].Sigma_a;
-					
-#ifdef FARGO
-			
-					
-				cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
-		
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-				
-				Fr0y = pG->U[k][j][i-1].Fr2 - ((1.0 + pG->U[k][j][i-1].Edd_22) * velocity_y + pG->U[k][j][i-1].Edd_21 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_z) * pG->U[k][j][i-1].Er / Crat;
-				Fr0z = pG->U[k][j][i-1].Fr3 - ((1.0 + pG->U[k][j][i-1].Edd_33) * velocity_z + pG->U[k][j][i-1].Edd_31 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_y) * pG->U[k][j][i-1].Er / Crat;
+  density = pG->U[k][j][i].d;
+  velocity_x = pG->U[k][j][i].M1 / density;
+  velocity_y = pG->U[k][j][i].M2 / density;
+  velocity_z = pG->U[k][j][i].M3 / density;
 
 
-				
-				Source[2] = -Prat * (-Sigma_t * Fr0y);
-				Source[3] = -Prat * (-Sigma_t * Fr0z);
+  Sigma_t    = pG->U[k][j][i].Sigma_t;
+  Sigma_a          = pG->U[k][j][i].Sigma_a;
 
-				
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y + velocity_z * Fr0z)/Crat);
+  #ifdef FARGO
 
-				Ul_x1Face[k][j][i].My += hdt * Source[2];
-				Ul_x1Face[k][j][i].Mz += hdt * Source[3];
-				
-				Ul_x1Face[k][j][i].E  += hdt * Source[4];
 
-			}
-		}
-	}
-#endif
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+  velocity_y -= qom * x1;
+
+  #endif
+
+
+  Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
+  Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
+
+
+
+  Source[2] = -Prat * (-Sigma_t * Fr0y );
+  Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y + velocity_z * Fr0z)/Crat);
+
+  Ur_x1Face[k][j][i].My += hdt * Source[2];
+  Ur_x1Face[k][j][i].Mz += hdt * Source[3];
+
+  Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+
+
+  density = pG->U[k][j][i-1].d;
+  velocity_x = pG->U[k][j][i-1].M1 / density;
+  velocity_y = pG->U[k][j][i-1].M2 / density;
+  velocity_z = pG->U[k][j][i-1].M3 / density;
+
+
+  Sigma_t    = pG->U[k][j][i-1].Sigma_t;
+  Sigma_a          = pG->U[k][j][i-1].Sigma_a;
+
+  #ifdef FARGO
+
+
+  cc_pos(pG,i-1,j,k,&x1,&x2,&x3);
+
+
+  velocity_y -= qom * x1;
+
+  #endif
+
+  Fr0y = pG->U[k][j][i-1].Fr2 - ((1.0 + pG->U[k][j][i-1].Edd_22) * velocity_y + pG->U[k][j][i-1].Edd_21 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_z) * pG->U[k][j][i-1].Er / Crat;
+  Fr0z = pG->U[k][j][i-1].Fr3 - ((1.0 + pG->U[k][j][i-1].Edd_33) * velocity_z + pG->U[k][j][i-1].Edd_31 * velocity_x + pG->U[k][j][i-1].Edd_32 * velocity_y) * pG->U[k][j][i-1].Er / Crat;
+
+
+
+  Source[2] = -Prat * (-Sigma_t * Fr0y);
+  Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_y * Fr0y + velocity_z * Fr0z)/Crat);
+
+  Ul_x1Face[k][j][i].My += hdt * Source[2];
+  Ul_x1Face[k][j][i].Mz += hdt * Source[3];
+
+  Ul_x1Face[k][j][i].E  += hdt * Source[4];
+
+  }
+  }
+  }
+  #endif
 
 */
 /*===========================================================================*/
 /*=== STEP 7A: Correct x2-interface states with transverse flux gradients =====*/
 
-	
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju; j++) {
-      			for (i=il+1; i<=iu-1; i++) {
+
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-#endif 
-       				Ul_x2Face[k][j][i].d -=q1 * (rsf      * x1Flux[k][j-1][i+1].d  - lsf      * x1Flux[k][j-1][i].d );
-        			Ul_x2Face[k][j][i].Mx-=q1 * (SQR(rsf) * x1Flux[k][j-1][i+1].My - SQR(lsf) * x1Flux[k][j-1][i].My);
-        			Ul_x2Face[k][j][i].My-=q1 * (rsf      * x1Flux[k][j-1][i+1].Mz - lsf      * x1Flux[k][j-1][i].Mz);
-        			Ul_x2Face[k][j][i].Mz-=q1 * (rsf      * x1Flux[k][j-1][i+1].Mx - lsf      * x1Flux[k][j-1][i].Mx);
-       				Ul_x2Face[k][j][i].E -=q1 * (rsf      * x1Flux[k][j-1][i+1].E -  lsf      * x1Flux[k][j-1][i].E );
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+#endif
+        Ul_x2Face[k][j][i].d -=q1 * (rsf      * x1Flux[k][j-1][i+1].d  - lsf      * x1Flux[k][j-1][i].d );
+        Ul_x2Face[k][j][i].Mx-=q1 * (SQR(rsf) * x1Flux[k][j-1][i+1].My - SQR(lsf) * x1Flux[k][j-1][i].My);
+        Ul_x2Face[k][j][i].My-=q1 * (rsf      * x1Flux[k][j-1][i+1].Mz - lsf      * x1Flux[k][j-1][i].Mz);
+        Ul_x2Face[k][j][i].Mz-=q1 * (rsf      * x1Flux[k][j-1][i+1].Mx - lsf      * x1Flux[k][j-1][i].Mx);
+        Ul_x2Face[k][j][i].E -=q1 * (rsf      * x1Flux[k][j-1][i+1].E -  lsf      * x1Flux[k][j-1][i].E );
 
 #ifdef RADIATION_MHD
 /* Update B3 */
-				Ul_x2Face[k][j][i].By -=q1 * 0.5*
-	  				((rsf * emf2[k  ][j-1][i+1] - lsf * emf2[k  ][j-1][i]) + 
-	   				( rsf * emf2[k+1][j-1][i+1] - lsf * emf2[k+1][j-1][i]));
+        Ul_x2Face[k][j][i].By -=q1 * 0.5*
+          ((rsf * emf2[k  ][j-1][i+1] - lsf * emf2[k  ][j-1][i]) +
+           ( rsf * emf2[k+1][j-1][i+1] - lsf * emf2[k+1][j-1][i]));
 #endif
 
-        			Ur_x2Face[k][j][i].d -=q1 * (rsf      * x1Flux[k][j  ][i+1].d  - lsf      * x1Flux[k][j  ][i].d );
-        			Ur_x2Face[k][j][i].Mx-=q1 * (SQR(rsf) * x1Flux[k][j  ][i+1].My - SQR(lsf) * x1Flux[k][j  ][i].My);
-        			Ur_x2Face[k][j][i].My-=q1 * (rsf      * x1Flux[k][j  ][i+1].Mz - lsf      * x1Flux[k][j  ][i].Mz);
-        			Ur_x2Face[k][j][i].Mz-=q1 * (rsf      * x1Flux[k][j  ][i+1].Mx - lsf      * x1Flux[k][j  ][i].Mx);
+        Ur_x2Face[k][j][i].d -=q1 * (rsf      * x1Flux[k][j  ][i+1].d  - lsf      * x1Flux[k][j  ][i].d );
+        Ur_x2Face[k][j][i].Mx-=q1 * (SQR(rsf) * x1Flux[k][j  ][i+1].My - SQR(lsf) * x1Flux[k][j  ][i].My);
+        Ur_x2Face[k][j][i].My-=q1 * (rsf      * x1Flux[k][j  ][i+1].Mz - lsf      * x1Flux[k][j  ][i].Mz);
+        Ur_x2Face[k][j][i].Mz-=q1 * (rsf      * x1Flux[k][j  ][i+1].Mx - lsf      * x1Flux[k][j  ][i].Mx);
 
-        			Ur_x2Face[k][j][i].E -=q1 * (rsf      * x1Flux[k][j  ][i+1].E  - lsf      * x1Flux[k][j  ][i].E );
+        Ur_x2Face[k][j][i].E -=q1 * (rsf      * x1Flux[k][j  ][i+1].E  - lsf      * x1Flux[k][j  ][i].E );
 #ifdef RADIATION_MHD
 /* Update B3 */
-				Ur_x2Face[k][j][i].By-=q1 * 0.5*
-	  				((rsf * emf2[k  ][j][i+1] - lsf * emf2[k  ][j][i]) + 
-	   				(rsf * emf2[k+1][j][i+1] - lsf * emf2[k+1][j][i]));
+        Ur_x2Face[k][j][i].By-=q1 * 0.5*
+          ((rsf * emf2[k  ][j][i+1] - lsf * emf2[k  ][j][i]) +
+           (rsf * emf2[k+1][j][i+1] - lsf * emf2[k+1][j][i]));
 #endif
 
 
 /*--- Step 7b ------------------------------------------------------------------
  * Correct x2-interface states using x3-fluxes computed in Step 3d.
- * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
+ * Since the fluxes come from an x3-sweep, (x,y,z) on RHS -> (z,x,y) on LHS
  */
 
-        			Ul_x2Face[k][j][i].d -=q3 * (x3Flux[k+1][j-1][i].d -x3Flux[k][j-1][i].d );
-        			Ul_x2Face[k][j][i].Mx-=q3 * (x3Flux[k+1][j-1][i].Mz-x3Flux[k][j-1][i].Mz);
-        			Ul_x2Face[k][j][i].My-=q3 * (x3Flux[k+1][j-1][i].Mx-x3Flux[k][j-1][i].Mx);
-        			Ul_x2Face[k][j][i].Mz-=q3 * (x3Flux[k+1][j-1][i].My-x3Flux[k][j-1][i].My);
+        Ul_x2Face[k][j][i].d -=q3 * (x3Flux[k+1][j-1][i].d -x3Flux[k][j-1][i].d );
+        Ul_x2Face[k][j][i].Mx-=q3 * (x3Flux[k+1][j-1][i].Mz-x3Flux[k][j-1][i].Mz);
+        Ul_x2Face[k][j][i].My-=q3 * (x3Flux[k+1][j-1][i].Mx-x3Flux[k][j-1][i].Mx);
+        Ul_x2Face[k][j][i].Mz-=q3 * (x3Flux[k+1][j-1][i].My-x3Flux[k][j-1][i].My);
 
-        			Ul_x2Face[k][j][i].E -=q3 * (x3Flux[k+1][j-1][i].E -x3Flux[k][j-1][i].E );
-
-#ifdef RADIATION_MHD
-/* Update B1 */
-				Ul_x2Face[k][j][i].Bz+=q3 * 0.5*
-	  				(lsf*(emf2[k+1][j-1][i  ] - emf2[k][j-1][i  ]) +
-	   				 rsf*(emf2[k+1][j-1][i+1] - emf2[k][j-1][i+1]));
-#endif
-
-        			Ur_x2Face[k][j][i].d -=q3 * (x3Flux[k+1][j  ][i].d -x3Flux[k][j  ][i].d );
-        			Ur_x2Face[k][j][i].Mx-=q3 * (x3Flux[k+1][j  ][i].Mz-x3Flux[k][j  ][i].Mz);
-        			Ur_x2Face[k][j][i].My-=q3 * (x3Flux[k+1][j  ][i].Mx-x3Flux[k][j  ][i].Mx);
-        			Ur_x2Face[k][j][i].Mz-=q3 * (x3Flux[k+1][j  ][i].My-x3Flux[k][j  ][i].My);
-
-        			Ur_x2Face[k][j][i].E -=q3 * (x3Flux[k+1][j  ][i].E -x3Flux[k][j  ][i].E );
+        Ul_x2Face[k][j][i].E -=q3 * (x3Flux[k+1][j-1][i].E -x3Flux[k][j-1][i].E );
 
 #ifdef RADIATION_MHD
 /* Update B1 */
-				Ur_x2Face[k][j][i].Bz+=q3 * 0.5*
-	  				(lsf*(emf2[k+1][j][i  ] - emf2[k][j][i  ]) +
-	   				 rsf*(emf2[k+1][j][i+1] - emf2[k][j][i+1]));
+        Ul_x2Face[k][j][i].Bz+=q3 * 0.5*
+          (lsf*(emf2[k+1][j-1][i  ] - emf2[k][j-1][i  ]) +
+           rsf*(emf2[k+1][j-1][i+1] - emf2[k][j-1][i+1]));
 #endif
 
-      				}
-    			}
-  		}
+        Ur_x2Face[k][j][i].d -=q3 * (x3Flux[k+1][j  ][i].d -x3Flux[k][j  ][i].d );
+        Ur_x2Face[k][j][i].Mx-=q3 * (x3Flux[k+1][j  ][i].Mz-x3Flux[k][j  ][i].Mz);
+        Ur_x2Face[k][j][i].My-=q3 * (x3Flux[k+1][j  ][i].Mx-x3Flux[k][j  ][i].Mx);
+        Ur_x2Face[k][j][i].Mz-=q3 * (x3Flux[k+1][j  ][i].My-x3Flux[k][j  ][i].My);
 
-		
+        Ur_x2Face[k][j][i].E -=q3 * (x3Flux[k+1][j  ][i].E -x3Flux[k][j  ][i].E );
+
+#ifdef RADIATION_MHD
+/* Update B1 */
+        Ur_x2Face[k][j][i].Bz+=q3 * 0.5*
+          (lsf*(emf2[k+1][j][i  ] - emf2[k][j][i  ]) +
+           rsf*(emf2[k+1][j][i+1] - emf2[k][j][i+1]));
+#endif
+
+      }
+    }
+  }
+
+
 /*--- Step 7c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1- and x3-flux-gradients to the
  * conservative variables on the x2Face.  Limiting is used as in GS (2007)
  */
 
 #ifdef RADIATION_MHD
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju; j++) {
-      			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
 
-        			db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
-        			db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
-        			db3 = (    pG->B3i[k+1][j-1][i  ] -     pG->B3i[k][j-1][i])*dx3i;
-        			B1 = pG->U[k][j-1][i].B1c;
-        			B2 = pG->U[k][j-1][i].B2c;
-        			B3 = pG->U[k][j-1][i].B3c;
-        			V1 = pG->U[k][j-1][i].M1/pG->U[k][j-1][i].d;
-        			V3 = pG->U[k][j-1][i].M3/pG->U[k][j-1][i].d;
+        db1 = (rsf*pG->B1i[k  ][j-1][i+1] - lsf*pG->B1i[k][j-1][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j  ][i  ] -     pG->B2i[k][j-1][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j-1][i  ] -     pG->B3i[k][j-1][i])*dx3i;
+        B1 = pG->U[k][j-1][i].B1c;
+        B2 = pG->U[k][j-1][i].B2c;
+        B3 = pG->U[k][j-1][i].B3c;
+        V1 = pG->U[k][j-1][i].M1/pG->U[k][j-1][i].d;
+        V3 = pG->U[k][j-1][i].M3/pG->U[k][j-1][i].d;
 
 /* Calculate mdb1 = min_mod(-db2,db1) */
-        			if(db2 > 0.0 && db1 < 0.0){
-          				mdb1 = db1 > -db2 ? db1 : -db2;
-        			}
-        			else if(db2 < 0.0 && db1 > 0.0){
-          				mdb1 = db1 < -db2 ? db1 : -db2;
-        			}
-        			else mdb1 = 0.0;
+        if(db2 > 0.0 && db1 < 0.0){
+          mdb1 = db1 > -db2 ? db1 : -db2;
+        }
+        else if(db2 < 0.0 && db1 > 0.0){
+          mdb1 = db1 < -db2 ? db1 : -db2;
+        }
+        else mdb1 = 0.0;
 
 /* Calculate mdb3 = min_mod(-db2,db3) */
-        			if(db2 > 0.0 && db3 < 0.0){
-          				mdb3 = db3 > -db2 ? db3 : -db2;
-        			}
-        			else if(db2 < 0.0 && db3 > 0.0){
-          				mdb3 = db3 < -db2 ? db3 : -db2;
-        			}
-        			else mdb3 = 0.0;
+        if(db2 > 0.0 && db3 < 0.0){
+          mdb3 = db3 > -db2 ? db3 : -db2;
+        }
+        else if(db2 < 0.0 && db3 > 0.0){
+          mdb3 = db3 < -db2 ? db3 : -db2;
+        }
+        else mdb3 = 0.0;
 
-        			Ul_x2Face[k][j][i].Mz += hdt*B1*db2;
-        			Ul_x2Face[k][j][i].Mx += hdt*B2*db2;
-        			Ul_x2Face[k][j][i].My += hdt*B3*db2;
-        			Ul_x2Face[k][j][i].By += hdt*V3*(-mdb1);
-        			Ul_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
+        Ul_x2Face[k][j][i].Mz += hdt*B1*db2;
+        Ul_x2Face[k][j][i].Mx += hdt*B2*db2;
+        Ul_x2Face[k][j][i].My += hdt*B3*db2;
+        Ul_x2Face[k][j][i].By += hdt*V3*(-mdb1);
+        Ul_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
 
-        			Ul_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
+        Ul_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
 
 
-        			db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        			db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
-        			db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
-        			B1 = pG->U[k][j][i].B1c;
-        			B2 = pG->U[k][j][i].B2c;
-        			B3 = pG->U[k][j][i].B3c;
-        			V1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-        			V3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
+        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
+        B1 = pG->U[k][j][i].B1c;
+        B2 = pG->U[k][j][i].B2c;
+        B3 = pG->U[k][j][i].B3c;
+        V1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+        V3 = pG->U[k][j][i].M3/pG->U[k][j][i].d;
 
 /* Calculate mdb1 = min_mod(-db2,db1) */
-        			if(db2 > 0.0 && db1 < 0.0){
-          				mdb1 = db1 > -db2 ? db1 : -db2;
-        			}
-        			else if(db2 < 0.0 && db1 > 0.0){
-          				mdb1 = db1 < -db2 ? db1 : -db2;
-        			}
-       		 		else mdb1 = 0.0;
+        if(db2 > 0.0 && db1 < 0.0){
+          mdb1 = db1 > -db2 ? db1 : -db2;
+        }
+        else if(db2 < 0.0 && db1 > 0.0){
+          mdb1 = db1 < -db2 ? db1 : -db2;
+        }
+        else mdb1 = 0.0;
 
 /* Calculate mdb3 = min_mod(-db2,db3) */
-        			if(db2 > 0.0 && db3 < 0.0){
-          				mdb3 = db3 > -db2 ? db3 : -db2;
-        			}
-        			else if(db2 < 0.0 && db3 > 0.0){
-          				mdb3 = db3 < -db2 ? db3 : -db2;
-        			}
-        			else mdb3 = 0.0;
+        if(db2 > 0.0 && db3 < 0.0){
+          mdb3 = db3 > -db2 ? db3 : -db2;
+        }
+        else if(db2 < 0.0 && db3 > 0.0){
+          mdb3 = db3 < -db2 ? db3 : -db2;
+        }
+        else mdb3 = 0.0;
 
-        			Ur_x2Face[k][j][i].Mz += hdt*B1*db2;
-        			Ur_x2Face[k][j][i].Mx += hdt*B2*db2;
-        			Ur_x2Face[k][j][i].My += hdt*B3*db2;
-        			Ur_x2Face[k][j][i].By += hdt*V3*(-mdb1);
-        			Ur_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
-        			Ur_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
+        Ur_x2Face[k][j][i].Mz += hdt*B1*db2;
+        Ur_x2Face[k][j][i].Mx += hdt*B2*db2;
+        Ur_x2Face[k][j][i].My += hdt*B3*db2;
+        Ur_x2Face[k][j][i].By += hdt*V3*(-mdb1);
+        Ur_x2Face[k][j][i].Bz += hdt*V1*(-mdb3);
+        Ur_x2Face[k][j][i].E  += hdt*(B3*V3*(-mdb1) + B1*V1*(-mdb3) );
 
-      				}
-    			}
-  		}
+      }
+    }
+  }
 #endif /* RADIATION MHD */
 
-				
+
 /*--- Step 7d ------------------------------------------------------------------
  * Add source terms for a static gravitational potential arising from x1-Flux
  * and x3-Flux gradients. To improve conservation of total energy,
@@ -2228,71 +2228,71 @@ k][j][i].M3);
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
-  	if (StaticGravPot != NULL){
-  		for (k=kl+1; k<=ku-1; k++) {
-    			for (j=jl+1; j<=ju; j++) {
-      				for (i=il+1; i<=iu-1; i++) {
-        				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        
-			phic = (*StaticGravPot)((x1            ),x2,x3);
-        		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-        		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+  if (StaticGravPot != NULL){
+    for (k=kl+1; k<=ku-1; k++) {
+      for (j=jl+1; j<=ju; j++) {
+        for (i=il+1; i<=iu-1; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+          phic = (*StaticGravPot)((x1            ),x2,x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
 /* correct right states; x1 and x3 gradients */
 /* correct right states; x1 and x3 gradients */
 #ifdef CYLINDRICAL
-        		g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 #ifdef FARGO
-        		g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-        		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        		Ur_x2Face[k][j][i].Mz -= hdt*pG->U[k][j][i].d*g;
+          rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+          Ur_x2Face[k][j][i].Mz -= hdt*pG->U[k][j][i].d*g;
 #else
-        		Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
-#endif       	
-        		Ur_x2Face[k][j][i].E -= q1 * (lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
-                                  		    + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
+          Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
+#endif
+          Ur_x2Face[k][j][i].E -= q1 * (lsf*x1Flux[k][j  ][i  ].d*(phic - phil)
+                                        + rsf*x1Flux[k][j  ][i+1].d*(phir - phic));
 
-        		phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-        		phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
-        		Ur_x2Face[k][j][i].My -= q3 * (phir-phil)*pG->U[k][j][i].d;
+          Ur_x2Face[k][j][i].My -= q3 * (phir-phil)*pG->U[k][j][i].d;
 
-        		Ur_x2Face[k][j][i].E -= q3 * (x3Flux[k  ][j  ][i].d*(phic - phil)
-                                  		   + x3Flux[k+1][j  ][i].d*(phir - phic));
+          Ur_x2Face[k][j][i].E -= q3 * (x3Flux[k  ][j  ][i].d*(phic - phil)
+                                        + x3Flux[k+1][j  ][i].d*(phir - phic));
 
 
 /* correct left states; x1 and x3 gradients */
-        		phic = (*StaticGravPot)((x1            ),(x2-pG->dx2),x3);
-        		phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
-        		phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
+          phic = (*StaticGravPot)((x1            ),(x2-pG->dx2),x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
 
 #ifdef CYLINDRICAL
-        		g = (*x1GravAcc)(x1vc(pG,i),(x2-pG->dx2),x3);
+          g = (*x1GravAcc)(x1vc(pG,i),(x2-pG->dx2),x3);
 #ifdef FARGO
-        		g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
 
-        		
-        		Ul_x2Face[k][j][i].Mz -= hdt*pG->U[k][j-1][i].d*g;
+
+          Ul_x2Face[k][j][i].Mz -= hdt*pG->U[k][j-1][i].d*g;
 #else
-        		Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
+          Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 #endif /* end cylindrical */
-        		Ul_x2Face[k][j][i].E -= q1 * (lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
-                                                    + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
+          Ul_x2Face[k][j][i].E -= q1 * (lsf*x1Flux[k][j-1][i  ].d*(phic - phil)
+                                        + rsf*x1Flux[k][j-1][i+1].d*(phir - phic));
 
-        		phir = (*StaticGravPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
-        		phil = (*StaticGravPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
+          phir = (*StaticGravPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
 
-        		Ul_x2Face[k][j][i].My -= q3 * (phir-phil)*pG->U[k][j-1][i].d;
+          Ul_x2Face[k][j][i].My -= q3 * (phir-phil)*pG->U[k][j-1][i].d;
 
-         		Ul_x2Face[k][j][i].E -= q3 * (x3Flux[k  ][j-1][i].d*(phic - phil)
-                                  		    + x3Flux[k+1][j-1][i].d*(phir - phic));
+          Ul_x2Face[k][j][i].E -= q3 * (x3Flux[k  ][j-1][i].d*(phic - phil)
+                                        + x3Flux[k+1][j-1][i].d*(phir - phic));
 
-      				}
-    			}
-  		}
-	}
+        }
+      }
+    }
+  }
 
 
 
@@ -2314,7 +2314,7 @@ k][j][i].M3);
         Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
-                                  + x1Flux[k][j][i+1].d*(phir - phic));
+                                    + x1Flux[k][j][i+1].d*(phir - phic));
 
 
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
@@ -2323,7 +2323,7 @@ k][j][i].M3);
         Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j][i].d*(phic - phil)
-                                  + x3Flux[k+1][j][i].d*(phir - phic));
+                                    + x3Flux[k+1][j][i].d*(phir - phic));
 
 /* correct left states; x1 and x3 gradients */
         phic = pG->Phi[k][j-1][i];
@@ -2333,14 +2333,14 @@ k][j][i].M3);
         Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 
         Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
-                                  + x1Flux[k][j-1][i+1].d*(phir - phic));
+                                    + x1Flux[k][j-1][i+1].d*(phir - phic));
         phir = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k+1][j-1][i]);
         phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k-1][j-1][i]);
 
         Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j-1][i].d;
 
         Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
-                                  + x3Flux[k+1][j-1][i].d*(phir - phic));
+                                    + x3Flux[k+1][j-1][i].d*(phir - phic));
 
       }
     }
@@ -2349,79 +2349,79 @@ k][j][i].M3);
 
 
 
-/*========================Shearing box source term gradient *===============*/	
-	
+/*========================Shearing box source term gradient *===============*/
+
 /* Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
-* x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
-*    Vx source term is (dt/2)( 2 Omega_0 Vy)
-*    Vy source term is (dt/2)(-2 Omega_0 Vx)
-*    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
-*/
-		
+ * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+ */
+
 #ifdef SHEARING_BOX
-		if (ShearingBoxPot != NULL){
-			for (k=kl+1; k<=ku-1; k++) {
-				for (j=jl+1; j<=ju; j++) {
-					for (i=il+1; i<=iu-1; i++) {
-						cc_pos(pG,i,j,k,&x1,&x2,&x3);
-						phic = (*ShearingBoxPot)((x1            ),x2,x3);
-						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-						
-						/* correct right states; x1 and x3 gradients */
-						Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
+  if (ShearingBoxPot != NULL){
+    for (k=kl+1; k<=ku-1; k++) {
+      for (j=jl+1; j<=ju; j++) {
+        for (i=il+1; i<=iu-1; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phic = (*ShearingBoxPot)((x1            ),x2,x3);
+          phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+/* correct right states; x1 and x3 gradients */
+          Ur_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-						Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j  ][i  ].d*(phic - phil)
-									  + x1Flux[k][j  ][i+1].d*(phir - phic));
+          Ur_x2Face[k][j][i].E -= q1*(x1Flux[k][j  ][i  ].d*(phic - phil)
+                                      + x1Flux[k][j  ][i+1].d*(phir - phic));
 #endif
-						
-						phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
-						phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
-						
-						Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j][i].d;
+
+          phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+
+          Ur_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-						Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j  ][i].d*(phic - phil)
-													+ x3Flux[k+1][j  ][i].d*(phir - phic));
+          Ur_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j  ][i].d*(phic - phil)
+                                      + x3Flux[k+1][j  ][i].d*(phir - phic));
 #endif
-						
-						/* correct left states; x1 and x3 gradients */
-						phic = (*ShearingBoxPot)((x1            ),(x2-pG->dx2),x3);
-						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
-						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
-						
-						Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
+
+/* correct left states; x1 and x3 gradients */
+          phic = (*ShearingBoxPot)((x1            ),(x2-pG->dx2),x3);
+          phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),(x2-pG->dx2),x3);
+          phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),(x2-pG->dx2),x3);
+
+          Ul_x2Face[k][j][i].Mz -= q1*(phir-phil)*pG->U[k][j-1][i].d;
 #ifndef BAROTROPIC
-						Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
-													+ x1Flux[k][j-1][i+1].d*(phir - phic));
+          Ul_x2Face[k][j][i].E -= q1*(x1Flux[k][j-1][i  ].d*(phic - phil)
+                                      + x1Flux[k][j-1][i+1].d*(phir - phic));
 #endif
-						phir = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
-						phil = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
-						
-						Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j-1][i].d;
+          phir = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3+0.5*pG->dx3));
+          phil = (*ShearingBoxPot)(x1,(x2-pG->dx2),(x3-0.5*pG->dx3));
+
+          Ul_x2Face[k][j][i].My -= q3*(phir-phil)*pG->U[k][j-1][i].d;
 #ifndef BAROTROPIC
-						Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
-									+ x3Flux[k+1][j-1][i].d*(phir - phic));
+          Ul_x2Face[k][j][i].E -= q3*(x3Flux[k  ][j-1][i].d*(phic - phil)
+                                      + x3Flux[k+1][j-1][i].d*(phir - phic));
 #endif
-					}
-				}
-			}
-		}
-	
-	for (k=kl+1; k<=ku-1; k++) {
-		for (j=jl+1; j<=ju; j++) {
-			for (i=il+1; i<=iu-1; i++) {
-				Ur_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j][i].M2;
-				Ul_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j-1][i].M2;
+        }
+      }
+    }
+  }
+
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+        Ur_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j][i].M2;
+        Ul_x2Face[k][j][i].Mz += pG->dt*Omega_0*pG->U[k][j-1][i].M2;
 #ifdef FARGO
-				Ur_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
-				Ul_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j-1][i].M1;
+        Ur_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+        Ul_x2Face[k][j][i].Mx += hdt*(qshear-2.)*Omega_0*pG->U[k][j-1][i].M1;
 #else
-				Ur_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j][i].M1;
-				Ul_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j-1][i].M1;
+        Ur_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+        Ul_x2Face[k][j][i].Mx -= pG->dt*Omega_0*pG->U[k][j-1][i].M1;
 #endif
-			}
-		}
-	}
+      }
+    }
+  }
 
 #endif /* SHEARING_BOX */
 
@@ -2441,8 +2441,8 @@ k][j][i].M3);
     }
   }
 #endif
-	
-/*========================Shearing box source term gradient *===============*/	
+
+/*========================Shearing box source term gradient *===============*/
 /*--- Step 6d (cont) -----------------------------------------------------------
  * Add the geometric source-term in the x1-direction to the corrected L/R
  * states on x2-faces.  S_{M_R} = -(\rho v_\phi^2 - B_\phi^2)/R
@@ -2461,259 +2461,259 @@ k][j][i].M3);
 /*============================================================================*/
 /*== Add radiation momentum source terms along the perpendicular direction */
 /*
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
+  #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  for (k=kl+1; k<=ku-1; k++) {
+  for (j=jl+1; j<=ju-1; j++) {
+  for (i=il+1; i<=iu; i++) {
 
-				density = pG->U[k][j][i].d;
-				velocity_x = pG->U[k][j][i].M1 / density;
-				velocity_y = pG->U[k][j][i].M2 / density;
-				velocity_z = pG->U[k][j][i].M3 / density;
-
-				
-				Sigma_t    = pG->U[k][j][i].Sigma_t;
-				Sigma_a	   = pG->U[k][j][i].Sigma_a;
-					
-#ifdef FARGO
-				
-				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-	
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-				
-				
-				Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
-				Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
+  density = pG->U[k][j][i].d;
+  velocity_x = pG->U[k][j][i].M1 / density;
+  velocity_y = pG->U[k][j][i].M2 / density;
+  velocity_z = pG->U[k][j][i].M3 / density;
 
 
-				
-				Source[1] = -Prat * (-Sigma_t * Fr0x);
-				Source[3] = -Prat * (-Sigma_t * Fr0z);
+  Sigma_t    = pG->U[k][j][i].Sigma_t;
+  Sigma_a          = pG->U[k][j][i].Sigma_a;
 
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_z * Fr0z)/Crat);
+  #ifdef FARGO
 
-				Ur_x1Face[k][j][i].Mz += hdt * Source[1];
-				Ur_x1Face[k][j][i].My += hdt * Source[3];
-				
-				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
 
-		
-				
-				density = pG->U[k][j-1][i].d;
-				velocity_x = pG->U[k][j-1][i].M1 / density;
-				velocity_y = pG->U[k][j-1][i].M2 / density;
-				velocity_z = pG->U[k][j-1][i].M3 / density;
+  velocity_y -= qom * x1;
 
-				
-				Sigma_t    = pG->U[k][j-1][i].Sigma_t;
-				Sigma_a	   = pG->U[k][j-1][i].Sigma_a;
-					
-#ifdef FARGO
-			
-					
-				cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
-		
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-			
-				Fr0x = pG->U[k][j-1][i].Fr1 - ((1.0 + pG->U[k][j-1][i].Edd_11) * velocity_x + pG->U[k][j-1][i].Edd_21 * velocity_y + pG->U[k][j-1][i].Edd_31 * velocity_z) * pG->U[k][j-1][i].Er / Crat;
-				Fr0z = pG->U[k][j-1][i].Fr3 - ((1.0 + pG->U[k][j-1][i].Edd_33) * velocity_z + pG->U[k][j-1][i].Edd_31 * velocity_x + pG->U[k][j-1][i].Edd_32 * velocity_y) * pG->U[k][j-1][i].Er / Crat;
+  #endif
 
 
-				
-				Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
-				Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
-
-	
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_z * Fr0z)/Crat);
-
-				Ur_x1Face[k][j-1][i].Mz += hdt * Source[1];
-				Ur_x1Face[k][j-1][i].My += hdt * Source[3];
-				
-				Ur_x1Face[k][j-1][i].E  += hdt * Source[4];
+  Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
+  Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er / Crat;
 
 
-			}
-		}
-	}
-#endif
+
+  Source[1] = -Prat * (-Sigma_t * Fr0x);
+  Source[3] = -Prat * (-Sigma_t * Fr0z);
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_z * Fr0z)/Crat);
+
+  Ur_x1Face[k][j][i].Mz += hdt * Source[1];
+  Ur_x1Face[k][j][i].My += hdt * Source[3];
+
+  Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+
+
+  density = pG->U[k][j-1][i].d;
+  velocity_x = pG->U[k][j-1][i].M1 / density;
+  velocity_y = pG->U[k][j-1][i].M2 / density;
+  velocity_z = pG->U[k][j-1][i].M3 / density;
+
+
+  Sigma_t    = pG->U[k][j-1][i].Sigma_t;
+  Sigma_a          = pG->U[k][j-1][i].Sigma_a;
+
+  #ifdef FARGO
+
+
+  cc_pos(pG,i,j-1,k,&x1,&x2,&x3);
+
+
+  velocity_y -= qom * x1;
+
+  #endif
+
+  Fr0x = pG->U[k][j-1][i].Fr1 - ((1.0 + pG->U[k][j-1][i].Edd_11) * velocity_x + pG->U[k][j-1][i].Edd_21 * velocity_y + pG->U[k][j-1][i].Edd_31 * velocity_z) * pG->U[k][j-1][i].Er / Crat;
+  Fr0z = pG->U[k][j-1][i].Fr3 - ((1.0 + pG->U[k][j-1][i].Edd_33) * velocity_z + pG->U[k][j-1][i].Edd_31 * velocity_x + pG->U[k][j-1][i].Edd_32 * velocity_y) * pG->U[k][j-1][i].Er / Crat;
+
+
+
+  Source[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+  Source[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_z * Fr0z)/Crat);
+
+  Ur_x1Face[k][j-1][i].Mz += hdt * Source[1];
+  Ur_x1Face[k][j-1][i].My += hdt * Source[3];
+
+  Ur_x1Face[k][j-1][i].E  += hdt * Source[4];
+
+
+  }
+  }
+  }
+  #endif
 
 */
-	
+
 /*=== STEP 8: Correct x3-interface states with transverse flux gradients =====*/
 
 /*--- Step 8a ------------------------------------------------------------------
  * Correct x3-interface states using x1-fluxes computed in Step 1d.
- * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (z,x,y) on LHS 
+ * Since the fluxes come from an x1-sweep, (x,y,z) on RHS -> (z,x,y) on LHS
  */
 
-  	for (k=kl+1; k<=ku; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        		q2 = hdt/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        q2 = hdt/(r[i]*pG->dx2);
 #endif
-        		Ul_x3Face[k][j][i].d -=q1 * (rsf*x1Flux[k-1][j][i+1].d -lsf*x1Flux[k-1][j][i].d );
-        		Ul_x3Face[k][j][i].Mx-=q1 * (rsf*x1Flux[k-1][j][i+1].Mz-lsf*x1Flux[k-1][j][i].Mz);
-        		Ul_x3Face[k][j][i].My-=q1 * (rsf*x1Flux[k-1][j][i+1].Mx-lsf*x1Flux[k-1][j][i].Mx);
-        		Ul_x3Face[k][j][i].Mz-=q1 * (SQR(rsf)*x1Flux[k-1][j][i+1].My-SQR(lsf)*x1Flux[k-1][j][i].My);
+        Ul_x3Face[k][j][i].d -=q1 * (rsf*x1Flux[k-1][j][i+1].d -lsf*x1Flux[k-1][j][i].d );
+        Ul_x3Face[k][j][i].Mx-=q1 * (rsf*x1Flux[k-1][j][i+1].Mz-lsf*x1Flux[k-1][j][i].Mz);
+        Ul_x3Face[k][j][i].My-=q1 * (rsf*x1Flux[k-1][j][i+1].Mx-lsf*x1Flux[k-1][j][i].Mx);
+        Ul_x3Face[k][j][i].Mz-=q1 * (SQR(rsf)*x1Flux[k-1][j][i+1].My-SQR(lsf)*x1Flux[k-1][j][i].My);
 
-        		Ul_x3Face[k][j][i].E -=q1 * (rsf*x1Flux[k-1][j][i+1].E -lsf*x1Flux[k-1][j][i].E );
+        Ul_x3Face[k][j][i].E -=q1 * (rsf*x1Flux[k-1][j][i+1].E -lsf*x1Flux[k-1][j][i].E );
 
 #ifdef RADIATION_MHD
 /* Update B2 */
-			Ul_x3Face[k][j][i].Bz+=q1 * 0.5*
-	  			((emf3[k-1][j  ][i+1] - emf3[k-1][j  ][i]) +
-	   			(emf3[k-1][j+1][i+1] - emf3[k-1][j+1][i]));
+        Ul_x3Face[k][j][i].Bz+=q1 * 0.5*
+          ((emf3[k-1][j  ][i+1] - emf3[k-1][j  ][i]) +
+           (emf3[k-1][j+1][i+1] - emf3[k-1][j+1][i]));
 #endif
 
-        		Ur_x3Face[k][j][i].d -=q1 * (rsf*x1Flux[k  ][j][i+1].d  - lsf*x1Flux[k  ][j][i].d );
-        		Ur_x3Face[k][j][i].Mx-=q1 * (rsf*x1Flux[k  ][j][i+1].Mz - lsf*x1Flux[k  ][j][i].Mz);
-        		Ur_x3Face[k][j][i].My-=q1 * (rsf*x1Flux[k  ][j][i+1].Mx - lsf*x1Flux[k  ][j][i].Mx);
-        		Ur_x3Face[k][j][i].Mz-=q1 * (SQR(rsf)*x1Flux[k  ][j][i+1].My - SQR(lsf)*x1Flux[k  ][j][i].My);
+        Ur_x3Face[k][j][i].d -=q1 * (rsf*x1Flux[k  ][j][i+1].d  - lsf*x1Flux[k  ][j][i].d );
+        Ur_x3Face[k][j][i].Mx-=q1 * (rsf*x1Flux[k  ][j][i+1].Mz - lsf*x1Flux[k  ][j][i].Mz);
+        Ur_x3Face[k][j][i].My-=q1 * (rsf*x1Flux[k  ][j][i+1].Mx - lsf*x1Flux[k  ][j][i].Mx);
+        Ur_x3Face[k][j][i].Mz-=q1 * (SQR(rsf)*x1Flux[k  ][j][i+1].My - SQR(lsf)*x1Flux[k  ][j][i].My);
 
-        		Ur_x3Face[k][j][i].E -=q1 * (rsf*x1Flux[k  ][j][i+1].E - lsf*x1Flux[k  ][j][i].E );
+        Ur_x3Face[k][j][i].E -=q1 * (rsf*x1Flux[k  ][j][i+1].E - lsf*x1Flux[k  ][j][i].E );
 
 #ifdef RADIATION_MHD
 /* Update B2 */
-			Ur_x3Face[k][j][i].Bz+=q1 * 0.5*
-	  			((emf3[k][j  ][i+1] - emf3[k][j  ][i]) +
-	   			(emf3[k][j+1][i+1] - emf3[k][j+1][i]));
+        Ur_x3Face[k][j][i].Bz+=q1 * 0.5*
+          ((emf3[k][j  ][i+1] - emf3[k][j  ][i]) +
+           (emf3[k][j+1][i+1] - emf3[k][j+1][i]));
 #endif
 
 
 /*--- Step 8b ------------------------------------------------------------------
  * Correct x3-interface states using x2-fluxes computed in Step 2d.
- * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (y,z,x) on LHS 
+ * Since the fluxes come from an x2-sweep, (x,y,z) on RHS -> (y,z,x) on LHS
  */
 
-        		Ul_x3Face[k][j][i].d -=q2 * (x2Flux[k-1][j+1][i].d -x2Flux[k-1][j][i].d );
-        		Ul_x3Face[k][j][i].Mx-=q2 * (x2Flux[k-1][j+1][i].My-x2Flux[k-1][j][i].My);
-        		Ul_x3Face[k][j][i].My-=q2 * (x2Flux[k-1][j+1][i].Mz-x2Flux[k-1][j][i].Mz);
-        		Ul_x3Face[k][j][i].Mz-=q2 * (x2Flux[k-1][j+1][i].Mx-x2Flux[k-1][j][i].Mx);
+        Ul_x3Face[k][j][i].d -=q2 * (x2Flux[k-1][j+1][i].d -x2Flux[k-1][j][i].d );
+        Ul_x3Face[k][j][i].Mx-=q2 * (x2Flux[k-1][j+1][i].My-x2Flux[k-1][j][i].My);
+        Ul_x3Face[k][j][i].My-=q2 * (x2Flux[k-1][j+1][i].Mz-x2Flux[k-1][j][i].Mz);
+        Ul_x3Face[k][j][i].Mz-=q2 * (x2Flux[k-1][j+1][i].Mx-x2Flux[k-1][j][i].Mx);
 
-        		Ul_x3Face[k][j][i].E -=q2 * (x2Flux[k-1][j+1][i].E -x2Flux[k-1][j][i].E );
-
-#ifdef RADIATION_MHD
-/* Update B1 */
-			Ul_x3Face[k][j][i].By-=q2 * 0.5*
-	  			((emf3[k-1][j+1][i  ] - emf3[k-1][j][i  ]) +
-	   			(emf3[k-1][j+1][i+1] - emf3[k-1][j][i+1]));
-#endif
-
-        		Ur_x3Face[k][j][i].d -=q2 * (x2Flux[k  ][j+1][i].d -x2Flux[k  ][j][i].d );
-        		Ur_x3Face[k][j][i].Mx-=q2 * (x2Flux[k  ][j+1][i].My-x2Flux[k  ][j][i].My);
-        		Ur_x3Face[k][j][i].My-=q2 * (x2Flux[k  ][j+1][i].Mz-x2Flux[k  ][j][i].Mz);
-        		Ur_x3Face[k][j][i].Mz-=q2 * (x2Flux[k  ][j+1][i].Mx-x2Flux[k  ][j][i].Mx);
-
-        		Ur_x3Face[k][j][i].E -=q2 * (x2Flux[k  ][j+1][i].E -x2Flux[k  ][j][i].E );
+        Ul_x3Face[k][j][i].E -=q2 * (x2Flux[k-1][j+1][i].E -x2Flux[k-1][j][i].E );
 
 #ifdef RADIATION_MHD
 /* Update B1 */
-			Ur_x3Face[k][j][i].By-=q2 * 0.5*
-	  			((emf3[k][j+1][i  ] - emf3[k][j][i  ]) +
-	   			(emf3[k][j+1][i+1] - emf3[k][j][i+1]));
+        Ul_x3Face[k][j][i].By-=q2 * 0.5*
+          ((emf3[k-1][j+1][i  ] - emf3[k-1][j][i  ]) +
+           (emf3[k-1][j+1][i+1] - emf3[k-1][j][i+1]));
 #endif
 
-      			}
-    		}
-  	}
+        Ur_x3Face[k][j][i].d -=q2 * (x2Flux[k  ][j+1][i].d -x2Flux[k  ][j][i].d );
+        Ur_x3Face[k][j][i].Mx-=q2 * (x2Flux[k  ][j+1][i].My-x2Flux[k  ][j][i].My);
+        Ur_x3Face[k][j][i].My-=q2 * (x2Flux[k  ][j+1][i].Mz-x2Flux[k  ][j][i].Mz);
+        Ur_x3Face[k][j][i].Mz-=q2 * (x2Flux[k  ][j+1][i].Mx-x2Flux[k  ][j][i].Mx);
 
-		
+        Ur_x3Face[k][j][i].E -=q2 * (x2Flux[k  ][j+1][i].E -x2Flux[k  ][j][i].E );
+
+#ifdef RADIATION_MHD
+/* Update B1 */
+        Ur_x3Face[k][j][i].By-=q2 * 0.5*
+          ((emf3[k][j+1][i  ] - emf3[k][j][i  ]) +
+           (emf3[k][j+1][i+1] - emf3[k][j][i+1]));
+#endif
+
+      }
+    }
+  }
+
+
 /*--- Step 8c ------------------------------------------------------------------
  * Add the "MHD source terms" from the x1- and x2-flux-gradients to the
  * conservative variables on the x3Face.  Limiting is used as in GS07.
  */
 
 #ifdef RADIATION_MHD
-  	for (k=kl+1; k<=ku; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
 
-        			db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
-        			db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;
-        			db3 = (    pG->B3i[k  ][j  ][i  ] -     pG->B3i[k-1][j][i])*dx3i;
-        			B1 = pG->U[k-1][j][i].B1c;
-        			B2 = pG->U[k-1][j][i].B2c;
-        			B3 = pG->U[k-1][j][i].B3c;
-				V1 = pG->U[k-1][j][i].M1/pG->U[k-1][j][i].d;
-				V2 = pG->U[k-1][j][i].M2/pG->U[k-1][j][i].d;
+        db1 = (rsf*pG->B1i[k-1][j  ][i+1] - lsf*pG->B1i[k-1][j][i])*dx1i;
+        db2 = (    pG->B2i[k-1][j+1][i  ] -     pG->B2i[k-1][j][i])*dx2i;
+        db3 = (    pG->B3i[k  ][j  ][i  ] -     pG->B3i[k-1][j][i])*dx3i;
+        B1 = pG->U[k-1][j][i].B1c;
+        B2 = pG->U[k-1][j][i].B2c;
+        B3 = pG->U[k-1][j][i].B3c;
+        V1 = pG->U[k-1][j][i].M1/pG->U[k-1][j][i].d;
+        V2 = pG->U[k-1][j][i].M2/pG->U[k-1][j][i].d;
 
 /* Calculate mdb1 = min_mod(-db3,db1) */
-				if(db3 > 0.0 && db1 < 0.0){
-	  				mdb1 = db1 > -db3 ? db1 : -db3;
-				}
-				else if(db3 < 0.0 && db1 > 0.0){
-	  				mdb1 = db1 < -db3 ? db1 : -db3;
-				}
-				else mdb1 = 0.0;
+        if(db3 > 0.0 && db1 < 0.0){
+          mdb1 = db1 > -db3 ? db1 : -db3;
+        }
+        else if(db3 < 0.0 && db1 > 0.0){
+          mdb1 = db1 < -db3 ? db1 : -db3;
+        }
+        else mdb1 = 0.0;
 
 /* Calculate mdb2 = min_mod(-db3,db2) */
-				if(db3 > 0.0 && db2 < 0.0){
-	  				mdb2 = db2 > -db3 ? db2 : -db3;
-				}
-				else if(db3 < 0.0 && db2 > 0.0){
-	  				mdb2 = db2 < -db3 ? db2 : -db3;
-				}
-				else mdb2 = 0.0;
+        if(db3 > 0.0 && db2 < 0.0){
+          mdb2 = db2 > -db3 ? db2 : -db3;
+        }
+        else if(db3 < 0.0 && db2 > 0.0){
+          mdb2 = db2 < -db3 ? db2 : -db3;
+        }
+        else mdb2 = 0.0;
 
-        			Ul_x3Face[k][j][i].My += hdt*B1*db3;
-        			Ul_x3Face[k][j][i].Mz += hdt*B2*db3;
-        			Ul_x3Face[k][j][i].Mx += hdt*B3*db3;
-				Ul_x3Face[k][j][i].By += hdt*V1*(-mdb2);
-				Ul_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
+        Ul_x3Face[k][j][i].My += hdt*B1*db3;
+        Ul_x3Face[k][j][i].Mz += hdt*B2*db3;
+        Ul_x3Face[k][j][i].Mx += hdt*B3*db3;
+        Ul_x3Face[k][j][i].By += hdt*V1*(-mdb2);
+        Ul_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
 
-				Ul_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
+        Ul_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
 
 
-        			db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
-        			db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
-        			db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
-        			B1 = pG->U[k][j][i].B1c;
-        			B2 = pG->U[k][j][i].B2c;
-        			B3 = pG->U[k][j][i].B3c;
-				V1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
-				V2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
+        db1 = (rsf*pG->B1i[k  ][j  ][i+1] - lsf*pG->B1i[k][j][i])*dx1i;
+        db2 = (    pG->B2i[k  ][j+1][i  ] -     pG->B2i[k][j][i])*dx2i;
+        db3 = (    pG->B3i[k+1][j  ][i  ] -     pG->B3i[k][j][i])*dx3i;
+        B1 = pG->U[k][j][i].B1c;
+        B2 = pG->U[k][j][i].B2c;
+        B3 = pG->U[k][j][i].B3c;
+        V1 = pG->U[k][j][i].M1/pG->U[k][j][i].d;
+        V2 = pG->U[k][j][i].M2/pG->U[k][j][i].d;
 
 /* Calculate mdb1 = min_mod(-db3,db1) */
-				if(db3 > 0.0 && db1 < 0.0){
-	  				mdb1 = db1 > -db3 ? db1 : -db3;
-				}
-				else if(db3 < 0.0 && db1 > 0.0){
-	  				mdb1 = db1 < -db3 ? db1 : -db3;
-				}
-				else mdb1 = 0.0;	
+        if(db3 > 0.0 && db1 < 0.0){
+          mdb1 = db1 > -db3 ? db1 : -db3;
+        }
+        else if(db3 < 0.0 && db1 > 0.0){
+          mdb1 = db1 < -db3 ? db1 : -db3;
+        }
+        else mdb1 = 0.0;
 
 /* Calculate mdb2 = min_mod(-db3,db2) */
-				if(db3 > 0.0 && db2 < 0.0){
-	  				mdb2 = db2 > -db3 ? db2 : -db3;
-				}
-				else if(db3 < 0.0 && db2 > 0.0){
-	  				mdb2 = db2 < -db3 ? db2 : -db3;
-				}
-				else mdb2 = 0.0;
+        if(db3 > 0.0 && db2 < 0.0){
+          mdb2 = db2 > -db3 ? db2 : -db3;
+        }
+        else if(db3 < 0.0 && db2 > 0.0){
+          mdb2 = db2 < -db3 ? db2 : -db3;
+        }
+        else mdb2 = 0.0;
 
-        			Ur_x3Face[k][j][i].My += hdt*B1*db3;
-        			Ur_x3Face[k][j][i].Mz += hdt*B2*db3;
-        			Ur_x3Face[k][j][i].Mx += hdt*B3*db3;
-				Ur_x3Face[k][j][i].By += hdt*V1*(-mdb2);
-				Ur_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
+        Ur_x3Face[k][j][i].My += hdt*B1*db3;
+        Ur_x3Face[k][j][i].Mz += hdt*B2*db3;
+        Ur_x3Face[k][j][i].Mx += hdt*B3*db3;
+        Ur_x3Face[k][j][i].By += hdt*V1*(-mdb2);
+        Ur_x3Face[k][j][i].Bz += hdt*V2*(-mdb1);
 
-				Ur_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
+        Ur_x3Face[k][j][i].E  += hdt*(B1*V1*(-mdb2) + B2*V2*(-mdb1) );
 
-      				}
-    			}
-  		}
+      }
+    }
+  }
 #endif /* MHD */
 
 
@@ -2724,74 +2724,74 @@ k][j][i].M3);
  *    S_{M} = -(\rho) Grad(Phi);   S_{E} = -(\rho v) Grad{Phi}
  */
 
-  	if (StaticGravPot != NULL){
-  		for (k=kl+1; k<=ku; k++) {
-    			for (j=jl+1; j<=ju-1; j++) {
-      				for (i=il+1; i<=iu-1; i++) {
-        				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        				phic = (*StaticGravPot)((x1            ),x2,x3);
-        				phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-        				phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+  if (StaticGravPot != NULL){
+    for (k=kl+1; k<=ku; k++) {
+      for (j=jl+1; j<=ju-1; j++) {
+        for (i=il+1; i<=iu-1; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phic = (*StaticGravPot)((x1            ),x2,x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
 /* correct right states; x1 and x2 gradients */
 /* correct right states; x1 and x2 gradients */
 #ifdef CYLINDRICAL
-        				g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 #ifdef FARGO
-        				g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-        				rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        				q2 = hdt/(r[i]*pG->dx2);
-       					 Ur_x3Face[k][j][i].My -= hdt*pG->U[k][j][i].d*g;
+          rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+          q2 = hdt/(r[i]*pG->dx2);
+          Ur_x3Face[k][j][i].My -= hdt*pG->U[k][j][i].d*g;
 #else
-        				Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
+          Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #endif
 
-        				Ur_x3Face[k][j][i].E -= q1 * (lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
-                                  				    + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
+          Ur_x3Face[k][j][i].E -= q1 * (lsf*x1Flux[k  ][j][i  ].d*(phic - phil)
+                                        + rsf*x1Flux[k  ][j][i+1].d*(phir - phic));
 
 
-        				phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-        				phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-        				Ur_x3Face[k][j][i].Mz -= q2 * (phir-phil)*pG->U[k][j][i].d;
+          Ur_x3Face[k][j][i].Mz -= q2 * (phir-phil)*pG->U[k][j][i].d;
 
-        				Ur_x3Face[k][j][i].E -= q2 * (x2Flux[k  ][j  ][i].d*(phic - phil)
-                                  		+ x2Flux[k  ][j+1][i].d*(phir - phic));
+          Ur_x3Face[k][j][i].E -= q2 * (x2Flux[k  ][j  ][i].d*(phic - phil)
+                                        + x2Flux[k  ][j+1][i].d*(phir - phic));
 
 
 /* correct left states; x1 and x2 gradients */
-        				phic = (*StaticGravPot)((x1            ),x2,(x3-pG->dx3));
-        				phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
-        				phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
+          phic = (*StaticGravPot)((x1            ),x2,(x3-pG->dx3));
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
 
 
 #ifdef CYLINDRICAL
-        				g = (*x1GravAcc)(x1vc(pG,i),x2,(x3-pG->dx3));
+          g = (*x1GravAcc)(x1vc(pG,i),x2,(x3-pG->dx3));
 #ifdef FARGO
-        				g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-        				Ul_x3Face[k][j][i].My -= hdt*pG->U[k-1][j][i].d*g;
+          Ul_x3Face[k][j][i].My -= hdt*pG->U[k-1][j][i].d*g;
 #else
-        				Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
+          Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 #endif
 
-        				Ul_x3Face[k][j][i].E -= q1 * (lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
-                                  				     + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
+          Ul_x3Face[k][j][i].E -= q1 * (lsf*x1Flux[k-1][j][i  ].d*(phic - phil)
+                                        + rsf*x1Flux[k-1][j][i+1].d*(phir - phic));
 
 
-        				phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
-        				phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
 
-        				Ul_x3Face[k][j][i].Mz -= q2 * (phir-phil)*pG->U[k-1][j][i].d;
+          Ul_x3Face[k][j][i].Mz -= q2 * (phir-phil)*pG->U[k-1][j][i].d;
 
-        				Ul_x3Face[k][j][i].E -= q2 * (x2Flux[k-1][j  ][i].d*(phic - phil)
-                                  		+ x2Flux[k-1][j+1][i].d*(phir - phic));
+          Ul_x3Face[k][j][i].E -= q2 * (x2Flux[k-1][j  ][i].d*(phic - phil)
+                                        + x2Flux[k-1][j+1][i].d*(phir - phic));
 
-      						}
-    					}
-  				}
-			}
+        }
+      }
+    }
+  }
 
 
 
@@ -2813,7 +2813,7 @@ k][j][i].M3);
         Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x3Face[k][j][i].E -= q1*(x1Flux[k][j][i  ].d*(phic - phil)
-                                  + x1Flux[k][j][i+1].d*(phir - phic));
+                                    + x1Flux[k][j][i+1].d*(phir - phic));
 
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
         phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
@@ -2821,7 +2821,7 @@ k][j][i].M3);
         Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
 
         Ur_x3Face[k][j][i].E -= q2*(x2Flux[k][j  ][i].d*(phic - phil)
-                                  + x2Flux[k][j+1][i].d*(phir - phic));
+                                    + x2Flux[k][j+1][i].d*(phir - phic));
 
 
 /* correct left states; x1 and x2 gradients */
@@ -2832,7 +2832,7 @@ k][j][i].M3);
         Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 
         Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
-                                  + x1Flux[k-1][j][i+1].d*(phir - phic));
+                                    + x1Flux[k-1][j][i+1].d*(phir - phic));
 
 
         phir = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k-1][j+1][i]);
@@ -2841,7 +2841,7 @@ k][j][i].M3);
         Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
 
         Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
-                                  + x2Flux[k-1][j+1][i].d*(phir - phic));
+                                    + x2Flux[k-1][j+1][i].d*(phir - phic));
 
       }
     }
@@ -2849,84 +2849,84 @@ k][j][i].M3);
 #endif /* SELF_GRAVITY */
 
 
-	
+
 /*=============== Shearing box source terms ================*/
-	
-	/*--- Step 7d (cont) -----------------------------------------------------------
-	 * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
-	 * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
-	 *    Vx source term is (dt/2)( 2 Omega_0 Vy)
-	 *    Vy source term is (dt/2)(-2 Omega_0 Vx)
-	 *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
-	 */
-	
+
+/*--- Step 7d (cont) -----------------------------------------------------------
+ * Add source terms for shearing box (Coriolis forces) for 0.5*dt arising from
+ * x1-Flux gradient.  The tidal gravity terms are added via ShearingBoxPot
+ *    Vx source term is (dt/2)( 2 Omega_0 Vy)
+ *    Vy source term is (dt/2)(-2 Omega_0 Vx)
+ *    Vy source term is (dt/2)((q-2) Omega_0 Vx) (with FARGO)
+ */
+
 #ifdef SHEARING_BOX
-	if (ShearingBoxPot != NULL){
-		for (k=kl+1; k<=ku; k++) {
-			for (j=jl+1; j<=ju-1; j++) {
-				for (i=il+1; i<=iu-1; i++) {
-					cc_pos(pG,i,j,k,&x1,&x2,&x3);
-					phic = (*ShearingBoxPot)((x1            ),x2,x3);
-					phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-					phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-					
-					/* correct right states; x1 and x2 gradients */
-					Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
+  if (ShearingBoxPot != NULL){
+    for (k=kl+1; k<=ku; k++) {
+      for (j=jl+1; j<=ju-1; j++) {
+        for (i=il+1; i<=iu-1; i++) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phic = (*ShearingBoxPot)((x1            ),x2,x3);
+          phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+
+/* correct right states; x1 and x2 gradients */
+          Ur_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-					Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
-												+ x1Flux[k  ][j][i+1].d*(phir - phic));
+          Ur_x3Face[k][j][i].E -= q1*(x1Flux[k  ][j][i  ].d*(phic - phil)
+                                      + x1Flux[k  ][j][i+1].d*(phir - phic));
 #endif
-					
-					phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-					phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-					
-					Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
+
+          phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+
+          Ur_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k][j][i].d;
 #ifndef BAROTROPIC
-					Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
-												+ x2Flux[k  ][j+1][i].d*(phir - phic));
+          Ur_x3Face[k][j][i].E -= q2*(x2Flux[k  ][j  ][i].d*(phic - phil)
+                                      + x2Flux[k  ][j+1][i].d*(phir - phic));
 #endif
-					
-					/* correct left states; x1 and x2 gradients */
-					phic = (*ShearingBoxPot)((x1            ),x2,(x3-pG->dx3));
-					phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
-					phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
-					
-					Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
+
+/* correct left states; x1 and x2 gradients */
+          phic = (*ShearingBoxPot)((x1            ),x2,(x3-pG->dx3));
+          phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,(x3-pG->dx3));
+          phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,(x3-pG->dx3));
+
+          Ul_x3Face[k][j][i].My -= q1*(phir-phil)*pG->U[k-1][j][i].d;
 #ifndef BAROTROPIC
-					Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
-												+ x1Flux[k-1][j][i+1].d*(phir - phic));
+          Ul_x3Face[k][j][i].E -= q1*(x1Flux[k-1][j][i  ].d*(phic - phil)
+                                      + x1Flux[k-1][j][i+1].d*(phir - phic));
 #endif
-					
-					phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
-					phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
-					
-					Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
+
+          phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),(x3-pG->dx3));
+          phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),(x3-pG->dx3));
+
+          Ul_x3Face[k][j][i].Mz -= q2*(phir-phil)*pG->U[k-1][j][i].d;
 #ifndef BAROTROPIC
-					Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
-												+ x2Flux[k-1][j+1][i].d*(phir - phic));
+          Ul_x3Face[k][j][i].E -= q2*(x2Flux[k-1][j  ][i].d*(phic - phil)
+                                      + x2Flux[k-1][j+1][i].d*(phir - phic));
 #endif
-				}
-			}
-		}
-	}
-	
-	for (k=kl+1; k<=ku; k++) {
-		for (j=jl+1; j<=ju-1; j++) {
-			for (i=il+1; i<=iu-1; i++) {
-				Ur_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k][j][i].M2;
-				Ul_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k-1][j][i].M2;
+        }
+      }
+    }
+  }
+
+  for (k=kl+1; k<=ku; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
+        Ur_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k][j][i].M2;
+        Ul_x3Face[k][j][i].My += pG->dt*Omega_0*pG->U[k-1][j][i].M2;
 #ifdef FARGO
-				Ur_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
-				Ul_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k-1][j][i].M1;
+        Ur_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+        Ul_x3Face[k][j][i].Mz += hdt*(qshear-2.)*Omega_0*pG->U[k-1][j][i].M1;
 #else
-				Ur_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k][j][i].M1;
-				Ul_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k-1][j][i].M1;
+        Ur_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+        Ul_x3Face[k][j][i].Mz -= pG->dt*Omega_0*pG->U[k-1][j][i].M1;
 #endif
-			}
-		}
-	}
-#endif /* SHEARING_BOX */	
-	
+      }
+    }
+  }
+#endif /* SHEARING_BOX */
+
 #if defined(CYLINDRICAL) && defined(FARGO)
   for (k=kl+1; k<=ku; k++) {
     for (j=jl+1; j<=ju-1; j++) {
@@ -2968,93 +2968,93 @@ k][j][i].M3);
 /*== Add radiation momentum source terms along the perpendicular direction */
 
 /*
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu; i++) {
-
-				
-				
-				density = pG->U[k][j][i].d;
-				velocity_x = pG->U[k][j][i].M1 / density;
-				velocity_y = pG->U[k][j][i].M2 / density;
-				velocity_z = pG->U[k][j][i].M3 / density;
-
-				
-				Sigma_t    = pG->U[k][j][i].Sigma_t;
-				Sigma_a	   = pG->U[k][j][i].Sigma_a;
-					
-#ifdef FARGO
-				
-					
-				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-				
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-				
-				
-				Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
-				Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
+  #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+  for (k=kl+1; k<=ku-1; k++) {
+  for (j=jl+1; j<=ju-1; j++) {
+  for (i=il+1; i<=iu; i++) {
 
 
-				
-				Source[1] = -Prat * (-Sigma_t * Fr0x);
-				Source[2] = -Prat * (-Sigma_t * Fr0y);
 
-				
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y)/Crat);
-
-				Ur_x1Face[k][j][i].My += hdt * Source[1];
-				Ur_x1Face[k][j][i].Mz += hdt * Source[2];
-				
-				Ur_x1Face[k][j][i].E  += hdt * Source[4];
+  density = pG->U[k][j][i].d;
+  velocity_x = pG->U[k][j][i].M1 / density;
+  velocity_y = pG->U[k][j][i].M2 / density;
+  velocity_z = pG->U[k][j][i].M3 / density;
 
 
-				
-				density = pG->U[k-1][j][i].d;
-				velocity_x = pG->U[k-1][j][i].M1 / density;
-				velocity_y = pG->U[k-1][j][i].M2 / density;
-				velocity_z = pG->U[k-1][j][i].M3 / density;
+  Sigma_t    = pG->U[k][j][i].Sigma_t;
+  Sigma_a          = pG->U[k][j][i].Sigma_a;
 
-				
-				Sigma_t    = pG->U[k-1][j][i].Sigma_t;
-				Sigma_a	   = pG->U[k-1][j][i].Sigma_a;
-					
-#ifdef FARGO
-			
-					
-				cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
-			
-
-				velocity_y -= qom * x1;						
-					
-#endif			
-			
-				
-				Fr0x = pG->U[k-1][j][i].Fr1 - ((1.0 + pG->U[k-1][j][i].Edd_11) * velocity_x + pG->U[k-1][j][i].Edd_21 * velocity_y + pG->U[k-1][j][i].Edd_31 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
-				Fr0y = pG->U[k-1][j][i].Fr2 - ((1.0 + pG->U[k-1][j][i].Edd_22) * velocity_y + pG->U[k-1][j][i].Edd_21 * velocity_x + pG->U[k-1][j][i].Edd_32 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
+  #ifdef FARGO
 
 
-				
-				Source[1] = -Prat * (-Sigma_t * Fr0x);
-				Source[2] = -Prat * (-Sigma_t * Fr0y);
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
-		
-				Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_y * Fr0y)/Crat);
 
-				Ur_x1Face[k-1][j][i].My += hdt * Source[1];
-				Ur_x1Face[k-1][j][i].Mz += hdt * Source[2];
-				
-				Ur_x1Face[k-1][j][i].E  += hdt * Source[4];
+  velocity_y -= qom * x1;
 
-			}
-		}
-	}
-#endif
+  #endif
+
+
+  Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er / Crat;
+  Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er / Crat;
+
+
+
+  Source[1] = -Prat * (-Sigma_t * Fr0x);
+  Source[2] = -Prat * (-Sigma_t * Fr0y);
+
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x + velocity_y * Fr0y)/Crat);
+
+  Ur_x1Face[k][j][i].My += hdt * Source[1];
+  Ur_x1Face[k][j][i].Mz += hdt * Source[2];
+
+  Ur_x1Face[k][j][i].E  += hdt * Source[4];
+
+
+
+  density = pG->U[k-1][j][i].d;
+  velocity_x = pG->U[k-1][j][i].M1 / density;
+  velocity_y = pG->U[k-1][j][i].M2 / density;
+  velocity_z = pG->U[k-1][j][i].M3 / density;
+
+
+  Sigma_t    = pG->U[k-1][j][i].Sigma_t;
+  Sigma_a          = pG->U[k-1][j][i].Sigma_a;
+
+  #ifdef FARGO
+
+
+  cc_pos(pG,i,j,k-1,&x1,&x2,&x3);
+
+
+  velocity_y -= qom * x1;
+
+  #endif
+
+
+  Fr0x = pG->U[k-1][j][i].Fr1 - ((1.0 + pG->U[k-1][j][i].Edd_11) * velocity_x + pG->U[k-1][j][i].Edd_21 * velocity_y + pG->U[k-1][j][i].Edd_31 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
+  Fr0y = pG->U[k-1][j][i].Fr2 - ((1.0 + pG->U[k-1][j][i].Edd_22) * velocity_y + pG->U[k-1][j][i].Edd_21 * velocity_x + pG->U[k-1][j][i].Edd_32 * velocity_z) * pG->U[k-1][j][i].Er / Crat;
+
+
+
+  Source[1] = -Prat * (-Sigma_t * Fr0x);
+  Source[2] = -Prat * (-Sigma_t * Fr0y);
+
+
+  Source[4] = -Prat * Crat * ((Sigma_a - Sigma_s) * (velocity_x * Fr0x * velocity_y * Fr0y)/Crat);
+
+  Ur_x1Face[k-1][j][i].My += hdt * Source[1];
+  Ur_x1Face[k-1][j][i].Mz += hdt * Source[2];
+
+  Ur_x1Face[k-1][j][i].E  += hdt * Source[4];
+
+  }
+  }
+  }
+  #endif
 */
-/* End adding radiation source terms */	
+/* End adding radiation source terms */
 
 
 
@@ -3064,40 +3064,40 @@ k][j][i].M3);
  * Calculate d^{n+1/2} (needed with static potential, cooling, or RADIATION_MHD)
  */
 
-    	for (k=kl+1; k<=ku-1; k++) {
-      		for (j=jl+1; j<=ju-1; j++) {
-			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-          		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-         		q2 = hdt/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        q2 = hdt/(r[i]*pG->dx2);
 #endif
-          			dhalf[k][j][i] = pG->U[k][j][i].d 
-            				- q1 * (rsf*x1Flux[k  ][j  ][i+1].d - lsf*x1Flux[k][j][i].d)
-            				- q2 * (    x2Flux[k  ][j+1][i  ].d -     x2Flux[k][j][i].d)
-            				- q3 * (    x3Flux[k+1][j  ][i  ].d -     x3Flux[k][j][i].d);
+        dhalf[k][j][i] = pG->U[k][j][i].d
+          - q1 * (rsf*x1Flux[k  ][j  ][i+1].d - lsf*x1Flux[k][j][i].d)
+          - q2 * (    x2Flux[k  ][j+1][i  ].d -     x2Flux[k][j][i].d)
+          - q3 * (    x3Flux[k+1][j  ][i  ].d -     x3Flux[k][j][i].d);
 
-			}
-      		}
-    	}
-  
+      }
+    }
+  }
+
 
 
 /*--- Step 9a ------------------------------------------------------------------
  * Calculate d^{n+1/2} (with FOFC flux)
  */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
-    	for (k=kl+1; k<=ku-1; k++) {
-      		for (j=jl+1; j<=ju-1; j++) {
-			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 
-          			dhalfP[k][j][i] = pG->U[k][j][i].d 
-            				- hdtodx1 * (    x1FluxP[k  ][j  ][i+1].d -     x1FluxP[k][j][i].d)
-            				- hdtodx2 * (    x2FluxP[k  ][j+1][i  ].d -     x2FluxP[k][j][i].d)
-            				- hdtodx3 * (    x3FluxP[k+1][j  ][i  ].d -     x3FluxP[k][j][i].d);
+        dhalfP[k][j][i] = pG->U[k][j][i].d
+          - hdtodx1 * (    x1FluxP[k  ][j  ][i+1].d -     x1FluxP[k][j][i].d)
+          - hdtodx2 * (    x2FluxP[k  ][j+1][i  ].d -     x2FluxP[k][j][i].d)
+          - hdtodx3 * (    x3FluxP[k+1][j  ][i  ].d -     x3FluxP[k][j][i].d);
 
-			}
-      		}
-    	}
+      }
+    }
+  }
 #endif /* FOFC */
 
 /*--- Step 9b ------------------------------------------------------------------
@@ -3105,266 +3105,266 @@ k][j][i].M3);
  */
 
 #ifdef RADIATION_MHD
-/* Update momentum for half time step. We also need to add radiation source term * 
+/* Update momentum for half time step. We also need to add radiation source term *
  * using modified Godunov method */
 
-  	for (k=kl+1; k<=ku-1; k++) {
-    		for (j=jl+1; j<=ju-1; j++) {
-      			for (i=il+1; i<=iu-1; i++) {
+  for (k=kl+1; k<=ku-1; k++) {
+    for (j=jl+1; j<=ju-1; j++) {
+      for (i=il+1; i<=iu-1; i++) {
 #ifdef CYLINDRICAL
-        		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        		q2 = hdt/(r[i]/pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        q2 = hdt/(r[i]/pG->dx2);
 #endif
 
-		/* load 1D vector */
-			Usource.d  = pG->U[k][j][i].d;
-      			Usource.Mx = pG->U[k][j][i].M1;
-      			Usource.My = pG->U[k][j][i].M2;
-      			Usource.Mz = pG->U[k][j][i].M3;
-      			Usource.E  = pG->U[k][j][i].E;
-			Usource.Er  = pG->U[k][j][i].Er;
-    			Usource.Fr1  = pG->U[k][j][i].Fr1;
-    			Usource.Fr2  = pG->U[k][j][i].Fr2;
-    			Usource.Fr3  = pG->U[k][j][i].Fr3;
-			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
-			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
-			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
-			Usource.Edd_31	= pG->U[k][j][i].Edd_31;
-			Usource.Edd_32	= pG->U[k][j][i].Edd_32;
-			Usource.Edd_33	= pG->U[k][j][i].Edd_33;
-			for(m=0; m<NOPACITY; m++){
-				Usource.Sigma[m] =  pG->U[k][j][i].Sigma[m];
-			}
-      			Usource.By = pG->U[k][j][i].B2c;
-      			Usource.Bz = pG->U[k][j][i].B3c;
-			Bx = pG->U[k][j][i].B1c;
-			
-			density = Usource.d;
-			velocity_x = Usource.Mx / density;
-			velocity_y = Usource.My / density;
-			velocity_z = Usource.Mz / density;
+/* load 1D vector */
+        Usource.d  = pG->U[k][j][i].d;
+        Usource.Mx = pG->U[k][j][i].M1;
+        Usource.My = pG->U[k][j][i].M2;
+        Usource.Mz = pG->U[k][j][i].M3;
+        Usource.E  = pG->U[k][j][i].E;
+        Usource.Er  = pG->U[k][j][i].Er;
+        Usource.Fr1  = pG->U[k][j][i].Fr1;
+        Usource.Fr2  = pG->U[k][j][i].Fr2;
+        Usource.Fr3  = pG->U[k][j][i].Fr3;
+        Usource.Edd_11  = pG->U[k][j][i].Edd_11;
+        Usource.Edd_21  = pG->U[k][j][i].Edd_21;
+        Usource.Edd_22  = pG->U[k][j][i].Edd_22;
+        Usource.Edd_31  = pG->U[k][j][i].Edd_31;
+        Usource.Edd_32  = pG->U[k][j][i].Edd_32;
+        Usource.Edd_33  = pG->U[k][j][i].Edd_33;
+        for(m=0; m<NOPACITY; m++){
+          Usource.Sigma[m] =  pG->U[k][j][i].Sigma[m];
+        }
+        Usource.By = pG->U[k][j][i].B2c;
+        Usource.Bz = pG->U[k][j][i].B3c;
+        Bx = pG->U[k][j][i].B1c;
 
-			velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-				
-			pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
-		/* Should include magnetic energy for MHD */
+        density = Usource.d;
+        velocity_x = Usource.Mx / density;
+        velocity_y = Usource.My / density;
+        velocity_z = Usource.Mz / density;
 
-			pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
-	
-			temperature = pressure / (density * R_ideal);
+        velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+
+        pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+/* Should include magnetic energy for MHD */
+
+        pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+
+        temperature = pressure / (density * R_ideal);
 
 
-			Sigma_sF = Usource.Sigma[0];
-			Sigma_aF = Usource.Sigma[1];
-			Sigma_aP = Usource.Sigma[2];
-			Sigma_aE = Usource.Sigma[3];
+        Sigma_sF = Usource.Sigma[0];
+        Sigma_aF = Usource.Sigma[1];
+        Sigma_aP = Usource.Sigma[2];
+        Sigma_aE = Usource.Sigma[3];
 
-			diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
-		
+        diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
 
-					
+
+
 #ifdef FARGO
-					/* With FARGO, we should add background shearing to the source terms */
-					
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			/* Include background shearing in Usource, which is only used in dSource */
-					
-			velocity_y -= qom * x1;		
-					
-#endif	
+/* With FARGO, we should add background shearing to the source terms */
 
-			/* Part of momentum source term */
-			/* For this term, use Tguess, not temperature ^4 */
-			Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
-			Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
-			Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+/* Include background shearing in Usource, which is only used in dSource */
 
-			/* The Source term */
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+        velocity_y -= qom * x1;
 
-		/*=========================================================*/
-		/* In case velocity is large and momentum source is stiff */
-			SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
+#endif
 
-			SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/
+/* Part of momentum source term */
+/* For this term, use Tguess, not temperature ^4 */
+        Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+        Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+        Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
 
-			SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat); 
-			/*	+ diffTEr / (density * Crat);
-			*/	
+/* The Source term */
+        dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+
+/*=========================================================*/
+/* In case velocity is large and momentum source is stiff */
+        SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
+
+        SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
+
+        SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
 
 
-			Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
-			Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
-			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
+        Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+        Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+        Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
 
-		/*=========================================================*/
-		
+/*=========================================================*/
 
-			/* Now calculate flux gradient */
 
-			divFlux1[1] = (rsf*x1Flux[k][j][i+1].Mx - lsf*x1Flux[k][j][i].Mx) / dx1;
-			divFlux1[2] = (SQR(rsf)*x1Flux[k][j][i+1].My - SQR(lsf)*x1Flux[k][j][i].My) / dx1;
-			divFlux1[3] = (rsf*x1Flux[k][j][i+1].Mz - lsf*x1Flux[k][j][i].Mz) / dx1;
-			
-			divFlux2[1] = (x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz) / dx2;
-			divFlux2[2] = (x2Flux[k][j+1][i].Mx - x2Flux[k][j][i].Mx) / dx2;
-			divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) / dx2;
-			
-			divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
-			divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
-			divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;
-		
-			
+/* Now calculate flux gradient */
+
+        divFlux1[1] = (rsf*x1Flux[k][j][i+1].Mx - lsf*x1Flux[k][j][i].Mx) / dx1;
+        divFlux1[2] = (SQR(rsf)*x1Flux[k][j][i+1].My - SQR(lsf)*x1Flux[k][j][i].My) / dx1;
+        divFlux1[3] = (rsf*x1Flux[k][j][i+1].Mz - lsf*x1Flux[k][j][i].Mz) / dx1;
+
+        divFlux2[1] = (x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz) / dx2;
+        divFlux2[2] = (x2Flux[k][j+1][i].Mx - x2Flux[k][j][i].Mx) / dx2;
+        divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) / dx2;
+
+        divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
+        divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
+        divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;
+
+
 /* Add source terms for fixed gravitational potential */
-        		if (StaticGravPot != NULL){
-          			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        if (StaticGravPot != NULL){
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef CYLINDRICAL
-          			g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 #ifdef FARGO
-          			g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-          			divFlux1[1] += pG->U[k][j][i].d*g;
+          divFlux1[1] += pG->U[k][j][i].d*g;
 #else
-          			phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-          			phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
-          			divFlux1[1] += (phir-phil)*pG->U[k][j][i].d/dx1;
-#endif 
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+          divFlux1[1] += (phir-phil)*pG->U[k][j][i].d/dx1;
+#endif
 
-          			phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-          			phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-          			divFlux2[2] += (phir-phil)*pG->U[k][j][i].d/dx2;
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          divFlux2[2] += (phir-phil)*pG->U[k][j][i].d/dx2;
 
-          			phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-          			phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
-          			divFlux3[3] += (phir-phil)*pG->U[k][j][i].d/dx3;
-        		}
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+          divFlux3[3] += (phir-phil)*pG->U[k][j][i].d/dx3;
+        }
 
 /* Add source terms due to self_gravity */
 #ifdef SELF_GRAVITY
-        		phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
-        		phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
-			divFlux1[1] += (phir-phil)*pG->U[k][j][i].d/dx1;
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i-1]);
+        divFlux1[1] += (phir-phil)*pG->U[k][j][i].d/dx1;
 
 
-        		phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
-        		phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
-        		divFlux2[2] += (phir-phil)*pG->U[k][j][i].d/dx2;
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j+1][i]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j-1][i]);
+        divFlux2[2] += (phir-phil)*pG->U[k][j][i].d/dx2;
 
-        		phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
-        		phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
-        		divFlux3[3] += (phir-phil)*pG->U[k][j][i].d/dx3;
+        phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k+1][j][i]);
+        phil = 0.5*(pG->Phi[k][j][i] + pG->Phi[k-1][j][i]);
+        divFlux3[3] += (phir-phil)*pG->U[k][j][i].d/dx3;
 #endif /* SELF_GRAVITY */
 
 
-			M1h = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
-			M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
-			M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
-					
-			/* Part of radiation momentum source term */
-			M1h += hdt * Smx0;
-			M2h += hdt * Smy0;
-			M3h += hdt * Smz0;
+        M1h = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+        M2h = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+        M3h = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
 
-			/* Guess solution */
-					
-					
-/*			Uguess[1] = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
-			Uguess[2] = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
-			Uguess[3] = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+/* Part of radiation momentum source term */
+        M1h += hdt * Smx0;
+        M2h += hdt * Smy0;
+        M3h += hdt * Smz0;
 
-			 Guess the source temrm /
-			velocity_x = Uguess[1] / density;
-			velocity_y = Uguess[2] / density;
-			velocity_z = Uguess[3] / density;
-					
-#ifdef FARGO
-					 With FARGO, we should add background shearing to the source terms 
-					cc_pos(pG,i,j,k,&x1,&x2,&x3);
-					velocity_y -= qom * x1;		
-#endif
-					
-			
-	
-			Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
-			Source_guess[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
-			Source_guess[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
+/* Guess solution */
+
+
+/*                      Uguess[1] = pG->U[k][j][i].M1 + hdt * Source_Inv[1][1] * (Source[1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+                        Uguess[2] = pG->U[k][j][i].M2 + hdt * Source_Inv[2][2] * (Source[2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+                        Uguess[3] = pG->U[k][j][i].M3 + hdt * Source_Inv[3][3] * (Source[3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+
+                        Guess the source temrm /
+                        velocity_x = Uguess[1] / density;
+                        velocity_y = Uguess[2] / density;
+                        velocity_z = Uguess[3] / density;
+
+                        #ifdef FARGO
+                        With FARGO, we should add background shearing to the source terms
+                        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+                        velocity_y -= qom * x1;
+                        #endif
 
 
 
-
-			 do the predict step 
-			Errort[1] = pG->U[k][j][i].M1 + 0.5 * hdt * (Source[1] + Source_guess[1]) - hdt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
-			Errort[2] = pG->U[k][j][i].M2 + 0.5 * hdt * (Source[2] + Source_guess[2]) - hdt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
-			Errort[3] = pG->U[k][j][i].M3 + 0.5 * hdt * (Source[3] + Source_guess[3]) - hdt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
+                        Source_guess[1] = -Prat * (-Sigma_t * Fr0x + Sigma_a * velocity_x * diffTEr / Crat);
+                        Source_guess[2] = -Prat * (-Sigma_t * Fr0y + Sigma_a * velocity_y * diffTEr / Crat);
+                        Source_guess[3] = -Prat * (-Sigma_t * Fr0z + Sigma_a * velocity_z * diffTEr / Crat);
 
 
 
-       		M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
-			M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
-			M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];		
-					
-					*/
 
-/*
-        		Eh = pG->U[k][j][i].E
-           			- q1*(rsf*x1Flux[k  ][j  ][i+1].E - lsf*x1Flux[k][j][i].E)
-           			- q2*(    x2Flux[k  ][j+1][i  ].E -     x2Flux[k][j][i].E)
-           			- q3*(    x3Flux[k+1][j  ][i  ].E -     x3Flux[k][j][i].E);
+                        do the predict step
+                        Errort[1] = pG->U[k][j][i].M1 + 0.5 * hdt * (Source[1] + Source_guess[1]) - hdt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) - Uguess[1];
+                        Errort[2] = pG->U[k][j][i].M2 + 0.5 * hdt * (Source[2] + Source_guess[2]) - hdt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) - Uguess[2];
+                        Errort[3] = pG->U[k][j][i].M3 + 0.5 * hdt * (Source[3] + Source_guess[3]) - hdt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) - Uguess[3];
+
+
+
+                        M1h = Uguess[1] + Source_Inv[1][1] * Errort[1];
+                        M2h = Uguess[2] + Source_Inv[2][2] * Errort[2];
+                        M3h = Uguess[3] + Source_Inv[3][3] * Errort[3];
 
 */
-					
-					
-					
+
+/*
+  Eh = pG->U[k][j][i].E
+  - q1*(rsf*x1Flux[k  ][j  ][i+1].E - lsf*x1Flux[k][j][i].E)
+  - q2*(    x2Flux[k  ][j+1][i  ].E -     x2Flux[k][j][i].E)
+  - q3*(    x3Flux[k+1][j  ][i  ].E -     x3Flux[k][j][i].E);
+
+*/
+
+
+
 /* Add shearing box source term */
 #ifdef SHEARING_BOX
-					if (ShearingBoxPot != NULL){
-						cc_pos(pG,i,j,k,&x1,&x2,&x3);
-						phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-						phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
-						M1h -= q1*(phir-phil)*pG->U[k][j][i].d;
-						
-						phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-						phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
-						M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
-						
-						phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
-						phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
-						M3h -= q3*(phir-phil)*pG->U[k][j][i].d;
-					}
-					
-					M1h += pG->dt*Omega_0*pG->U[k][j][i].M2;
+        if (ShearingBoxPot != NULL){
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+          M1h -= q1*(phir-phil)*pG->U[k][j][i].d;
+
+          phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+          M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
+
+          phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+          M3h -= q3*(phir-phil)*pG->U[k][j][i].d;
+        }
+
+        M1h += pG->dt*Omega_0*pG->U[k][j][i].M2;
 #ifdef FARGO
-					M2h += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
+        M2h += hdt*(qshear-2.)*Omega_0*pG->U[k][j][i].M1;
 #else
-					M2h -= pG->dt*Omega_0*pG->U[k][j][i].M1;
+        M2h -= pG->dt*Omega_0*pG->U[k][j][i].M1;
 #endif
-#endif /* SHEARING_BOX */				
+#endif /* SHEARING_BOX */
 #if defined(CYLINDRICAL) && defined(FARGO)
-        				Om = (*OrbitalProfile)(r[i]);
-        				qshear = (*ShearProfile)(r[i]);
-        				M1h += hdt*2.0*Om*pG->U[k][j][i].M2;
-        				M2h += hdt*Om*(qshear-2.0)*pG->U[k][j][i].M1;
+        Om = (*OrbitalProfile)(r[i]);
+        qshear = (*ShearProfile)(r[i]);
+        M1h += hdt*2.0*Om*pG->U[k][j][i].M2;
+        M2h += hdt*Om*(qshear-2.0)*pG->U[k][j][i].M1;
 #endif
-        /* Add the geometric source term */
+/* Add the geometric source term */
 #ifdef CYLINDRICAL
-        				M1h += hdt*geom_src[k][j][i];
+        M1h += hdt*geom_src[k][j][i];
 #endif
 
-        		B1ch = 0.5*(    B1_x1Face[k][j][i] +     B1_x1Face[k  ][j  ][i+1]);
-        		B2ch = 0.5*(    B2_x2Face[k][j][i] +     B2_x2Face[k  ][j+1][i  ]);
-        		B3ch = 0.5*(    B3_x3Face[k][j][i] +     B3_x3Face[k+1][j  ][i  ]);
+        B1ch = 0.5*(    B1_x1Face[k][j][i] +     B1_x1Face[k  ][j  ][i+1]);
+        B2ch = 0.5*(    B2_x2Face[k][j][i] +     B2_x2Face[k  ][j+1][i  ]);
+        B3ch = 0.5*(    B3_x3Face[k][j][i] +     B3_x3Face[k+1][j  ][i  ]);
 
-       			emf1_cc[k][j][i] = (B2ch*M3h - B3ch*M2h)/dhalf[k][j][i];
-        		emf2_cc[k][j][i] = (B3ch*M1h - B1ch*M3h)/dhalf[k][j][i];
-       			emf3_cc[k][j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[k][j][i];
+        emf1_cc[k][j][i] = (B2ch*M3h - B3ch*M2h)/dhalf[k][j][i];
+        emf2_cc[k][j][i] = (B3ch*M1h - B1ch*M3h)/dhalf[k][j][i];
+        emf3_cc[k][j][i] = (B1ch*M2h - B2ch*M1h)/dhalf[k][j][i];
 
-      			}
-    		}
-  	}
+      }
+    }
+  }
 
 #endif
 
@@ -3379,83 +3379,83 @@ k][j][i].M3);
  * Compute 3D x1-fluxes from corrected L/R states.
  */
 
-  	for (k=ks-1; k<=ke+1; k++) {
-    		for (j=js-1; j<=je+1; j++) {
-      			for (i=is; i<=ie+1; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is; i<=ie+1; i++) {
 #ifdef RADIATION_MHD
-        		Bx = B1_x1Face[k][j][i];
+        Bx = B1_x1Face[k][j][i];
 #endif
 
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
-			Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x1Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x1Face[k][j][i],&Bx);
 /*
 
-			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
-                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+  velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+  velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity> Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+  if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity> Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
 */
 
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
+        if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) ||(Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD
-				B1_x1Face[k][j][i] = pG->B1i[k][j][i];
-				Bx = B1_x1Face[k][j][i];
+          B1_x1Face[k][j][i] = pG->B1i[k][j][i];
+          Bx = B1_x1Face[k][j][i];
 #endif
-				 Wl[i].P = pG->U[k][j][i-1].E - 0.5 * (pG->U[k][j][i-1].M1 * pG->U[k][j][i-1].M1 + pG->U[k][j][i-1].M2 * pG->U[k][j][i-1].M2 + pG->U[k][j][i-1].M3 * pG->U[k][j][i-1].M3) / pG->U[k][j][i-1].d;
+          Wl[i].P = pG->U[k][j][i-1].E - 0.5 * (pG->U[k][j][i-1].M1 * pG->U[k][j][i-1].M1 + pG->U[k][j][i-1].M2 * pG->U[k][j][i-1].M2 + pG->U[k][j][i-1].M3 * pG->U[k][j][i-1].M3) / pG->U[k][j][i-1].d;
 #ifdef RADIATION_MHD
-                                Wl[i].P -= 0.5 * (pG->U[k][j][i-1].B1c * pG->U[k][j][i-1].B1c + pG->U[k][j][i-1].B2c * pG->U[k][j][i-1].B2c + pG->U[k][j][i-1].B3c * pG->U[k][j][i-1].B3c);
-#endif
-
-                                Wl[i].P *= (Gamma - 1.0);
-
-                                Wl[i].d = pG->U[k][j][i-1].d;
-                                Wl[i].Vx = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
-                                Wl[i].Vy = pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d;
-                                Wl[i].Vz = pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d;
-
-                                Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
-
-
-                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
-#ifdef RADIATION_MHD
-                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+          Wl[i].P -= 0.5 * (pG->U[k][j][i-1].B1c * pG->U[k][j][i-1].B1c + pG->U[k][j][i-1].B2c * pG->U[k][j][i-1].B2c + pG->U[k][j][i-1].B3c * pG->U[k][j][i-1].B3c);
 #endif
 
-                                Wr[i].P *= (Gamma - 1.0);
+          Wl[i].P *= (Gamma - 1.0);
 
-                                Wr[i].d = pG->U[k][j][i].d;
-                                Wr[i].Vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
-                                Wr[i].Vy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
-                                Wr[i].Vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+          Wl[i].d = pG->U[k][j][i-1].d;
+          Wl[i].Vx = pG->U[k][j][i-1].M1 / pG->U[k][j][i-1].d;
+          Wl[i].Vy = pG->U[k][j][i-1].M2 / pG->U[k][j][i-1].d;
+          Wl[i].Vz = pG->U[k][j][i-1].M3 / pG->U[k][j][i-1].d;
 
-                                Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+          Ul_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+
+
+          Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
 #ifdef RADIATION_MHD
-
-				emf1_cc[k][j][i-1] = (pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M3 -
-			    		pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M2)/pG->U[k][j][i-1].d;
-        			emf2_cc[k][j][i-1] = (pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M1 -
-			    		pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M3)/pG->U[k][j][i-1].d;
-        			emf3_cc[k][j][i-1] = (pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M2 -
-			    		pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M1)/pG->U[k][j][i-1].d;
-
-				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
-			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
-        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
-			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
-        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
-			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+          Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
 #endif
 
-			}
-			
-		
-			/* Need parameter dt in radiation Riemann solver */
-			x1Flux[k][j][i].d = dt;
-			x1Flux[k][j][i].Mx = 3;
+          Wr[i].P *= (Gamma - 1.0);
 
-        		fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
+          Wr[i].d = pG->U[k][j][i].d;
+          Wr[i].Vx = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+          Wr[i].Vy = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+          Wr[i].Vz = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+          Ur_x1Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+#ifdef RADIATION_MHD
+
+          emf1_cc[k][j][i-1] = (pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M3 -
+                                pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M2)/pG->U[k][j][i-1].d;
+          emf2_cc[k][j][i-1] = (pG->U[k][j][i-1].B3c*pG->U[k][j][i-1].M1 -
+                                pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M3)/pG->U[k][j][i-1].d;
+          emf3_cc[k][j][i-1] = (pG->U[k][j][i-1].B1c*pG->U[k][j][i-1].M2 -
+                                pG->U[k][j][i-1].B2c*pG->U[k][j][i-1].M1)/pG->U[k][j][i-1].d;
+
+          emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+                              pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+          emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+                              pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+          emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+                              pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+#endif
+
+        }
+
+
+/* Need parameter dt in radiation Riemann solver */
+        x1Flux[k][j][i].d = dt;
+        x1Flux[k][j][i].Mx = 3;
+
+        fluxes(Ul_x1Face[k][j][i],Ur_x1Face[k][j][i],Wl[i],Wr[i],Bx, &x1Flux[k][j][i]);
 
 
 
@@ -3476,9 +3476,9 @@ k][j][i].M3);
           NaNFlux++;
         }
 #endif /* End FOFC */
-      			}
-    		}
-  	}
+      }
+    }
+  }
 
 
 
@@ -3486,86 +3486,86 @@ k][j][i].M3);
  * Compute 3D x2-fluxes from corrected L/R states.
  */
 
-  	for (k=ks-1; k<=ke+1; k++) {
-    		for (j=js; j<=je+1; j++) {
-      			for (i=is-1; i<=ie+1; i++) {
+  for (k=ks-1; k<=ke+1; k++) {
+    for (j=js; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
 
 #ifdef RADIATION_MHD
-        		Bx = B2_x2Face[k][j][i];
+        Bx = B2_x2Face[k][j][i];
 #endif
 
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-        		Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Bx);
-        		Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x2Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x2Face[k][j][i],&Bx);
 
 
 /*
 
-			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
-                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+  velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+  velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
 
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+  if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
 
 
 */
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-#ifdef RADIATION_MHD			
-				B2_x2Face[k][j][i] = pG->B2i[k][j][i];
-				Bx = B2_x2Face[k][j][i];
-#endif	
- 				Wl[i].P = pG->U[k][j-1][i].E - 0.5 * (pG->U[k][j-1][i].M1 * pG->U[k][j-1][i].M1 + pG->U[k][j-1][i].M2 * pG->U[k][j-1][i].M2 + pG->U[k][j-1][i].M3 * pG->U[k][j-1][i].M3) / pG->U[k][j-1][i].d;
+        if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor)  || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD
-                                Wl[i].P -= 0.5 * (pG->U[k][j-1][i].B1c * pG->U[k][j-1][i].B1c + pG->U[k][j-1][i].B2c * pG->U[k][j-1][i].B2c + pG->U[k][j-1][i].B3c * pG->U[k][j-1][i].B3c);
+          B2_x2Face[k][j][i] = pG->B2i[k][j][i];
+          Bx = B2_x2Face[k][j][i];
+#endif
+          Wl[i].P = pG->U[k][j-1][i].E - 0.5 * (pG->U[k][j-1][i].M1 * pG->U[k][j-1][i].M1 + pG->U[k][j-1][i].M2 * pG->U[k][j-1][i].M2 + pG->U[k][j-1][i].M3 * pG->U[k][j-1][i].M3) / pG->U[k][j-1][i].d;
+#ifdef RADIATION_MHD
+          Wl[i].P -= 0.5 * (pG->U[k][j-1][i].B1c * pG->U[k][j-1][i].B1c + pG->U[k][j-1][i].B2c * pG->U[k][j-1][i].B2c + pG->U[k][j-1][i].B3c * pG->U[k][j-1][i].B3c);
 #endif
 
-                                Wl[i].P *= (Gamma - 1.0);
+          Wl[i].P *= (Gamma - 1.0);
 
-                                Wl[i].d = pG->U[k][j-1][i].d;
-                                Wl[i].Vx = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
-                                Wl[i].Vy = pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d;
-                                Wl[i].Vz = pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d;
+          Wl[i].d = pG->U[k][j-1][i].d;
+          Wl[i].Vx = pG->U[k][j-1][i].M2 / pG->U[k][j-1][i].d;
+          Wl[i].Vy = pG->U[k][j-1][i].M3 / pG->U[k][j-1][i].d;
+          Wl[i].Vz = pG->U[k][j-1][i].M1 / pG->U[k][j-1][i].d;
 
-                                Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
+          Ul_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
 
-                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+          Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
 #ifdef RADIATION_MHD
-                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+          Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
 #endif
 
-                               Wr[i].P *= (Gamma - 1.0);
+          Wr[i].P *= (Gamma - 1.0);
 
-                               Wr[i].d = pG->U[k][j][i].d;
-                               Wr[i].Vx = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
-                               Wr[i].Vy = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
-                               Wr[i].Vz = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+          Wr[i].d = pG->U[k][j][i].d;
+          Wr[i].Vx = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+          Wr[i].Vy = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+          Wr[i].Vz = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
 
-                               Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+          Ur_x2Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
 #ifdef RADIATION_MHD
-				emf1_cc[k][j-1][i] = (pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M3 -
-			    		pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M2)/pG->U[k][j-1][i].d;
-        			emf2_cc[k][j-1][i] = (pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M1 -
-			    		pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M3)/pG->U[k][j-1][i].d;
-        			emf3_cc[k][j-1][i] = (pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M2 -
-			    		pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M1)/pG->U[k][j-1][i].d;
+          emf1_cc[k][j-1][i] = (pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M3 -
+                                pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M2)/pG->U[k][j-1][i].d;
+          emf2_cc[k][j-1][i] = (pG->U[k][j-1][i].B3c*pG->U[k][j-1][i].M1 -
+                                pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M3)/pG->U[k][j-1][i].d;
+          emf3_cc[k][j-1][i] = (pG->U[k][j-1][i].B1c*pG->U[k][j-1][i].M2 -
+                                pG->U[k][j-1][i].B2c*pG->U[k][j-1][i].M1)/pG->U[k][j-1][i].d;
 
-				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
-			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
-        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
-			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
-        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
-			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+          emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+                              pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+          emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+                              pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+          emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+                              pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
 #endif
 
-                       }
+        }
 
 
-			/* Need parameter dt in radiation Riemann solver */
-			x2Flux[k][j][i].d = dt;
-			x2Flux[k][j][i].Mx = 3;
+/* Need parameter dt in radiation Riemann solver */
+        x2Flux[k][j][i].d = dt;
+        x2Flux[k][j][i].Mx = 3;
 
-        		fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],Bx, &x2Flux[k][j][i]);
+        fluxes(Ul_x2Face[k][j][i],Ur_x2Face[k][j][i],Wl[i],Wr[i],Bx, &x2Flux[k][j][i]);
 
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
@@ -3586,97 +3586,97 @@ k][j][i].M3);
         }
 
 #endif /* End FOFC */
-      			}
-    		}
-  	}
+      }
+    }
+  }
 
 
 /*--- Step 10d ------------------------------------------------------------------
  * Compute 3D x3-fluxes from corrected L/R states.
  */
 
-  	for (k=ks; k<=ke+1; k++) {
-    		for (j=js-1; j<=je+1; j++) {
-      			for (i=is-1; i<=ie+1; i++) {
+  for (k=ks; k<=ke+1; k++) {
+    for (j=js-1; j<=je+1; j++) {
+      for (i=is-1; i<=ie+1; i++) {
 
 #ifdef RADIATION_MHD
-        		Bx = B3_x3Face[k][j][i];
+        Bx = B3_x3Face[k][j][i];
 #endif
-					
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
-			
-        		Wl[i] = Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Bx);
-        		Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
+
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+        Wl[i] = Cons1D_to_Prim1D(&Ul_x3Face[k][j][i],&Bx);
+        Wr[i] = Cons1D_to_Prim1D(&Ur_x3Face[k][j][i],&Bx);
 
 /*
 
-			velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
-                        velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
+  velocity = sqrt(Wl[i].Vx * Wl[i].Vx + Wl[i].Vy * Wl[i].Vy + Wl[i].Vz * Wl[i].Vz);
+  velocity_x = sqrt(Wr[i].Vx * Wr[i].Vx + Wr[i].Vy * Wr[i].Vy + Wr[i].Vz * Wr[i].Vz);
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
+  if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor) || (velocity > Vmax) || (velocity_x > Vmax) || (fabs(x3) > Zmax)){
 
 */
 
-			if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
-#ifdef RADIATION_MHD		
-				B3_x3Face[k][j][i] = pG->B3i[k][j][i];
-				Bx = B3_x3Face[k][j][i];
-#endif
-				Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
+        if((Wl[i].P < 2.0 * TINY_NUMBER) || (Wl[i].d < dfloor) || (Wr[i].P < 2.0 * TINY_NUMBER) || (Wr[i].d < dfloor)){
 #ifdef RADIATION_MHD
-                                Wl[i].P -= 0.5 * (pG->U[k-1][j][i].B1c * pG->U[k-1][j][i].B1c + pG->U[k-1][j][i].B2c * pG->U[k-1][j][i].B2c + pG->U[k-1][j][i].B3c * pG->U[k-1][j][i].B3c);
+          B3_x3Face[k][j][i] = pG->B3i[k][j][i];
+          Bx = B3_x3Face[k][j][i];
 #endif
-
-                                Wl[i].P *= (Gamma - 1.0);
-
-                                Wl[i].d  = pG->U[k-1][j][i].d;
-                                Wl[i].Vx = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
-                                Wl[i].Vy = pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d;
-                                Wl[i].Vz = pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d;
-
-                                Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
-
-
-                                Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+          Wl[i].P = pG->U[k-1][j][i].E - 0.5 * (pG->U[k-1][j][i].M1 * pG->U[k-1][j][i].M1 + pG->U[k-1][j][i].M2 * pG->U[k-1][j][i].M2 + pG->U[k-1][j][i].M3 * pG->U[k-1][j][i].M3) / pG->U[k-1][j][i].d;
 #ifdef RADIATION_MHD
-                                Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+          Wl[i].P -= 0.5 * (pG->U[k-1][j][i].B1c * pG->U[k-1][j][i].B1c + pG->U[k-1][j][i].B2c * pG->U[k-1][j][i].B2c + pG->U[k-1][j][i].B3c * pG->U[k-1][j][i].B3c);
 #endif
 
-                                Wr[i].P *= (Gamma - 1.0);
+          Wl[i].P *= (Gamma - 1.0);
 
-                                Wr[i].d = pG->U[k][j][i].d;
-                                Wr[i].Vx = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
-                                Wr[i].Vy = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
-                                Wr[i].Vz = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+          Wl[i].d  = pG->U[k-1][j][i].d;
+          Wl[i].Vx = pG->U[k-1][j][i].M3 / pG->U[k-1][j][i].d;
+          Wl[i].Vy = pG->U[k-1][j][i].M1 / pG->U[k-1][j][i].d;
+          Wl[i].Vz = pG->U[k-1][j][i].M2 / pG->U[k-1][j][i].d;
+
+          Ul_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wl[i],&Bx);
 
 
-                                 Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
+          Wr[i].P = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+#ifdef RADIATION_MHD
+          Wr[i].P -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+#endif
+
+          Wr[i].P *= (Gamma - 1.0);
+
+          Wr[i].d = pG->U[k][j][i].d;
+          Wr[i].Vx = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+          Wr[i].Vy = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+          Wr[i].Vz = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+
+
+          Ur_x3Face[k][j][i] = Prim1D_to_Cons1D(&Wr[i],&Bx);
 
 
 #ifdef RADIATION_MHD
-				emf1_cc[k-1][j][i] = (pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M3 -
-			    		pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M2)/pG->U[k-1][j][i].d;
-        			emf2_cc[k-1][j][i] = (pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M1 -
-			    		pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M3)/pG->U[k-1][j][i].d;
-        			emf3_cc[k-1][j][i] = (pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M2 -
-			    		pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M1)/pG->U[k-1][j][i].d;
+          emf1_cc[k-1][j][i] = (pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M3 -
+                                pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M2)/pG->U[k-1][j][i].d;
+          emf2_cc[k-1][j][i] = (pG->U[k-1][j][i].B3c*pG->U[k-1][j][i].M1 -
+                                pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M3)/pG->U[k-1][j][i].d;
+          emf3_cc[k-1][j][i] = (pG->U[k-1][j][i].B1c*pG->U[k-1][j][i].M2 -
+                                pG->U[k-1][j][i].B2c*pG->U[k-1][j][i].M1)/pG->U[k-1][j][i].d;
 
-				emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
-			    		pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
-        			emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
-			    		pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
-        			emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
-			    		pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
+          emf1_cc[k][j][i] = (pG->U[k][j][i].B2c*pG->U[k][j][i].M3 -
+                              pG->U[k][j][i].B3c*pG->U[k][j][i].M2)/pG->U[k][j][i].d;
+          emf2_cc[k][j][i] = (pG->U[k][j][i].B3c*pG->U[k][j][i].M1 -
+                              pG->U[k][j][i].B1c*pG->U[k][j][i].M3)/pG->U[k][j][i].d;
+          emf3_cc[k][j][i] = (pG->U[k][j][i].B1c*pG->U[k][j][i].M2 -
+                              pG->U[k][j][i].B2c*pG->U[k][j][i].M1)/pG->U[k][j][i].d;
 #endif
 
-			}
-	
-	
-			/* Need parameter dt in radiation Riemann solver */
-			x3Flux[k][j][i].d = dt;
-			x3Flux[k][j][i].Mx = 3;
-			
-        		fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],Bx, &x3Flux[k][j][i]);
+        }
+
+
+/* Need parameter dt in radiation Riemann solver */
+        x3Flux[k][j][i].d = dt;
+        x3Flux[k][j][i].Mx = 3;
+
+        fluxes(Ul_x3Face[k][j][i],Ur_x3Face[k][j][i],Wl[i],Wr[i],Bx, &x3Flux[k][j][i]);
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 /* revert to predictor flux if this flux NaN'ed */
@@ -3696,9 +3696,9 @@ k][j][i].M3);
         }
 #endif /* End FOFC */
 
-      			}
-    		}
-  	}
+      }
+    }
+  }
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
   if (NaNFlux != 0) {
@@ -3707,7 +3707,7 @@ k][j][i].M3);
   }
 #endif
 
-	
+
 /*=== STEP 10: Update face-centered B for a full timestep ====================*/
 
 /*--- Step 10a -----------------------------------------------------------------
@@ -3715,101 +3715,101 @@ k][j][i].M3);
  */
 
 #ifdef RADIATION_MHD
-  	integrate_emf1_corner(pG);
-  	integrate_emf2_corner(pG);
-  	integrate_emf3_corner(pG);
-#endif	
-	
-	
-	/* Remap Ey at is and ie+1 to conserve Bz in shearing box */
+  integrate_emf1_corner(pG);
+  integrate_emf2_corner(pG);
+  integrate_emf3_corner(pG);
+#endif
+
+
+/* Remap Ey at is and ie+1 to conserve Bz in shearing box */
 #ifdef SHEARING_BOX
-    get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
-	
+  get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
+
 /* initialize remapped Fluxes */
 
 
-    for(k=ks; k<=ke+1; k++) {
-      for(j=js; j<=je+1; j++){
-        Flxiib[k][j].d = x1Flux[k][j][is].d;
-        Flxiib[k][j].M1 = x1Flux[k][j][is].Mx;
-        Flxiib[k][j].M2 = x1Flux[k][j][is].My;
-        Flxiib[k][j].M3 = x1Flux[k][j][is].Mz;
+  for(k=ks; k<=ke+1; k++) {
+    for(j=js; j<=je+1; j++){
+      Flxiib[k][j].d = x1Flux[k][j][is].d;
+      Flxiib[k][j].M1 = x1Flux[k][j][is].Mx;
+      Flxiib[k][j].M2 = x1Flux[k][j][is].My;
+      Flxiib[k][j].M3 = x1Flux[k][j][is].Mz;
 
-        Flxoib[k][j].d = x1Flux[k][j][ie+1].d;
-        Flxoib[k][j].M1 = x1Flux[k][j][ie+1].Mx;
-        Flxoib[k][j].M2 = x1Flux[k][j][ie+1].My;
-        Flxoib[k][j].M3 = x1Flux[k][j][ie+1].Mz;
+      Flxoib[k][j].d = x1Flux[k][j][ie+1].d;
+      Flxoib[k][j].M1 = x1Flux[k][j][ie+1].Mx;
+      Flxoib[k][j].M2 = x1Flux[k][j][ie+1].My;
+      Flxoib[k][j].M3 = x1Flux[k][j][ie+1].Mz;
 #ifndef BAROTROPIC
-        Flxiib[k][j].E = x1Flux[k][j][is].E;
-        Flxoib[k][j].E = x1Flux[k][j][ie+1].E;
+      Flxiib[k][j].E = x1Flux[k][j][is].E;
+      Flxoib[k][j].E = x1Flux[k][j][ie+1].E;
 #endif
 #ifdef RADIATION_MHD
-        Flxiib[k][j].B1c = emf1[k][j][is];
-        Flxiib[k][j].B2c = emf2[k][j][is];
-        Flxiib[k][j].B3c = emf3[k][j][is];
+      Flxiib[k][j].B1c = emf1[k][j][is];
+      Flxiib[k][j].B2c = emf2[k][j][is];
+      Flxiib[k][j].B3c = emf3[k][j][is];
 
-        Flxoib[k][j].B1c = emf1[k][j][ie+1];
-        Flxoib[k][j].B2c = emf2[k][j][ie+1];
-        Flxoib[k][j].B3c = emf3[k][j][ie+1];
+      Flxoib[k][j].B1c = emf1[k][j][ie+1];
+      Flxoib[k][j].B2c = emf2[k][j][ie+1];
+      Flxoib[k][j].B3c = emf3[k][j][ie+1];
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) {
-          Flxiib[k][j].s[n] = x1Flux[k][j][is].s[n];
-          Flxoib[k][j].s[n] = x1Flux[k][j][ie+1].s[n];
-        }
-#endif
+      for (n=0; n<NSCALARS; n++) {
+        Flxiib[k][j].s[n] = x1Flux[k][j][is].s[n];
+        Flxoib[k][j].s[n] = x1Flux[k][j][ie+1].s[n];
       }
+#endif
     }
+  }
 
 
 /* compute remapped Fluxes from opposite side of grid */
 #ifdef RADIATION_MHD
-    if (my_iproc == 0) {
+  if (my_iproc == 0) {
 
-      RemapFlx_ix1(pD, Flxiib, Flxoib, rFlxiib);
-    }
+    RemapFlx_ix1(pD, Flxiib, Flxoib, rFlxiib);
+  }
 
-    if (my_iproc == (pD->NGrid[0]-1)) {
-      RemapFlx_ox1(pD, Flxiib, Flxoib, rFlxoib);
-    }
+  if (my_iproc == (pD->NGrid[0]-1)) {
+    RemapFlx_ox1(pD, Flxiib, Flxoib, rFlxoib);
+  }
 
 /* Now average fluxes and remapped fluxes */
-	
 
-    if (my_iproc == 0) {
-      for(k=ks; k<=ke+1; k++) {
-        for(j=js; j<=je; j++){
+
+  if (my_iproc == 0) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
 #ifdef RADIATION_MHD
-          emf2[k][j][is] = 0.5*(emf2[k][j][is] + rFlxiib[k][j].B2c);
+        emf2[k][j][is] = 0.5*(emf2[k][j][is] + rFlxiib[k][j].B2c);
 #endif
-         x1Flux[k][j][is].d  = 0.5*(x1Flux[k][j][is].d  + rFlxiib[k][j].d);
-          x1Flux[k][j][is].Mx = 0.5*(x1Flux[k][j][is].Mx + rFlxiib[k][j].M1);
-          x1Flux[k][j][is].My = 0.5*(x1Flux[k][j][is].My + rFlxiib[k][j].M2);
-          x1Flux[k][j][is].Mz = 0.5*(x1Flux[k][j][is].Mz + rFlxiib[k][j].M3);
-        }
+        x1Flux[k][j][is].d  = 0.5*(x1Flux[k][j][is].d  + rFlxiib[k][j].d);
+        x1Flux[k][j][is].Mx = 0.5*(x1Flux[k][j][is].Mx + rFlxiib[k][j].M1);
+        x1Flux[k][j][is].My = 0.5*(x1Flux[k][j][is].My + rFlxiib[k][j].M2);
+        x1Flux[k][j][is].Mz = 0.5*(x1Flux[k][j][is].Mz + rFlxiib[k][j].M3);
       }
     }
+  }
 
-    if (my_iproc == (pD->NGrid[0]-1)) {
-      for(k=ks; k<=ke+1; k++) {
-        for(j=js; j<=je; j++){
+  if (my_iproc == (pD->NGrid[0]-1)) {
+    for(k=ks; k<=ke+1; k++) {
+      for(j=js; j<=je; j++){
 #ifdef RADIATION_MHD
-          emf2[k][j][ie+1] = 0.5*(emf2[k][j][ie+1] + rFlxoib[k][j].B2c);
+        emf2[k][j][ie+1] = 0.5*(emf2[k][j][ie+1] + rFlxoib[k][j].B2c);
 #endif
-          x1Flux[k][j][ie+1].d =0.5*(x1Flux[k][j][ie+1].d  + rFlxoib[k][j].d);
-          x1Flux[k][j][ie+1].Mx=0.5*(x1Flux[k][j][ie+1].Mx + rFlxoib[k][j].M1);
-          x1Flux[k][j][ie+1].My=0.5*(x1Flux[k][j][ie+1].My + rFlxoib[k][j].M2);
-          x1Flux[k][j][ie+1].Mz=0.5*(x1Flux[k][j][ie+1].Mz + rFlxoib[k][j].M3);
-        }
+        x1Flux[k][j][ie+1].d =0.5*(x1Flux[k][j][ie+1].d  + rFlxoib[k][j].d);
+        x1Flux[k][j][ie+1].Mx=0.5*(x1Flux[k][j][ie+1].Mx + rFlxoib[k][j].M1);
+        x1Flux[k][j][ie+1].My=0.5*(x1Flux[k][j][ie+1].My + rFlxoib[k][j].M2);
+        x1Flux[k][j][ie+1].Mz=0.5*(x1Flux[k][j][ie+1].Mz + rFlxoib[k][j].M3);
       }
     }
+  }
 
 #endif /* End radiation MHD */
 
-#endif /* SHEARING_BOX */	
-	
-	
-	
+#endif /* SHEARING_BOX */
+
+
+
 
 /* Remap emfs at internal MPI and periodic boundaries
  *  * to eliminate round-off error                         */
@@ -3819,11 +3819,11 @@ k][j][i].M3);
   get_myGridIndex(pD, myID_Comm_world, &my_iproc, &my_jproc, &my_kproc);
 /* Remap Ey and Ez in the x1 boundary */
   if (pD->NGrid[0] > 1) {
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEy_ix1_mpi(pD, emf2, remapEyix1);
 
     if (pG->lx1_id >= 0){
-#ifdef SHEARING_BOX      
+#ifdef SHEARING_BOX
       if (my_iproc != 0) {
 #endif
         for(k=ks; k<=ke+1; k++) {
@@ -3831,11 +3831,11 @@ k][j][i].M3);
             emf2[k][j][is] = remapEyix1[k][j];
           }
         }
-#ifdef SHEARING_BOX 
+#ifdef SHEARING_BOX
       }
 #endif
     }
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEz_ix1_mpi(pD, emf3, remapEzix1);
     if (pG->lx1_id >= 0) {
       if (my_iproc != 0) {
@@ -3850,18 +3850,18 @@ k][j][i].M3);
 
 /* Remap Ez and Ex in the x2 boundary */
   if (pD->NGrid[1] > 1) {
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEx_ix2_mpi(pD, emf1, remapExix2);
 
-    if (pG->lx2_id >= 0) {   
+    if (pG->lx2_id >= 0) {
       for(k=ks; k<=ke+1; k++) {
         for(i=is; i<=ie; i++){
           emf1[k][js][i] = remapExix2[k][i];
-        } 
-      }   
+        }
+      }
     }
 
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEz_ix2_mpi(pD, emf3, remapEzix2);
 
     if (pG->lx2_id >= 0) {
@@ -3875,7 +3875,7 @@ k][j][i].M3);
 
 /* Remap Ex and Ey in the x3 boundary */
   if (pD->NGrid[2] > 1) {
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEx_ix3_mpi(pD, emf1, remapExix3);
 
     if (pG->lx3_id >= 0) {
@@ -3886,7 +3886,7 @@ k][j][i].M3);
       }
     }
 
-    /* send to right and receive from left */
+/* send to right and receive from left */
     RemapEy_ix3_mpi(pD, emf2, remapEyix3);
 
     if (pG->lx3_id >= 0) {
@@ -3899,62 +3899,62 @@ k][j][i].M3);
   }
 
 #endif /* MPI_PARALLEL  AND RADIATION_MHD */
-	
 
-	
-	
-/*=======================================================*/	
-	
+
+
+
+/*=======================================================*/
+
 
 /*--- Step 10b -----------------------------------------------------------------
  * Update the interface magnetic fields using CT for a full time step.
  */
 #ifdef RADIATION_MHD
-  	for (k=ks; k<=ke; k++) {
-    		for (j=js; j<=je; j++) {
-      			for (i=is; i<=ie; i++) {
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
 
 #ifdef CYLINDRICAL
-        		dtodx2 = pG->dt/(ri[i]*pG->dx2);
+        dtodx2 = pG->dt/(ri[i]*pG->dx2);
 #endif
 
-        		pG->B1i[k][j][i] += dtodx3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
-                            		    dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
-        		pG->B2i[k][j][i] += dtodx1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
-                            		    dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
+        pG->B1i[k][j][i] += dtodx3*(emf2[k+1][j  ][i  ] - emf2[k][j][i]) -
+          dtodx2*(emf3[k  ][j+1][i  ] - emf3[k][j][i]);
+        pG->B2i[k][j][i] += dtodx1*(emf3[k  ][j  ][i+1] - emf3[k][j][i]) -
+          dtodx3*(emf1[k+1][j  ][i  ] - emf1[k][j][i]);
 #ifdef CYLINDRICAL
-        		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        		dtodx2 = pG->dt/(r[i]*pG->dx2);
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        dtodx2 = pG->dt/(r[i]*pG->dx2);
 #endif
-        		pG->B3i[k][j][i] += dtodx2*(    emf1[k  ][j+1][i  ] -     emf1[k][j][i]) -
-                            		    dtodx1*(rsf*emf2[k  ][j  ][i+1] - lsf*emf2[k][j][i]);
-      			}
+        pG->B3i[k][j][i] += dtodx2*(    emf1[k  ][j+1][i  ] -     emf1[k][j][i]) -
+          dtodx1*(rsf*emf2[k  ][j  ][i+1] - lsf*emf2[k][j][i]);
+      }
 #ifdef CYLINDRICAL
-      			dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
+      dtodx2 = pG->dt/(ri[ie+1]*pG->dx2);
 #endif
-      		pG->B1i[k][j][ie+1] +=
-        		dtodx3*(emf2[k+1][j  ][ie+1] - emf2[k][j][ie+1]) -
-        		dtodx2*(emf3[k  ][j+1][ie+1] - emf3[k][j][ie+1]);
-    		}
+      pG->B1i[k][j][ie+1] +=
+        dtodx3*(emf2[k+1][j  ][ie+1] - emf2[k][j][ie+1]) -
+        dtodx2*(emf3[k  ][j+1][ie+1] - emf3[k][j][ie+1]);
+    }
 
-    		for (i=is; i<=ie; i++) {
-      			pG->B2i[k][je+1][i] +=
-        		dtodx1*(emf3[k  ][je+1][i+1] - emf3[k][je+1][i]) -
-        		dtodx3*(emf1[k+1][je+1][i  ] - emf1[k][je+1][i]);
-    		}
-  	}
+    for (i=is; i<=ie; i++) {
+      pG->B2i[k][je+1][i] +=
+        dtodx1*(emf3[k  ][je+1][i+1] - emf3[k][je+1][i]) -
+        dtodx3*(emf1[k+1][je+1][i  ] - emf1[k][je+1][i]);
+    }
+  }
 
-  	for (j=js; j<=je; j++) {
-    		for (i=is; i<=ie; i++) {
+  for (j=js; j<=je; j++) {
+    for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-      		rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-      		dtodx2 = pG->dt/(r[i]*pG->dx2);
+      rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+      dtodx2 = pG->dt/(r[i]*pG->dx2);
 #endif
-      			pG->B3i[ke+1][j][i] += 
-        			dtodx2*(    emf1[ke+1][j+1][i  ] - emf1[ke+1][j][i]) -
-        			dtodx1*(rsf*emf2[ke+1][j  ][i+1] - lsf*emf2[ke+1][j][i]);
-    		}
-  	}
+      pG->B3i[ke+1][j][i] +=
+        dtodx2*(    emf1[ke+1][j+1][i  ] - emf1[ke+1][j][i]) -
+        dtodx1*(rsf*emf2[ke+1][j  ][i+1] - lsf*emf2[ke+1][j][i]);
+    }
+  }
 #endif /* RADIATION_MHD */
 
 
@@ -3980,65 +3980,65 @@ k][j][i].M3);
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-		/* We need the density at time step n, for radiation source term and  */
-		/* and self-gravity energy flux term */
-		density_old[k][j][i] = pG->U[k][j][i].d;
-		pG->U[k][j][i].d  -= dtodx1*(x1Flux[k][j][i+1].d -x1Flux[k][j][i].d );
-		pG->U[k][j][i].d  -= dtodx2*(x2Flux[k][j+1][i].d -x2Flux[k][j][i].d );
-		pG->U[k][j][i].d  -= dtodx3*(x3Flux[k+1][j][i].d -x3Flux[k][j][i].d );
-          /* calculate the source term */
-          pG->dphidtsource[k][j][i] = -four_pi_G * ((pG->x1MassFlux[k][j][i+1] - pG->x1MassFlux[k][j][i])/pG->dx1
-          +(pG->x2MassFlux[k][j+1][i] - pG->x2MassFlux[k][j][i])/pG->dx2
-          +(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3);
+/* We need the density at time step n, for radiation source term and  */
+/* and self-gravity energy flux term */
+        density_old[k][j][i] = pG->U[k][j][i].d;
+        pG->U[k][j][i].d  -= dtodx1*(x1Flux[k][j][i+1].d -x1Flux[k][j][i].d );
+        pG->U[k][j][i].d  -= dtodx2*(x2Flux[k][j+1][i].d -x2Flux[k][j][i].d );
+        pG->U[k][j][i].d  -= dtodx3*(x3Flux[k+1][j][i].d -x3Flux[k][j][i].d );
+/* calculate the source term */
+        pG->dphidtsource[k][j][i] = -four_pi_G * ((pG->x1MassFlux[k][j][i+1] - pG->x1MassFlux[k][j][i])/pG->dx1
+                                                  +(pG->x2MassFlux[k][j+1][i] - pG->x2MassFlux[k][j][i])/pG->dx2
+                                                  +(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3);
 
       }
     }
   }
-	bvals_mhd(pD);
+  bvals_mhd(pD);
 
 /* With the updated flux, now we can calculate dphidt with Poisson Solver */
-    	(*SelfGrav_cons)(pD);
-	/* Need to apply boundary condition for the new calculated dphidt */
-    	bvals_grav(pD);
+  (*SelfGrav_cons)(pD);
+/* Need to apply boundary condition for the new calculated dphidt */
+  bvals_grav(pD);
 /* Now calculate the energy flux */
-	for(k=ks; k<=ke+1; k++){
-  		for(j=js; j<=je+1;j++){	
-			for (i=is; i<=ie+1; i++) {
-				phil = 0.25*(pG->Phi[k][j][i-1]+pG->Phi_old[k][j][i]+pG->Phi_old[k][j][i-1]+pG->Phi[k][j][i]);
-				gxl = 0.5 * (pG->Phi[k][j][i-1] + pG->Phi_old[k][j][i-1]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx1);
-				dotphil  = 0.5*(pG->dphidt[k][j][i-1] + pG->dphidt[k][j][i  ]);		
-				dotgxl = (pG->dphidt[k][j][i-1] - pG->dphidt[k][j][i  ])/(pG->dx1);
+  for(k=ks; k<=ke+1; k++){
+    for(j=js; j<=je+1;j++){
+      for (i=is; i<=ie+1; i++) {
+        phil = 0.25*(pG->Phi[k][j][i-1]+pG->Phi_old[k][j][i]+pG->Phi_old[k][j][i-1]+pG->Phi[k][j][i]);
+        gxl = 0.5 * (pG->Phi[k][j][i-1] + pG->Phi_old[k][j][i-1]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx1);
+        dotphil  = 0.5*(pG->dphidt[k][j][i-1] + pG->dphidt[k][j][i  ]);
+        dotgxl = (pG->dphidt[k][j][i-1] - pG->dphidt[k][j][i  ])/(pG->dx1);
 
-				x1Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[k][j][i].d*phil;
+        x1Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x1Flux[k][j][i].d*phil;
 
-				phil = 0.25*(pG->Phi[k][j-1][i]+pG->Phi_old[k][j-1][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
-				gxl = 0.5 * (pG->Phi[k][j-1][i] + pG->Phi_old[k][j-1][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx2);
-				dotphil  = 0.5*(pG->dphidt[k][j-1][i] + pG->dphidt[k][j][i  ]);		
-				dotgxl = (pG->dphidt[k][j-1][i] - pG->dphidt[k][j][i  ])/(pG->dx2);
+        phil = 0.25*(pG->Phi[k][j-1][i]+pG->Phi_old[k][j-1][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+        gxl = 0.5 * (pG->Phi[k][j-1][i] + pG->Phi_old[k][j-1][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx2);
+        dotphil  = 0.5*(pG->dphidt[k][j-1][i] + pG->dphidt[k][j][i  ]);
+        dotgxl = (pG->dphidt[k][j-1][i] - pG->dphidt[k][j][i  ])/(pG->dx2);
 
-				x2Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[k][j][i].d*phil;
+        x2Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x2Flux[k][j][i].d*phil;
 
-				phil = 0.25*(pG->Phi[k-1][j][i]+pG->Phi_old[k-1][j][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
-				gxl = 0.5 * (pG->Phi[k-1][j][i] + pG->Phi_old[k-1][j][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx3);
-				dotphil  = 0.5*(pG->dphidt[k-1][j][i] + pG->dphidt[k][j][i  ]);		
-				dotgxl = (pG->dphidt[k-1][j][i] - pG->dphidt[k][j][i  ])/(pG->dx3);
+        phil = 0.25*(pG->Phi[k-1][j][i]+pG->Phi_old[k-1][j][i]+pG->Phi_old[k][j][i]+pG->Phi[k][j][i]);
+        gxl = 0.5 * (pG->Phi[k-1][j][i] + pG->Phi_old[k-1][j][i]  - pG->Phi[k][j][i  ] - pG->Phi_old[k][j][i  ])/(pG->dx3);
+        dotphil  = 0.5*(pG->dphidt[k-1][j][i] + pG->dphidt[k][j][i  ]);
+        dotgxl = (pG->dphidt[k-1][j][i] - pG->dphidt[k][j][i  ])/(pG->dx3);
 
-				x3Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x3Flux[k][j][i].d*phil;		
-			}
- 		}
-	}
-	
-	/*-----------Now swap, desntiy_old actually save the new density  */
+        x3Flux_grav[k][j][i] =-0.5*(phil*dotgxl-dotphil*gxl)/four_pi_G + x3Flux[k][j][i].d*phil;
+      }
+    }
+  }
+
+/*-----------Now swap, desntiy_old actually save the new density  */
 
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-		/* We need the density at time step n, for radiation source term and  */
-		/* and self-gravity energy flux term */
-		/* We do not need to update ghost zone here */
-		Tempswap = pG->U[k][j][i].d;
-		pG->U[k][j][i].d = density_old[k][j][i];
-		density_old[k][j][i] = Tempswap;
+/* We need the density at time step n, for radiation source term and  */
+/* and self-gravity energy flux term */
+/* We do not need to update ghost zone here */
+        Tempswap = pG->U[k][j][i].d;
+        pG->U[k][j][i].d = density_old[k][j][i];
+        density_old[k][j][i] = Tempswap;
       }
     }
   }
@@ -4050,894 +4050,894 @@ k][j][i].M3);
 
 
 /*-------Step 11: Predict and correct step after we get the flux------------- */
-	
-		
+
+
 /*----------Radiation quantities are not updated in the modified Godunov corrector step */
-/*-----------NOTE that x1flux, x2flux, x3flux are flux from Remann problem. If there is extra-----* 
+/*-----------NOTE that x1flux, x2flux, x3flux are flux from Remann problem. If there is extra-----*
  *----------source terms, flux due to those source terms should also be added in the-------*
  *---------- modified Godunov method -------------------------------------*/
 
-	for (k=ks; k<=ke; k++){
-		for (j=js; j<=je; j++) {
-    			for (i=is; i<=ie; i++) {
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
 
-			/* First, assume this is good cell */
-			badcellflag = 0;
+/* First, assume this is good cell */
+        badcellflag = 0;
 
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
 #ifdef CYLINDRICAL
-			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-        		q2 = hdt/(r[i]*pG->dx2);			
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        q2 = hdt/(r[i]*pG->dx2);
 #endif
 
-			/* Load 1D vector */
-			Usource.d  = pG->U[k][j][i].d;
-			Usource.Mx = pG->U[k][j][i].M1;
-			Usource.My = pG->U[k][j][i].M2;
-			Usource.Mz = pG->U[k][j][i].M3;
-			Usource.E  = pG->U[k][j][i].E;
-			Usource.Er  = pG->U[k][j][i].Er;
-			Usource.Fr1  = pG->U[k][j][i].Fr1;
-			Usource.Fr2  = pG->U[k][j][i].Fr2;
-			Usource.Fr3  = pG->U[k][j][i].Fr3;
-			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
-			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
-			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
-			Usource.Edd_31	= pG->U[k][j][i].Edd_31;
-			Usource.Edd_32	= pG->U[k][j][i].Edd_32;
-			Usource.Edd_33	= pG->U[k][j][i].Edd_33;
-			for(m=0;m<NOPACITY;m++){
-				Usource.Sigma[m] = pG->U[k][j][i].Sigma[m];
-			}
+/* Load 1D vector */
+        Usource.d  = pG->U[k][j][i].d;
+        Usource.Mx = pG->U[k][j][i].M1;
+        Usource.My = pG->U[k][j][i].M2;
+        Usource.Mz = pG->U[k][j][i].M3;
+        Usource.E  = pG->U[k][j][i].E;
+        Usource.Er  = pG->U[k][j][i].Er;
+        Usource.Fr1  = pG->U[k][j][i].Fr1;
+        Usource.Fr2  = pG->U[k][j][i].Fr2;
+        Usource.Fr3  = pG->U[k][j][i].Fr3;
+        Usource.Edd_11  = pG->U[k][j][i].Edd_11;
+        Usource.Edd_21  = pG->U[k][j][i].Edd_21;
+        Usource.Edd_22  = pG->U[k][j][i].Edd_22;
+        Usource.Edd_31  = pG->U[k][j][i].Edd_31;
+        Usource.Edd_32  = pG->U[k][j][i].Edd_32;
+        Usource.Edd_33  = pG->U[k][j][i].Edd_33;
+        for(m=0;m<NOPACITY;m++){
+          Usource.Sigma[m] = pG->U[k][j][i].Sigma[m];
+        }
 
 
 #ifdef RADIATION_MHD
-      			Usource.By = pG->U[k][j][i].B2c;
-      			Usource.Bz = pG->U[k][j][i].B3c;
-			Bx = pG->U[k][j][i].B1c;
+        Usource.By = pG->U[k][j][i].B2c;
+        Usource.Bz = pG->U[k][j][i].B3c;
+        Bx = pG->U[k][j][i].B1c;
 #else
-			Bx = 0.0;
+        Bx = 0.0;
 #endif /* MHD */
-			
-			/* Initialize source to be zero */
-			/* Because this is also used in other place */
 
-		
+/* Initialize source to be zero */
+/* Because this is also used in other place */
+
+
 #ifdef SHEARING_BOX
-			for(m=0; m<4; m++)
-				ShearSource[m] = 0.0;
+        for(m=0; m<4; m++)
+          ShearSource[m] = 0.0;
 #endif
 
 
 
 
-			density = Usource.d;
-			velocity_x = Usource.Mx / density;
-			velocity_y = Usource.My / density;
-			velocity_z = Usource.Mz / density;
+        density = Usource.d;
+        velocity_x = Usource.Mx / density;
+        velocity_y = Usource.My / density;
+        velocity_z = Usource.Mz / density;
 
-			velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-				
-			pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
-		/* Should include magnetic energy for MHD */
+        velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+
+        pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+/* Should include magnetic energy for MHD */
 #ifdef RADIATION_MHD
-			pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
+        pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c) * (Gamma - 1.0);
 #endif
-			temperature = pressure / (density * R_ideal);
+        temperature = pressure / (density * R_ideal);
 
-			Sigma_sF = Usource.Sigma[0];
-			Sigma_aF = Usource.Sigma[1];
-			Sigma_aP = Usource.Sigma[2];
-			Sigma_aE = Usource.Sigma[3];
+        Sigma_sF = Usource.Sigma[0];
+        Sigma_aF = Usource.Sigma[1];
+        Sigma_aP = Usource.Sigma[2];
+        Sigma_aE = Usource.Sigma[3];
 
-			Sigma[0] = Sigma_sF;
-			Sigma[1] = Sigma_aF;
-			Sigma[2] = Sigma_aP;
-			Sigma[3] = Sigma_aE;
+        Sigma[0] = Sigma_sF;
+        Sigma[1] = Sigma_aF;
+        Sigma[2] = Sigma_aP;
+        Sigma[3] = Sigma_aE;
 
 
-			if(pressure > 2.0 * TINY_NUMBER){		
-				diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
-			}
-			else{
-				diffTEr = 0.0;
-			}
+        if(pressure > 2.0 * TINY_NUMBER){
+          diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
+        }
+        else{
+          diffTEr = 0.0;
+        }
 
-			/* This is the prefactor used in SEE, if this is smaller than 1, may cause trouble */
-			if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
-				Sourceflag = 0;
-			else
-				Sourceflag = 1;
-			
+/* This is the prefactor used in SEE, if this is smaller than 1, may cause trouble */
+        if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
+          Sourceflag = 0;
+        else
+          Sourceflag = 1;
 
-					
+
+
 #ifdef FARGO
-			
-			/* Include background shearing in Usource, which is only used in dSource */
 
-			velocity_y -= qom * x1;						
-					
-#endif	
-					
-			/* co-moving flux */
-			Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-			Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-			Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-					
-		
-		
-			/* Part of momentum source term */
-			Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
-			Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
-			Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
-			
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
-	
-		
-			/*=========================================================*/
-			/* In case velocity is large and momentum source is stiff */
-			SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat);
-			/*      + diffTEr / (density * Crat);
-			*/
-					
-			SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat);
-			/*      + diffTEr / (density * Crat);
-			*/
-					
-			SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat);
-			/*      + diffTEr / (density * Crat);
-			*/
-					
-					
-			Source_Inv[0][0] = 1.0;
-			Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
-			Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
-			Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
-					
-			/*=========================================================*/
-					
-	
-			Source_Inv[4][0] = 0.0;
-			Source_Inv[4][1] = 0.0;
-			Source_Inv[4][2] = 0.0;
-			Source_Inv[4][3] = 0.0;
-			Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
-	
+/* Include background shearing in Usource, which is only used in dSource */
 
-			/*=======================================================*/
-			/****************************************/
-			/* Modify the energy source term to include the stiffness of the momentum source term */
-			if(Erflag && Sourceflag){
-					Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3])/Crat);
-			}
-			else{
-					Source[k][j][i][4] = - Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
-			}
-					
-			Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
-					
-					
-					
-			/*****************************************************/
-					
+        velocity_y -= qom * x1;
+
+#endif
+
+/* co-moving flux */
+        Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+        Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+        Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
 
 
 
-			/*--------Calculate the guess solution-------------*/
-	
-			divFlux1[0] = (rsf*x1Flux[k][j][i+1].d  - lsf*x1Flux[k][j][i].d ) / dx1;
-			divFlux1[1] = (rsf*x1Flux[k][j][i+1].Mx - lsf*x1Flux[k][j][i].Mx) / dx1;
-			divFlux1[2] = (SQR(rsf)*x1Flux[k][j][i+1].My - SQR(lsf)*x1Flux[k][j][i].My) / dx1;
-			divFlux1[3] = (rsf*x1Flux[k][j][i+1].Mz - lsf*x1Flux[k][j][i].Mz) / dx1;
-			divFlux1[4] = (rsf*x1Flux[k][j][i+1].E  - lsf*x1Flux[k][j][i].E ) / dx1; 
+/* Part of momentum source term */
+        Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+        Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+        Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * Usource.Er) / Crat;
+
+        dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+
+
+/*=========================================================*/
+/* In case velocity is large and momentum source is stiff */
+        SFmx = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
+
+        SFmy = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
+
+        SFmz = (Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er / (density * Crat);
+/*      + diffTEr / (density * Crat);
+ */
+
+
+        Source_Inv[0][0] = 1.0;
+        Source_Inv[1][1] = 1.0 / (1.0 + dt * Prat * SFmx);
+        Source_Inv[2][2] = 1.0 / (1.0 + dt * Prat * SFmy);
+        Source_Inv[3][3] = 1.0 / (1.0 + dt * Prat * SFmz);
+
+/*=========================================================*/
+
+
+        Source_Inv[4][0] = 0.0;
+        Source_Inv[4][1] = 0.0;
+        Source_Inv[4][2] = 0.0;
+        Source_Inv[4][3] = 0.0;
+        Source_Inv[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+
+
+/*=======================================================*/
+/****************************************/
+/* Modify the energy source term to include the stiffness of the momentum source term */
+        if(Erflag && Sourceflag){
+          Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3])/Crat);
+        }
+        else{
+          Source[k][j][i][4] = - Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+        }
+
+        Prwork1 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+
+
+
+/*****************************************************/
+
+
+
+
+/*--------Calculate the guess solution-------------*/
+
+        divFlux1[0] = (rsf*x1Flux[k][j][i+1].d  - lsf*x1Flux[k][j][i].d ) / dx1;
+        divFlux1[1] = (rsf*x1Flux[k][j][i+1].Mx - lsf*x1Flux[k][j][i].Mx) / dx1;
+        divFlux1[2] = (SQR(rsf)*x1Flux[k][j][i+1].My - SQR(lsf)*x1Flux[k][j][i].My) / dx1;
+        divFlux1[3] = (rsf*x1Flux[k][j][i+1].Mz - lsf*x1Flux[k][j][i].Mz) / dx1;
+        divFlux1[4] = (rsf*x1Flux[k][j][i+1].E  - lsf*x1Flux[k][j][i].E ) / dx1;
 #ifdef CYLINDRICAL
-			dx2ri = 1.0/(r[i] * pG->dx2);
+        dx2ri = 1.0/(r[i] * pG->dx2);
 #else
-			dx2ri = 1.0/(pG->dx2);
+        dx2ri = 1.0/(pG->dx2);
 #endif
-			divFlux2[0] = (x2Flux[k][j+1][i].d  - x2Flux[k][j][i].d ) * dx2ri;
-			divFlux2[1] = (x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz) * dx2ri;
-			divFlux2[2] = (x2Flux[k][j+1][i].Mx - x2Flux[k][j][i].Mx) * dx2ri;
-			divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) * dx2ri;
-			divFlux2[4] = (x2Flux[k][j+1][i].E  - x2Flux[k][j][i].E ) * dx2ri; 
+        divFlux2[0] = (x2Flux[k][j+1][i].d  - x2Flux[k][j][i].d ) * dx2ri;
+        divFlux2[1] = (x2Flux[k][j+1][i].Mz - x2Flux[k][j][i].Mz) * dx2ri;
+        divFlux2[2] = (x2Flux[k][j+1][i].Mx - x2Flux[k][j][i].Mx) * dx2ri;
+        divFlux2[3] = (x2Flux[k][j+1][i].My - x2Flux[k][j][i].My) * dx2ri;
+        divFlux2[4] = (x2Flux[k][j+1][i].E  - x2Flux[k][j][i].E ) * dx2ri;
 
-			divFlux3[0] = (x3Flux[k+1][j][i].d  - x3Flux[k][j][i].d ) / dx3;
-			divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
-			divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
-			divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;
-			divFlux3[4] = (x3Flux[k+1][j][i].E  - x3Flux[k][j][i].E ) / dx3; 
+        divFlux3[0] = (x3Flux[k+1][j][i].d  - x3Flux[k][j][i].d ) / dx3;
+        divFlux3[1] = (x3Flux[k+1][j][i].My - x3Flux[k][j][i].My) / dx3;
+        divFlux3[2] = (x3Flux[k+1][j][i].Mz - x3Flux[k][j][i].Mz) / dx3;
+        divFlux3[3] = (x3Flux[k+1][j][i].Mx - x3Flux[k][j][i].Mx) / dx3;
+        divFlux3[4] = (x3Flux[k+1][j][i].E  - x3Flux[k][j][i].E ) / dx3;
 
-	/*------Flux due to static gravitational potential ---------*/
+/*------Flux due to static gravitational potential ---------*/
 
-		if (StaticGravPot != NULL){
-    			
-        		phic = (*StaticGravPot)((x1            ),x2,x3);
-        		phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-        		phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+        if (StaticGravPot != NULL){
+
+          phic = (*StaticGravPot)((x1            ),x2,x3);
+          phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+          phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 #ifdef CYLINDRICAL
-          		g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
+          g = (*x1GravAcc)(x1vc(pG,i),x2,x3);
 #ifdef FARGO
-                        g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+          g = g - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 #endif
-			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
-          		dx2ri = 1.0/(r[i]*pG->dx2);
-			SourceFlux[1] = dhalf[k][j][i]*g;
-#else 
-			/* x direction */
-			dx2ri = 1.0/(pG->dx2);
-			SourceFlux[1] = dhalf[k][j][i]*(phir-phil)/dx1;
+          rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+          dx2ri = 1.0/(r[i]*pG->dx2);
+          SourceFlux[1] = dhalf[k][j][i]*g;
+#else
+/* x direction */
+          dx2ri = 1.0/(pG->dx2);
+          SourceFlux[1] = dhalf[k][j][i]*(phir-phil)/dx1;
 #endif /* End cylindrical */
 
-        		SourceFlux[4]= (lsf*x1Flux[k][j][i  ].d*(phic - phil) +
-				 	rsf*x1Flux[k][j][i+1].d*(phir - phic))/dx1;
+          SourceFlux[4]= (lsf*x1Flux[k][j][i  ].d*(phic - phil) +
+                          rsf*x1Flux[k][j][i+1].d*(phir - phic))/dx1;
 
-			divFlux1[1] += SourceFlux[1];
-			divFlux1[4] += SourceFlux[4];
+          divFlux1[1] += SourceFlux[1];
+          divFlux1[4] += SourceFlux[4];
 
-			/* y direction */
-			
-        		phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-        		phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+/* y direction */
 
-        		SourceFlux[2] = dhalf[k][j][i]*(phir-phil)*dx2ri;
-        		SourceFlux[4] = (x2Flux[k][j  ][i].d*(phic - phil) +
-                                	     x2Flux[k][j+1][i].d*(phir - phic))*dx2ri;
-			divFlux2[2] += SourceFlux[2];
-			divFlux2[4] += SourceFlux[4];      		
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+
+          SourceFlux[2] = dhalf[k][j][i]*(phir-phil)*dx2ri;
+          SourceFlux[4] = (x2Flux[k][j  ][i].d*(phic - phil) +
+                           x2Flux[k][j+1][i].d*(phir - phic))*dx2ri;
+          divFlux2[2] += SourceFlux[2];
+          divFlux2[4] += SourceFlux[4];
 
 
-			/* z direction */
-			phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-          		phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+/* z direction */
+          phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+          phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
 
-			SourceFlux[3] = dhalf[k][j][i]*(phir-phil)/dx3;
-        		SourceFlux[4] = (x3Flux[k][j  ][i].d*(phic - phil) +
-                                	     x3Flux[k + 1][j][i].d*(phir - phic))/dx3;
-			divFlux3[3] += SourceFlux[3];
-			divFlux3[4] += SourceFlux[4];   
-	
-  		}
+          SourceFlux[3] = dhalf[k][j][i]*(phir-phil)/dx3;
+          SourceFlux[4] = (x3Flux[k][j  ][i].d*(phic - phil) +
+                           x3Flux[k + 1][j][i].d*(phir - phic))/dx3;
+          divFlux3[3] += SourceFlux[3];
+          divFlux3[4] += SourceFlux[4];
 
-	/*--------Add geometric source terms in Cylindrical coordinate */
+        }
+
+/*--------Add geometric source terms in Cylindrical coordinate */
 #ifdef CYLINDRICAL
-		
-		dx2ri = 1.0/(r[i] * pG->dx2);
-		dtodx2 = dt/(r[i] * pG->dx2);
-		
-		 /* calculate M2 at time n+1/2 */
-        	M2h = pG->U[k][j][i].M2
-          		- q1*(SQR(rsf)*x1Flux[k  ][j  ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
-          		- q2*(         x2Flux[k  ][j+1][i  ].Mx -          x2Flux[k][j][i].Mx)
-          		- q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
+
+        dx2ri = 1.0/(r[i] * pG->dx2);
+        dtodx2 = dt/(r[i] * pG->dx2);
+
+/* calculate M2 at time n+1/2 */
+        M2h = pG->U[k][j][i].M2
+          - q1*(SQR(rsf)*x1Flux[k  ][j  ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
+          - q2*(         x2Flux[k  ][j+1][i  ].Mx -          x2Flux[k][j][i].Mx)
+          - q3*(         x3Flux[k+1][j  ][i  ].Mz -          x3Flux[k][j][i].Mz);
 
 
 #ifdef FARGO
-        	/* Save current R/phi momenta */
-        	Mrn = pG->U[k][j][i].M1;
-        	Mpn = pG->U[k][j][i].M2;
+/* Save current R/phi momenta */
+        Mrn = pG->U[k][j][i].M1;
+        Mpn = pG->U[k][j][i].M2;
 
-		Om = (*OrbitalProfile)(x1vc(pG,i));
-        	qshear = (*ShearProfile)(x1vc(pG,i));
-		g = (*x1GravAcc)(x1vc(pG,i),x2,x3) - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
+        Om = (*OrbitalProfile)(x1vc(pG,i));
+        qshear = (*ShearProfile)(x1vc(pG,i));
+        g = (*x1GravAcc)(x1vc(pG,i),x2,x3) - x1vc(pG,i)*SQR((*OrbitalProfile)(x1vc(pG,i)));
 
-        	/* Use forward euler to approximate R/phi momenta at t^{n+1} */
-        	Mre = Mrn
-                	- dtodx1*(  rsf*x1Flux[k][j][i+1].Mx -      lsf*x1Flux[k][j][i].Mx)
-                	- dtodx2*(  	x2Flux[k][j+1][i].Mz -          x2Flux[k][j][i].Mz)
-                	- dtodx3*( 	x3Flux[k+1][j][i].My -          x3Flux[k][j][i].My);
-        	Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] - pG->U[k][j][i].d*g);
+/* Use forward euler to approximate R/phi momenta at t^{n+1} */
+        Mre = Mrn
+          - dtodx1*(  rsf*x1Flux[k][j][i+1].Mx -      lsf*x1Flux[k][j][i].Mx)
+          - dtodx2*(    x2Flux[k][j+1][i].Mz -          x2Flux[k][j][i].Mz)
+          - dtodx3*(    x3Flux[k+1][j][i].My -          x3Flux[k][j][i].My);
+        Mre += pG->dt*( 2.0*Om*Mpn + geom_src[k][j][i] - pG->U[k][j][i].d*g);
 
-        	Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
-          	- dtodx1*(SQR(rsf)*x1Flux[k ][j ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
-          	- dtodx2*(         x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
-          	- dtodx3*(	   x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
+        Mpe = Mpn + pG->dt*Om*(qshear-2.0)*Mrn
+          - dtodx1*(SQR(rsf)*x1Flux[k ][j ][i+1].My - SQR(lsf)*x1Flux[k][j][i].My)
+          - dtodx2*(         x2Flux[k ][j+1][i ].Mx - x2Flux[k][j][i].Mx)
+          - dtodx3*(       x3Flux[k+1][j ][i ].Mz - x3Flux[k][j][i].Mz);
 
-       	 	/* Average forward euler and current values to approximate at t^{n+1/2} */
-        	Mrav = 0.5*(Mrn+Mre);
-        	Mpav = 0.5*(Mpn+Mpe);
+/* Average forward euler and current values to approximate at t^{n+1/2} */
+        Mrav = 0.5*(Mrn+Mre);
+        Mpav = 0.5*(Mpn+Mpe);
 
-        /* Compute source terms at t^{n+1/2} */
-        	geom_src[k][j][i] = SQR(Mpav)/dhalf[k][j][i];
+/* Compute source terms at t^{n+1/2} */
+        geom_src[k][j][i] = SQR(Mpav)/dhalf[k][j][i];
 #else /* FARGO */
 
-        /* Add source term for fixed gravitational potential for 0.5*dt */
-        	if (StaticGravPot != NULL){
-          		phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-          		phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
-          		M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
-        	}
-        /* Compute geometric source term at time n+1/2 */
-        	geom_src[k][j][i] = SQR(M2h)/dhalf[k][j][i];
+/* Add source term for fixed gravitational potential for 0.5*dt */
+        if (StaticGravPot != NULL){
+          phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+          phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+          M2h -= q2*(phir-phil)*pG->U[k][j][i].d;
+        }
+/* Compute geometric source term at time n+1/2 */
+        geom_src[k][j][i] = SQR(M2h)/dhalf[k][j][i];
 #endif /* FARGO */
 
 #ifdef RADIATION_MHD
-		B2ch = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k][j+1][i]);
-        	geom_src[k][j][i] -= SQR(B2ch);
+        B2ch = 0.5*(B2_x2Face[k][j][i] + B2_x2Face[k][j+1][i]);
+        geom_src[k][j][i] -= SQR(B2ch);
 #endif
 
 
 #ifdef ISOTHERMAL
-        	geom_src[k][j][i] += Iso_csound2*dhalf[k][j][i];
+        geom_src[k][j][i] += Iso_csound2*dhalf[k][j][i];
 #ifdef RADIATION_MHD
-        	B1ch = 0.5*(lsf*B1_x1Face[k][j][i] + rsf*B1_x1Face[k  ][j  ][i+1]);
-        	B3ch = 0.5*(    B3_x3Face[k][j][i] +     B3_x3Face[k+1][j  ][i  ]);
-        	geom_src[k][j][i] += 0.5*(SQR(B1ch)+SQR(B2ch)+SQR(B3ch));
+        B1ch = 0.5*(lsf*B1_x1Face[k][j][i] + rsf*B1_x1Face[k  ][j  ][i+1]);
+        B3ch = 0.5*(    B3_x3Face[k][j][i] +     B3_x3Face[k+1][j  ][i  ]);
+        geom_src[k][j][i] += 0.5*(SQR(B1ch)+SQR(B2ch)+SQR(B3ch));
 #endif
 #else /* ISOTHERMAL */
-        	Pavgh = 0.5*(lsf*x1Flux[k][j][i  ].Pflux + rsf*x1Flux[k][j][i+1].Pflux);
-        	geom_src[k][j][i] += Pavgh;
+        Pavgh = 0.5*(lsf*x1Flux[k][j][i  ].Pflux + rsf*x1Flux[k][j][i+1].Pflux);
+        geom_src[k][j][i] += Pavgh;
 #endif
-        	geom_src[k][j][i] /= x1vc(pG,i);
+        geom_src[k][j][i] /= x1vc(pG,i);
 
 #ifdef FARGO
-        /* Use average values to apply source terms for full time-step */
-        	divFlux1[1] += -(2.0*Om*Mpav + geom_src[k][j][i]);
-        	divFlux2[2] += -(Om*(qshear-2.0)*Mrav);
+/* Use average values to apply source terms for full time-step */
+        divFlux1[1] += -(2.0*Om*Mpav + geom_src[k][j][i]);
+        divFlux2[2] += -(Om*(qshear-2.0)*Mrav);
 #else
-        /* Add time-centered geometric source term for full dt */
-        	divFlux1[1] += -geom_src[k][j][i];
+/* Add time-centered geometric source term for full dt */
+        divFlux1[1] += -geom_src[k][j][i];
 #endif /* FARGO */
 
 
 #endif /* end cylindrical coordinate */
 
-	/*--------Flux due to self-gravity ------------------------*/
+/*--------Flux due to self-gravity ------------------------*/
 #ifdef SELF_GRAVITY
-		/************************************************/
-		/*------------x direction ----------------------*/
+/************************************************/
+/*------------x direction ----------------------*/
 
-		phic = pG->Phi[k][j][i];
-        	phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j][i  ]);
-        	phir = 0.5*(pG->Phi[k][j][i  ] + pG->Phi[k][j][i+1]);
+        phic = pG->Phi[k][j][i];
+        phil = 0.5*(pG->Phi[k][j][i-1] + pG->Phi[k][j][i  ]);
+        phir = 0.5*(pG->Phi[k][j][i  ] + pG->Phi[k][j][i+1]);
 
 /* gx, gy and gz centered at L and R x1-faces */
-        	gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])*(dx1i);
-        	gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])*(dx1i);
+        gxl = (pG->Phi[k][j][i-1] - pG->Phi[k][j][i  ])*(dx1i);
+        gxr = (pG->Phi[k][j][i  ] - pG->Phi[k][j][i+1])*(dx1i);
 
-        	gyl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j+1][i-1]) +
-                	    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) )*(dx2i);
-        	gyr = 0.25*((pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) +
-                	    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]) )*(dx2i);
+        gyl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j+1][i-1]) +
+                    (pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) )*(dx2i);
+        gyr = 0.25*((pG->Phi[k][j-1][i  ] - pG->Phi[k][j+1][i  ]) +
+                    (pG->Phi[k][j-1][i+1] - pG->Phi[k][j+1][i+1]) )*(dx2i);
 
-        	gzl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k+1][j][i-1]) +
-                	    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) )*(dx3i);
-        	gzr = 0.25*((pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) +
-                	    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]) )*(dx3i);
+        gzl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k+1][j][i-1]) +
+                    (pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) )*(dx3i);
+        gzr = 0.25*((pG->Phi[k-1][j][i  ] - pG->Phi[k+1][j][i  ]) +
+                    (pG->Phi[k-1][j][i+1] - pG->Phi[k+1][j][i+1]) )*(dx3i);
 
 /* momentum fluxes in x1.  2nd term is needed only if Jean's swindle used */
-        	flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
-        	flx_m1r = 0.5*(gxr*gxr-gyr*gyr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
+        flx_m1l = 0.5*(gxl*gxl-gyl*gyl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
+        flx_m1r = 0.5*(gxr*gxr-gyr*gyr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
 
-        	flx_m2l = gxl*gyl/four_pi_G;
-        	flx_m2r = gxr*gyr/four_pi_G;
+        flx_m2l = gxl*gyl/four_pi_G;
+        flx_m2r = gxr*gyr/four_pi_G;
 
-        	flx_m3l = gxl*gzl/four_pi_G;
-        	flx_m3r = gxr*gzr/four_pi_G;
+        flx_m3l = gxl*gzl/four_pi_G;
+        flx_m3r = gxr*gzr/four_pi_G;
 
 /* Update momenta and energy with d/dx1 terms  */
-        	
-		SourceFlux[1] = (flx_m1r - flx_m1l)/dx1;
-		divFlux1[1] += SourceFlux[1];
-	
-		SourceFlux[2] = (flx_m2r - flx_m2l)/dx1;
-		divFlux1[2] += SourceFlux[2];
-		
-		SourceFlux[3] = (flx_m3r - flx_m3l)/dx1;
-		divFlux1[3] += SourceFlux[3];
+
+        SourceFlux[1] = (flx_m1r - flx_m1l)/dx1;
+        divFlux1[1] += SourceFlux[1];
+
+        SourceFlux[2] = (flx_m2r - flx_m2l)/dx1;
+        divFlux1[2] += SourceFlux[2];
+
+        SourceFlux[3] = (flx_m3r - flx_m3l)/dx1;
+        divFlux1[3] += SourceFlux[3];
 
 #ifndef CONS_GRAVITY
-		SourceFlux[4] = (x1Flux[k][j][i  ].d*(phic - phil) +
-                	      	x1Flux[k][j][i+1].d*(phir - phic)) / dx1;
-		divFlux1[4] += SourceFlux[4];
+        SourceFlux[4] = (x1Flux[k][j][i  ].d*(phic - phil) +
+                         x1Flux[k][j][i+1].d*(phir - phic)) / dx1;
+        divFlux1[4] += SourceFlux[4];
 #endif
 
-		/************************************************/
-		/*------------y direction ----------------------*/
+/************************************************/
+/*------------y direction ----------------------*/
 
-  		phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j  ][i]);
-        	phir = 0.5*(pG->Phi[k][j  ][i] + pG->Phi[k][j+1][i]);
+        phil = 0.5*(pG->Phi[k][j-1][i] + pG->Phi[k][j  ][i]);
+        phir = 0.5*(pG->Phi[k][j  ][i] + pG->Phi[k][j+1][i]);
 
 /* gx, gy and gz centered at L and R x2-faces */
-        	gxl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
-                	    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) )*(dx1i);
-        	gxr = 0.25*((pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) +
-                	    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]) )*(dx1i);
+        gxl = 0.25*((pG->Phi[k][j-1][i-1] - pG->Phi[k][j-1][i+1]) +
+                    (pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) )*(dx1i);
+        gxr = 0.25*((pG->Phi[k][j  ][i-1] - pG->Phi[k][j  ][i+1]) +
+                    (pG->Phi[k][j+1][i-1] - pG->Phi[k][j+1][i+1]) )*(dx1i);
 
-        	gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])*(dx2i);
-        	gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])*(dx2i);
+        gyl = (pG->Phi[k][j-1][i] - pG->Phi[k][j  ][i])*(dx2i);
+        gyr = (pG->Phi[k][j  ][i] - pG->Phi[k][j+1][i])*(dx2i);
 
-        	gzl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k+1][j-1][i]) +
-                    	(pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) )*(dx3i);
-        	gzr = 0.25*((pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) +
-                	    (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )*(dx3i);
+        gzl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k+1][j-1][i]) +
+                    (pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) )*(dx3i);
+        gzr = 0.25*((pG->Phi[k-1][j  ][i] - pG->Phi[k+1][j  ][i]) +
+                    (pG->Phi[k-1][j+1][i] - pG->Phi[k+1][j+1][i]) )*(dx3i);
 
 /* momentum fluxes in x2.  2nd term is needed only if Jean's swindle used */
-        	flx_m1l = gyl*gxl/four_pi_G;
-        	flx_m1r = gyr*gxr/four_pi_G;
+        flx_m1l = gyl*gxl/four_pi_G;
+        flx_m1r = gyr*gxr/four_pi_G;
 
-        	flx_m2l = 0.5*(gyl*gyl-gxl*gxl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
-        	flx_m2r = 0.5*(gyr*gyr-gxr*gxr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
+        flx_m2l = 0.5*(gyl*gyl-gxl*gxl-gzl*gzl)/four_pi_G + grav_mean_rho*phil;
+        flx_m2r = 0.5*(gyr*gyr-gxr*gxr-gzr*gzr)/four_pi_G + grav_mean_rho*phir;
 
-        	flx_m3l = gyl*gzl/four_pi_G;
-        	flx_m3r = gyr*gzr/four_pi_G;
+        flx_m3l = gyl*gzl/four_pi_G;
+        flx_m3r = gyr*gzr/four_pi_G;
 
 
 /* Update momenta and energy with d/dx1 terms  */
-        	
-		SourceFlux[1] = (flx_m1r - flx_m1l)/dx2;
-		divFlux2[1] += SourceFlux[1];
-	
-		SourceFlux[2] = (flx_m2r - flx_m2l)/dx2;
-		divFlux2[2] += SourceFlux[2];
-		
-		SourceFlux[3] = (flx_m3r - flx_m3l)/dx2;
-		divFlux2[3] += SourceFlux[3];
+
+        SourceFlux[1] = (flx_m1r - flx_m1l)/dx2;
+        divFlux2[1] += SourceFlux[1];
+
+        SourceFlux[2] = (flx_m2r - flx_m2l)/dx2;
+        divFlux2[2] += SourceFlux[2];
+
+        SourceFlux[3] = (flx_m3r - flx_m3l)/dx2;
+        divFlux2[3] += SourceFlux[3];
 
 #ifndef CONS_GRAVITY
-		SourceFlux[4] = (x2Flux[k][j  ][i].d*(phic - phil) +
-                                    x2Flux[k][j+1][i].d*(phir - phic)) / dx2;
-		divFlux2[4] += SourceFlux[4];
+        SourceFlux[4] = (x2Flux[k][j  ][i].d*(phic - phil) +
+                         x2Flux[k][j+1][i].d*(phir - phic)) / dx2;
+        divFlux2[4] += SourceFlux[4];
 #endif
 
-		/************************************************/
-		/*------------z direction ----------------------*/
-		
-      		phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k  ][j][i]);
-        	phir = 0.5*(pG->Phi[k  ][j][i] + pG->Phi[k+1][j][i]);
+/************************************************/
+/*------------z direction ----------------------*/
+
+        phil = 0.5*(pG->Phi[k-1][j][i] + pG->Phi[k  ][j][i]);
+        phir = 0.5*(pG->Phi[k  ][j][i] + pG->Phi[k+1][j][i]);
 
 /* gx, gy and gz centered at L and R x3-faces */
-        	gxl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
-                	    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) )*(dx1i);
-        	gxr = 0.25*((pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) +
-                	    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]) )*(dx1i);
+        gxl = 0.25*((pG->Phi[k-1][j][i-1] - pG->Phi[k-1][j][i+1]) +
+                    (pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) )*(dx1i);
+        gxr = 0.25*((pG->Phi[k  ][j][i-1] - pG->Phi[k  ][j][i+1]) +
+                    (pG->Phi[k+1][j][i-1] - pG->Phi[k+1][j][i+1]) )*(dx1i);
 
-        	gyl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k-1][j+1][i]) +
-                	    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) )*(dx2i);
-        	gyr = 0.25*((pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) +
-                	    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]) )*(dx2i);
+        gyl = 0.25*((pG->Phi[k-1][j-1][i] - pG->Phi[k-1][j+1][i]) +
+                    (pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) )*(dx2i);
+        gyr = 0.25*((pG->Phi[k  ][j-1][i] - pG->Phi[k  ][j+1][i]) +
+                    (pG->Phi[k+1][j-1][i] - pG->Phi[k+1][j+1][i]) )*(dx2i);
 
-        	gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])*(dx3i);
-        	gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])*(dx3i);
+        gzl = (pG->Phi[k-1][j][i] - pG->Phi[k  ][j][i])*(dx3i);
+        gzr = (pG->Phi[k  ][j][i] - pG->Phi[k+1][j][i])*(dx3i);
 
 /* momentum fluxes in x3.  2nd term is needed only if Jean's swindle used */
-        	flx_m1l = gzl*gxl/four_pi_G;
-        	flx_m1r = gzr*gxr/four_pi_G;
+        flx_m1l = gzl*gxl/four_pi_G;
+        flx_m1r = gzr*gxr/four_pi_G;
 
-        	flx_m2l = gzl*gyl/four_pi_G;
-        	flx_m2r = gzr*gyr/four_pi_G;
+        flx_m2l = gzl*gyl/four_pi_G;
+        flx_m2r = gzr*gyr/four_pi_G;
 
-        	flx_m3l = 0.5*(gzl*gzl-gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*phil;
-        	flx_m3r = 0.5*(gzr*gzr-gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*phir;
+        flx_m3l = 0.5*(gzl*gzl-gxl*gxl-gyl*gyl)/four_pi_G + grav_mean_rho*phil;
+        flx_m3r = 0.5*(gzr*gzr-gxr*gxr-gyr*gyr)/four_pi_G + grav_mean_rho*phir;
 
 /* Update momenta and energy with d/dx1 terms  */
-        	
-		SourceFlux[1] = (flx_m1r - flx_m1l)/dx3;
-		divFlux3[1] += SourceFlux[1];
-	
-		SourceFlux[2] = (flx_m2r - flx_m2l)/dx3;
-		divFlux3[2] += SourceFlux[2];
-		
-		SourceFlux[3] = (flx_m3r - flx_m3l)/dx3;
-		divFlux3[3] += SourceFlux[3];
+
+        SourceFlux[1] = (flx_m1r - flx_m1l)/dx3;
+        divFlux3[1] += SourceFlux[1];
+
+        SourceFlux[2] = (flx_m2r - flx_m2l)/dx3;
+        divFlux3[2] += SourceFlux[2];
+
+        SourceFlux[3] = (flx_m3r - flx_m3l)/dx3;
+        divFlux3[3] += SourceFlux[3];
 
 #ifndef CONS_GRAVITY
-		SourceFlux[4] = (x3Flux[k  ][j][i].d*(phic - phil) +
-                                    x3Flux[k+1][j][i].d*(phir - phic)) / dx3;
-		divFlux3[4] += SourceFlux[4];
+        SourceFlux[4] = (x3Flux[k  ][j][i].d*(phic - phil) +
+                         x3Flux[k+1][j][i].d*(phir - phic)) / dx3;
+        divFlux3[4] += SourceFlux[4];
 #endif
 
-	/* Now the energy flux due to self-gravity in cons-gravity */
+/* Now the energy flux due to self-gravity in cons-gravity */
 
 #ifdef CONS_GRAVITY
-		divFlux1[4] += (x1Flux_grav[k][j][i+1] - x1Flux_grav[k][j][i]) / dx1;
-		divFlux2[4] += (x2Flux_grav[k][j+1][i] - x2Flux_grav[k][j][i]) / dx2;
-		divFlux3[4] += (x3Flux_grav[k+1][j][i] - x3Flux_grav[k][j][i]) / dx3;
+        divFlux1[4] += (x1Flux_grav[k][j][i+1] - x1Flux_grav[k][j][i]) / dx1;
+        divFlux2[4] += (x2Flux_grav[k][j+1][i] - x2Flux_grav[k][j][i]) / dx2;
+        divFlux3[4] += (x3Flux_grav[k+1][j][i] - x3Flux_grav[k][j][i]) / dx3;
 
 #endif
 
 #endif /* SELF_GRAVITY */
 
 
-	/*================== End static gravitational flux ================*/
+/*================== End static gravitational flux ================*/
 
-	/* cacluate guess solution */
+/* cacluate guess solution */
 
-		Source[k][j][i][0] = 0.0;
-		for(n=0; n<5; n++) {
-				tempguess[n] = dt * Source_Inv[n][n] * (Source[k][j][i][n] - divFlux1[n] - divFlux2[n] - divFlux3[n]);			
-		}
-					
-		if((!Erflag) || (!Sourceflag)){
-			tempguess[4] += -Prat * pG->Ersource[k][j][i];
-						
-		}
-					
-				
-			Prworksource = dt * Source_Inv[4][4] * Prwork1;
-					
-		Uguess[0] = pG->U[k][j][i].d  + tempguess[0];
-		Uguess[1] = pG->U[k][j][i].M1 + tempguess[1] + dt * Smx0;
-		Uguess[2] = pG->U[k][j][i].M2 + tempguess[2] + dt * Smy0;
-		Uguess[3] = pG->U[k][j][i].M3 + tempguess[3] + dt * Smz0;
-		Uguess[4] = pG->U[k][j][i].E  + tempguess[4];
+        Source[k][j][i][0] = 0.0;
+        for(n=0; n<5; n++) {
+          tempguess[n] = dt * Source_Inv[n][n] * (Source[k][j][i][n] - divFlux1[n] - divFlux2[n] - divFlux3[n]);
+        }
+
+        if((!Erflag) || (!Sourceflag)){
+          tempguess[4] += -Prat * pG->Ersource[k][j][i];
+
+        }
 
 
-					
+        Prworksource = dt * Source_Inv[4][4] * Prwork1;
+
+        Uguess[0] = pG->U[k][j][i].d  + tempguess[0];
+        Uguess[1] = pG->U[k][j][i].M1 + tempguess[1] + dt * Smx0;
+        Uguess[2] = pG->U[k][j][i].M2 + tempguess[2] + dt * Smy0;
+        Uguess[3] = pG->U[k][j][i].M3 + tempguess[3] + dt * Smz0;
+        Uguess[4] = pG->U[k][j][i].E  + tempguess[4];
+
+
+
 
 #ifdef CONS_GRAVITY
-		/* density_old is now actually the updated density */
-		Uguess[4] += 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
+/* density_old is now actually the updated density */
+        Uguess[4] += 0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
 
 #endif
 
-		/*  Uguess[0] = d; Uguess[1]=Mx; Uguess[2]=My; Uguess[3]=Mz, Uguess[4]=E */
-	
-		/* Now calculate the source term due to the guess solution */
-		/* Flux is not changed during the correction step */
+/*  Uguess[0] = d; Uguess[1]=Mx; Uguess[2]=My; Uguess[3]=Mz, Uguess[4]=E */
+
+/* Now calculate the source term due to the guess solution */
+/* Flux is not changed during the correction step */
 
 /*================================================================*/
 /* Guess solution also needs to add shearing_box source term */
 /* Just use forward Euler to add the shearing source term in guess solution */
-					
+
 #ifdef SHEARING_BOX
-		phic = (*ShearingBoxPot)((x1            ),x2,x3);
-		phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-		phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+        phic = (*ShearingBoxPot)((x1            ),x2,x3);
+        phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+        phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 
-		ShearSource[3] = -(dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
-				x1Flux[k][j][i+1].d*(phir - phic)));
-					
-		phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-		phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+        ShearSource[3] = -(dtodx1*(x1Flux[k][j][i  ].d*(phic - phil) +
+                                   x1Flux[k][j][i+1].d*(phir - phic)));
 
-		ShearSource[3] -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
-				x2Flux[k][j+1][i].d*(phir - phic));
+        phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+        phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
 
-							
-		phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
-		phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+        ShearSource[3] -= dtodx2*(x2Flux[k][j  ][i].d*(phic - phil) +
+                                  x2Flux[k][j+1][i].d*(phir - phic));
 
-		ShearSource[3] -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
-				x3Flux[k+1][j][i].d*(phir - phic));
 
-		/* Use Crank Nichson but do not include radiation source term for guess solution */
-		/* Store the current state */
-		M1n  = pG->U[k][j][i].M1;
+        phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+        phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+
+        ShearSource[3] -= dtodx3*(x3Flux[k  ][j][i].d*(phic - phil) +
+                                  x3Flux[k+1][j][i].d*(phir - phic));
+
+/* Use Crank Nichson but do not include radiation source term for guess solution */
+/* Store the current state */
+        M1n  = pG->U[k][j][i].M1;
 #ifdef FARGO
-		dM2n = pG->U[k][j][i].M2;
+        dM2n = pG->U[k][j][i].M2;
 #else
-		dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
+        dM2n = pG->U[k][j][i].M2 + qom*x1*pG->U[k][j][i].d;
 #endif
-					
+
 
 #ifndef FARGO
-		frx1_dM2 = qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
-		flx1_dM2 = qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
-		frx2_dM2 = qom*(x1            )*x2Flux[k][j+1][i].d;
-		flx2_dM2 = qom*(x1            )*x2Flux[k][j  ][i].d;
-		frx3_dM2 = qom*(x1            )*x3Flux[k+1][j][i].d;
-		flx3_dM2 = qom*(x1            )*x3Flux[k  ][j][i].d;
+        frx1_dM2 = qom*(x1+0.5*pG->dx1)*x1Flux[k][j][i+1].d;
+        flx1_dM2 = qom*(x1-0.5*pG->dx1)*x1Flux[k][j][i  ].d;
+        frx2_dM2 = qom*(x1            )*x2Flux[k][j+1][i].d;
+        flx2_dM2 = qom*(x1            )*x2Flux[k][j  ][i].d;
+        frx3_dM2 = qom*(x1            )*x3Flux[k+1][j][i].d;
+        flx3_dM2 = qom*(x1            )*x3Flux[k  ][j][i].d;
 #endif
 /* Now evolve M1n and dM2n by dt/2 using Forward Euler */
-		M1e  = M1n + 0.5 * tempguess[1];
-		dM2e = dM2n + 0.5 * tempguess[2];
+        M1e  = M1n + 0.5 * tempguess[1];
+        dM2e = dM2n + 0.5 * tempguess[2];
 #ifndef FARGO
-		dM2e += (-q1*(frx1_dM2 - flx1_dM2)
-			 -q2*(frx2_dM2 - flx2_dM2) 
-			 -q3*(frx3_dM2 - flx3_dM2));
+        dM2e += (-q1*(frx1_dM2 - flx1_dM2)
+                 -q2*(frx2_dM2 - flx2_dM2)
+                 -q3*(frx3_dM2 - flx3_dM2));
 #endif
 
-		ShearSource[0] = (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact; 
-		ShearSource[1] = 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+        ShearSource[0] = (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+        ShearSource[1] = 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
 #ifndef FARGO
-		ShearSource[1] -= 0.5*qshear*om_dt*(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
-#endif		
-		/* Now add the source term to guess solution */
+        ShearSource[1] -= 0.5*qshear*om_dt*(x1Flux[k][j][i].d + x1Flux[k][j][i+1].d);
+#endif
+/* Now add the source term to guess solution */
 
 
-		Uguess[1] += ShearSource[0];
-		Uguess[2] += ShearSource[1];
-		Uguess[3] += ShearSource[2];
-		Uguess[4] += ShearSource[3];
-				
+        Uguess[1] += ShearSource[0];
+        Uguess[2] += ShearSource[1];
+        Uguess[3] += ShearSource[2];
+        Uguess[4] += ShearSource[3];
+
 #endif
 /* End SHEARING_BOX */
 /*==========================================================*/
 /* Finish the predict step. All the source terms are added */
-		
-		density    = Uguess[0];
-		velocity_x = Uguess[1] / density;
-		velocity_y = Uguess[2] / density;
-		velocity_z = Uguess[3] / density;
 
-		velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+        density    = Uguess[0];
+        velocity_x = Uguess[1] / density;
+        velocity_y = Uguess[2] / density;
+        velocity_z = Uguess[3] / density;
+
+        velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 
 
 
-		pressure = (Uguess[4] - 0.5 * (density * velocity * velocity)) * (Gamma - 1.0);
-		/* Should include magnetic energy for MHD */
+        pressure = (Uguess[4] - 0.5 * (density * velocity * velocity)) * (Gamma - 1.0);
+/* Should include magnetic energy for MHD */
 #ifdef RADIATION_MHD
-		/* Should use the updated cell centered magnetic field to calculate the temperature */
-		B1ch = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k][j][i+1]);
-		B2ch = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
-		B3ch = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
-		
-		pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
+/* Should use the updated cell centered magnetic field to calculate the temperature */
+        B1ch = 0.5*(    pG->B1i[k][j][i] +     pG->B1i[k][j][i+1]);
+        B2ch = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+        B3ch = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+
+        pressure -= 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch) * (Gamma - 1.0);
 #endif
 
-		if((pressure < TINY_NUMBER) || (pressure != pressure)){
-			if(density < dfloor){
-				/* keep original temperature */
-				pressure = pG->U[k][j][i].d * temperature * R_ideal;
-			}
-			else{
-				pressure = density * temperature * R_ideal;
-			}
-			badcellflag = 1;
+        if((pressure < TINY_NUMBER) || (pressure != pressure)){
+          if(density < dfloor){
+/* keep original temperature */
+            pressure = pG->U[k][j][i].d * temperature * R_ideal;
+          }
+          else{
+            pressure = density * temperature * R_ideal;
+          }
+          badcellflag = 1;
 
-		}
+        }
 
-		
-		/* temperature and density are original temperature and density */
-		if((density < dfloor) || (density != density)){
-			Uguess[0] = pG->U[k][j][i].d;
-			density = pG->U[k][j][i].d;
-			Uguess[1] = density * velocity_x;
-			Uguess[2] = density * velocity_y;
-			Uguess[3] = density * velocity_z;
-			
-			
-			badcellflag = 1;
-		}
 
-		/* for bad cell, need to recalculate total energy */
-		if(badcellflag){
-			Uguess[4] =  pressure / (Gamma - 1.0) 
-				+ 0.5 * density * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+/* temperature and density are original temperature and density */
+        if((density < dfloor) || (density != density)){
+          Uguess[0] = pG->U[k][j][i].d;
+          density = pG->U[k][j][i].d;
+          Uguess[1] = density * velocity_x;
+          Uguess[2] = density * velocity_y;
+          Uguess[3] = density * velocity_z;
+
+
+          badcellflag = 1;
+        }
+
+/* for bad cell, need to recalculate total energy */
+        if(badcellflag){
+          Uguess[4] =  pressure / (Gamma - 1.0)
+            + 0.5 * density * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
 #ifdef RADIATION_MHD
-                        Uguess[4] += 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch);
+          Uguess[4] += 0.5 * (B1ch * B1ch + B2ch * B2ch + B3ch * B3ch);
 #endif
 
 
-		}		
+        }
 
-		
-		temperature = pressure / (density * R_ideal);
-					
+
+        temperature = pressure / (density * R_ideal);
+
 #ifdef FARGO
-			/* With FARGO, we should add background shearing to the source terms */
-					
-			/* Include background shearing in Usource, which is only used in dSource */
-					
-			velocity_y -= qom * x1;	
-					
-#endif	
-			
-					
-		/* co-moving flux */
-		/* Correct the radiation work term with original opacity, but with updated velocity */			
-		Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-		Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-		Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
-					
-		Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
-					
-					/* Source term for momentum */
-		Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
-		Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
-		Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
-					
-					
+/* With FARGO, we should add background shearing to the source terms */
 
-		/* If Opacity is not set, Sigma_? will not be changed. */
-		/* Negative pressur is handled in the opacity function */
-					
-		/* update opacity for the thermalization term, not for momentum term, which can cause trouble */	
+/* Include background shearing in Usource, which is only used in dSource */
 
-		/* Prepare the Prims variable */
-		Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
-		/* Now update the density, pressure and velocity */
-		Wopacity.d = density;
-		Wopacity.P = pressure;
-		Wopacity.V1 = velocity_x;
-		Wopacity.V2 = velocity_y;
-		Wopacity.V3 = velocity_z;
-		/* background shearing should be included */
-		
-	
-		if(Opacity != NULL){
-			Opacity(&Wopacity, Sigma, NULL);
-		
-			Sigma_sF = Sigma[0];
-			Sigma_aF = Sigma[1];
-			Sigma_aP = Sigma[2];
-			Sigma_aE = Sigma[3];
-			
-			
-		}
-		
-		/* Update the sourceflag, It can happen that initially it is radiation dominated, but become gas *
-		  * pressure dominated in the predict step */
-		if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
-				Sourceflag2 = 0;
-		else
-				Sourceflag2 = 1;
-			
-			
-		
-		/* calculate the predict energy source term */
-		ThermalRelaxation(temperature, pG->U[k][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
-		Ersource = Ersource - pG->U[k][j][i].Er;
-					
-		/* For FLD, add the energy source term directly */			
+        velocity_y -= qom * x1;
+
+#endif
+
+
+/* co-moving flux */
+/* Correct the radiation work term with original opacity, but with updated velocity */
+        Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+        Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+        Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+
+        Prwork2 = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x * Source_Inv[1][1] + velocity_y * Fr0y * Source_Inv[2][2] + velocity_z * Fr0z * Source_Inv[3][3]);
+
+/* Source term for momentum */
+        Source_guess[1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
+        Source_guess[2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
+        Source_guess[3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
+
+
+
+/* If Opacity is not set, Sigma_? will not be changed. */
+/* Negative pressur is handled in the opacity function */
+
+/* update opacity for the thermalization term, not for momentum term, which can cause trouble */
+
+/* Prepare the Prims variable */
+        Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
+/* Now update the density, pressure and velocity */
+        Wopacity.d = density;
+        Wopacity.P = pressure;
+        Wopacity.V1 = velocity_x;
+        Wopacity.V2 = velocity_y;
+        Wopacity.V3 = velocity_z;
+/* background shearing should be included */
+
+
+        if(Opacity != NULL){
+          Opacity(&Wopacity, Sigma, NULL);
+
+          Sigma_sF = Sigma[0];
+          Sigma_aF = Sigma[1];
+          Sigma_aP = Sigma[2];
+          Sigma_aE = Sigma[3];
+
+
+        }
+
+/* Update the sourceflag, It can happen that initially it is radiation dominated, but become gas *
+ * pressure dominated in the predict step */
+        if(4.0 * Prat * temperature * temperature * temperature * (Gamma - 1.0)/(density * R_ideal) < 1.0)
+          Sourceflag2 = 0;
+        else
+          Sourceflag2 = 1;
+
+
+
+/* calculate the predict energy source term */
+        ThermalRelaxation(temperature, pG->U[k][j][i].Er, density, Sigma_aP, Sigma_aE, dt, NULL, &Ersource);
+        Ersource = Ersource - pG->U[k][j][i].Er;
+
+/* For FLD, add the energy source term directly */
 #ifdef FLD
-                    
+
         pG->U[k][j][i].Er += (1.0 - Eratio) * (0.5 * (Ersource + pG->Ersource[k][j][i])) ;
-                    
+
         Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[k][j][i]));
-                    
-							
-		pG->U[k][j][i].d  = Uguess[0];
-		pG->U[k][j][i].M1 = Uguess[1];
-		pG->U[k][j][i].M2 = Uguess[2];
-		pG->U[k][j][i].M3 = Uguess[3];
-		pG->U[k][j][i].E  = Uguess[4];			
+
+
+        pG->U[k][j][i].d  = Uguess[0];
+        pG->U[k][j][i].M1 = Uguess[1];
+        pG->U[k][j][i].M2 = Uguess[2];
+        pG->U[k][j][i].M3 = Uguess[3];
+        pG->U[k][j][i].E  = Uguess[4];
 #else
 
-		diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
-		
-		
-
-		/* update source term */
-		Usource.d  = Uguess[0];
-		Usource.Mx = Uguess[1];
-		Usource.My = Uguess[2];
-		Usource.Mz = Uguess[3];
-		Usource.E  = Uguess[4];
-
-		for(m=0; m<NOPACITY;m++)
-			Usource.Sigma[m] = Sigma[m];
-
-					
+        diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
 
 
-		/* The Source term */
-		/* Only do this if density and pressure are normal */
-		if((Usource.d > 0.0) && (pressure > 2.0 * TINY_NUMBER)){
-			dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
-		}
-		
-		/* Do not need to update Source_Inv[1][1], Source_Inv[2][2], Source_Inv[3][3] */
-		/* We only need SEE here, in principle should use the updated Bx */	
-		Source_Invnew[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
-		
-		if(!Sourceflag2)
-                       Source_Invnew[4][4] = Source_Inv[4][4];
 
-	
-		/* Source term for total Energy */
-		if(Erflag && Sourceflag2){
-			Source_guess[4] = -Prat * Crat * diffTEr + Prwork2;
-		}
-		else{
-			Source_guess[4] =  Prwork2;
-		}
-			
-			
-			
-			/* Calculate the error term */
-			/* Operator split terms don't need to be included here */
-			Errort[1] = hdt * (Source[k][j][i][1] + Source_guess[1]) 
-						- dt * (divFlux1[1] + divFlux2[1] + divFlux3[1]) 
-						- dt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
-			Errort[2] = hdt * (Source[k][j][i][2] + Source_guess[2]) 
-						- dt * (divFlux1[2] + divFlux2[2] + divFlux3[2]) 
-						- dt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
-			Errort[3] = hdt * (Source[k][j][i][3] + Source_guess[3]) 
-						- dt * (divFlux1[3] + divFlux2[3] + divFlux3[3]) 
-						- dt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
-			
-			for(m=1; m<4; m++) {
-				tempguess[m] = Source_Inv[m][m] * Errort[m];
-			}
-			
-			/* Correction to the energy source term needs special treatment */
-			Errort[4] = hdt * (Source[k][j][i][4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]) 
-						- dt * Source_Inv[4][4] * (Source[k][j][i][4] - (divFlux1[4] + divFlux2[4] + divFlux3[4]));
-			tempguess[4] = Source_Invnew[4][4] * Errort[4];
-			
-			if(Erflag){
-				if((Sourceflag) && (!Sourceflag2)){
-					tempguess[4] += -0.5 * Prat * Ersource;
-				}
-				else if((!Sourceflag) && (!Sourceflag2)){
-					tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
-				}
-				else if((!Sourceflag) && (Sourceflag2)){
-					tempguess[4] += 0.5 * Prat * pG->Ersource[k][j][i];	
-				}
-				
-			}
-			else {
-					tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
-			}
+/* update source term */
+        Usource.d  = Uguess[0];
+        Usource.Mx = Uguess[1];
+        Usource.My = Uguess[2];
+        Usource.Mz = Uguess[3];
+        Usource.E  = Uguess[4];
 
-			
-			/* This is the actual added radiation work term */
-			Prworksource += Source_Invnew[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
-			
-			
-				
-			/* Apply the correction */
-			/* Estimate the added radiation source term  */
-			
-			/* If Erflag == 0 , only add source term as first order */
-			if(Erflag){
-				if(Prat > 0.0){
-					pG->Ersource[k][j][i] = Uguess[4] + tempguess[4] 
-										- (pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
-					/* Energy error seems smaller with Errot term added */
+        for(m=0; m<NOPACITY;m++)
+          Usource.Sigma[m] = Sigma[m];
+
+
+
+
+/* The Source term */
+/* Only do this if density and pressure are normal */
+        if((Usource.d > 0.0) && (pressure > 2.0 * TINY_NUMBER)){
+          dSource(Usource, Bx, &SEE, &SErho, &SEmx, &SEmy, &SEmz, x1);
+        }
+
+/* Do not need to update Source_Inv[1][1], Source_Inv[2][2], Source_Inv[3][3] */
+/* We only need SEE here, in principle should use the updated Bx */
+        Source_Invnew[4][4] = 1.0 / (1.0 + dt * Prat * Crat * SEE);
+
+        if(!Sourceflag2)
+          Source_Invnew[4][4] = Source_Inv[4][4];
+
+
+/* Source term for total Energy */
+        if(Erflag && Sourceflag2){
+          Source_guess[4] = -Prat * Crat * diffTEr + Prwork2;
+        }
+        else{
+          Source_guess[4] =  Prwork2;
+        }
+
+
+
+/* Calculate the error term */
+/* Operator split terms don't need to be included here */
+        Errort[1] = hdt * (Source[k][j][i][1] + Source_guess[1])
+          - dt * (divFlux1[1] + divFlux2[1] + divFlux3[1])
+          - dt * Source_Inv[1][1] * (Source[k][j][i][1] - divFlux1[1] - divFlux2[1] - divFlux3[1]);
+        Errort[2] = hdt * (Source[k][j][i][2] + Source_guess[2])
+          - dt * (divFlux1[2] + divFlux2[2] + divFlux3[2])
+          - dt * Source_Inv[2][2] * (Source[k][j][i][2] - divFlux1[2] - divFlux2[2] - divFlux3[2]);
+        Errort[3] = hdt * (Source[k][j][i][3] + Source_guess[3])
+          - dt * (divFlux1[3] + divFlux2[3] + divFlux3[3])
+          - dt * Source_Inv[3][3] * (Source[k][j][i][3] - divFlux1[3] - divFlux2[3] - divFlux3[3]);
+
+        for(m=1; m<4; m++) {
+          tempguess[m] = Source_Inv[m][m] * Errort[m];
+        }
+
+/* Correction to the energy source term needs special treatment */
+        Errort[4] = hdt * (Source[k][j][i][4] + Source_guess[4]) - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4])
+          - dt * Source_Inv[4][4] * (Source[k][j][i][4] - (divFlux1[4] + divFlux2[4] + divFlux3[4]));
+        tempguess[4] = Source_Invnew[4][4] * Errort[4];
+
+        if(Erflag){
+          if((Sourceflag) && (!Sourceflag2)){
+            tempguess[4] += -0.5 * Prat * Ersource;
+          }
+          else if((!Sourceflag) && (!Sourceflag2)){
+            tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
+          }
+          else if((!Sourceflag) && (Sourceflag2)){
+            tempguess[4] += 0.5 * Prat * pG->Ersource[k][j][i];
+          }
+
+        }
+        else {
+          tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
+        }
+
+
+/* This is the actual added radiation work term */
+        Prworksource += Source_Invnew[4][4] * (hdt * (Prwork1 + Prwork2) - Prworksource);
+
+
+
+/* Apply the correction */
+/* Estimate the added radiation source term  */
+
+/* If Erflag == 0 , only add source term as first order */
+        if(Erflag){
+          if(Prat > 0.0){
+            pG->Ersource[k][j][i] = Uguess[4] + tempguess[4]
+              - (pG->U[k][j][i].E - dt * (divFlux1[4] + divFlux2[4] + divFlux3[4]));
+/* Energy error seems smaller with Errot term added */
 #ifdef SHEARING_BOX
-					pG->Ersource[k][j][i] -= ShearSource[3];
+            pG->Ersource[k][j][i] -= ShearSource[3];
 
 #endif
 
 #ifdef CONS_GRAVITY
-			        pG->Ersource[k][j][i] += -0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
+            pG->Ersource[k][j][i] += -0.5*(pG->U[k][j][i].d-grav_mean_rho)*pG->Phi_old[k][j][i]-0.5*(density_old[k][j][i]-grav_mean_rho)*pG->Phi[k][j][i];
 #endif
 
-					/* subtract the radiation work term, which is not seperated */
-				
-					/* Radiation work term is not seperated. Will correct error due to this term later */
-					pG->Ersource[k][j][i] -= Prworksource;
-				
+/* subtract the radiation work term, which is not seperated */
 
-					pG->Ersource[k][j][i] /= -Prat;
-							
-				
-
-				}
-				else{				
-
-					pG->Ersource[k][j][i] = 0.0;
-				}/* End prat = 0 */
-			} /* End Erflag */
-			else {
-				
-				pG->Ersource[k][j][i] = 0.5 * (pG->Ersource[k][j][i] + Ersource);
-			}
+/* Radiation work term is not seperated. Will correct error due to this term later */
+            pG->Ersource[k][j][i] -= Prworksource;
 
 
-			pG->Eulersource[k][j][i] = -Prworksource/Prat;
-
-			if(badcellflag){
-
-				/* Do not apply correction for bad cell */
-				pG->Ersource[k][j][i] = 0.0;
-				pG->Eulersource[k][j][i] = 0.0;
-				for(n=0; n<5; n++){
-					tempguess[n] = 0.0;
-				}		
+            pG->Ersource[k][j][i] /= -Prat;
 
 
-			}
-					
-			/* The momentum source term Prat * v * Sigma(T^4 - Er)/Crat is added explicitly */
-			/* In case overshoot make negative pressure */
-			/* Apply the correction */
 
-			pG->U[k][j][i].d  = Uguess[0];
-			pG->U[k][j][i].M1 = Uguess[1] + tempguess[1];
-			pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
-			pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
-			pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
-					
-#endif /* FLD */					
+          }
+          else{
+
+            pG->Ersource[k][j][i] = 0.0;
+          }/* End prat = 0 */
+        } /* End Erflag */
+        else {
+
+          pG->Ersource[k][j][i] = 0.5 * (pG->Ersource[k][j][i] + Ersource);
+        }
 
 
-			} /* End i */
-		}/* End j */
-	}/* End k */
+        pG->Eulersource[k][j][i] = -Prworksource/Prat;
+
+        if(badcellflag){
+
+/* Do not apply correction for bad cell */
+          pG->Ersource[k][j][i] = 0.0;
+          pG->Eulersource[k][j][i] = 0.0;
+          for(n=0; n<5; n++){
+            tempguess[n] = 0.0;
+          }
+
+
+        }
+
+/* The momentum source term Prat * v * Sigma(T^4 - Er)/Crat is added explicitly */
+/* In case overshoot make negative pressure */
+/* Apply the correction */
+
+        pG->U[k][j][i].d  = Uguess[0];
+        pG->U[k][j][i].M1 = Uguess[1] + tempguess[1];
+        pG->U[k][j][i].M2 = Uguess[2] + tempguess[2];
+        pG->U[k][j][i].M3 = Uguess[3] + tempguess[3];
+        pG->U[k][j][i].E  = Uguess[4] + tempguess[4];
+
+#endif /* FLD */
+
+
+      } /* End i */
+    }/* End j */
+  }/* End k */
 
 
 
@@ -4946,483 +4946,483 @@ k][j][i].M3);
  */
 
 #ifdef RADIATION_MHD
-  	for (k=ks; k<=ke; k++) {
-    		for (j=js; j<=je; j++) {
-      			for (i=is; i<=ie; i++) {
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++) {
 #ifdef CYLINDRICAL
-        			rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
+        rsf = ri[i+1]/r[i];  lsf = ri[i]/r[i];
 #endif
 
-        			pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
-        			pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
-        			pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
-					
-/* 
-				if(pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c < TINY_NUMBER)
-				{
-						
-					pG->U[k][j][i].M1 = 0.0;
-					pG->U[k][j][i].M2 = 0.0;
-					pG->U[k][j][i].M3 = 0.0;
-						
-				 }
-*/	
-					
-      			}
-    		}
-  	}
+        pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
+        pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+        pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+
+/*
+  if(pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c < TINY_NUMBER)
+  {
+
+  pG->U[k][j][i].M1 = 0.0;
+  pG->U[k][j][i].M2 = 0.0;
+  pG->U[k][j][i].M3 = 0.0;
+
+  }
+*/
+
+      }
+    }
+  }
 #endif /* RADIATION MHD */
 
 
 
 #ifdef STATIC_MESH_REFINEMENT
-/* ======== This is adopted from integrate_3d_ctu.c ================== 
+/* ======== This is adopted from integrate_3d_ctu.c ==================
  * With SMR, store fluxes at boundaries of child and parent grids.  */
 /* Loop over all child grids ------------------*/
 
-  	for (ncg=0; ncg<pG->NCGrid; ncg++) {
+  for (ncg=0; ncg<pG->NCGrid; ncg++) {
 
 /* x1-boundaries of child Grids (interior to THIS Grid) */
 
-    		for (dim=0; dim<2; dim++){
-      			if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+    for (dim=0; dim<2; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
 
-        			if (dim==0) i = pG->CGrid[ncg].ijks[0];
-        			if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
-        			jcs = pG->CGrid[ncg].ijks[1];
-        			jce = pG->CGrid[ncg].ijke[1];
-        			kcs = pG->CGrid[ncg].ijks[2];
-        			kce = pG->CGrid[ncg].ijke[2];
+        if (dim==0) i = pG->CGrid[ncg].ijks[0];
+        if (dim==1) i = pG->CGrid[ncg].ijke[0] + 1;
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
 
-        			for (k=kcs, kk=0; k<=kce; k++, kk++){
-          			for (j=jcs, jj=0; j<=jce; j++, jj++){
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d; 
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx; 
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz; 
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz;
 #ifndef BAROTROPIC
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E; 
+            pG->CGrid[ncg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].B1c = 0.0;
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By; 
-            				pG->CGrid[ncg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz; 
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By;
+            pG->CGrid[ncg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            				for (n=0; n<NSCALARS; n++)
-              					pG->CGrid[ncg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n];
 #endif
-          			}/* end j */
-        			}/* end k */
+          }/* end j */
+        }/* end k */
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (k=kcs, kk=0; k<=kce+1; k++, kk++){
-          			for (j=jcs, jj=0; j<=jce; j++, jj++){
-            				pG->CGrid[ncg].myEMF2[dim][kk][jj] = emf2[k][j][i];
-          			}/* end j */
-        			}/* end k */
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (j=jcs, jj=0; j<=jce; j++, jj++){
+            pG->CGrid[ncg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }/* end j */
+        }/* end k */
 
-        			for (k=kcs, kk=0; k<=kce; k++, kk++){
-          			for (j=jcs, jj=0; j<=jce+1; j++, jj++){
-            				pG->CGrid[ncg].myEMF3[dim][kk][jj] = emf3[k][j][i];
-          			}/* end j */
-        			}/* end k */
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+            pG->CGrid[ncg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }/* end j */
+        }/* end k */
 #endif /* MHD */
-      			}/* end if flux is not null */
-    		}/* end dim from 0 to 2 */
+      }/* end if flux is not null */
+    }/* end dim from 0 to 2 */
 
 /* x2-boundaries of child Grids (interior to THIS Grid) */
 
-    		for (dim=2; dim<4; dim++){
-      			if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+    for (dim=2; dim<4; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
 
-        			ics = pG->CGrid[ncg].ijks[0];
-        			ice = pG->CGrid[ncg].ijke[0];
-        			if (dim==2) j = pG->CGrid[ncg].ijks[1];
-        			if (dim==3) j = pG->CGrid[ncg].ijke[1] + 1;
-        			kcs = pG->CGrid[ncg].ijks[2];
-        			kce = pG->CGrid[ncg].ijke[2];
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        if (dim==2) j = pG->CGrid[ncg].ijks[1];
+        if (dim==3) j = pG->CGrid[ncg].ijke[1] + 1;
+        kcs = pG->CGrid[ncg].ijks[2];
+        kce = pG->CGrid[ncg].ijke[2];
 
-        			for (k=kcs, kk=0; k<=kce; k++, kk++){
-          			for (i=ics, ii=0; i<=ice; i++, ii++){
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d; 
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz; 
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My; 
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My;
 #ifndef BAROTROPIC
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E; 
+            pG->CGrid[ncg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz; 
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].B2c = 0.0;
-            				pG->CGrid[ncg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By; 
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            			for (n=0; n<NSCALARS; n++)
-              				pG->CGrid[ncg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n];
 #endif
-          			}/* end i */
-        			}/* end k */
+          }/* end i */
+        }/* end k */
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (k=kcs, kk=0; k<=kce+1; k++, kk++){
-          			for (i=ics, ii=0; i<=ice; i++, ii++){
-            				pG->CGrid[ncg].myEMF1[dim][kk][ii] = emf1[k][j][i];
-          			}/* end i */
-        			}/* end k */
-        			for (k=kcs, kk=0; k<=kce; k++, kk++){
-          			for (i=ics, ii=0; i<=ice+1; i++, ii++){
-            				pG->CGrid[ncg].myEMF3[dim][kk][ii] = emf3[k][j][i];
-          			}/* end i */
-        			}/* end k */
+        for (k=kcs, kk=0; k<=kce+1; k++, kk++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }/* end i */
+        }/* end k */
+        for (k=kcs, kk=0; k<=kce; k++, kk++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }/* end i */
+        }/* end k */
 #endif /* MHD */
-      			}/* end if mflux is not NULL */
-    		}/* end m from 2 to 3 */
+      }/* end if mflux is not NULL */
+    }/* end m from 2 to 3 */
 
 /* x3-boundaries of child Grids (interior to THIS Grid) */
 
-    		for (dim=4; dim<6; dim++){
-      			if (pG->CGrid[ncg].myFlx[dim] != NULL) {
+    for (dim=4; dim<6; dim++){
+      if (pG->CGrid[ncg].myFlx[dim] != NULL) {
 
-        			ics = pG->CGrid[ncg].ijks[0];
-        			ice = pG->CGrid[ncg].ijke[0];
-        			jcs = pG->CGrid[ncg].ijks[1];
-        			jce = pG->CGrid[ncg].ijke[1];
-        			if (dim==4) k = pG->CGrid[ncg].ijks[2];
-        			if (dim==5) k = pG->CGrid[ncg].ijke[2] + 1;
+        ics = pG->CGrid[ncg].ijks[0];
+        ice = pG->CGrid[ncg].ijke[0];
+        jcs = pG->CGrid[ncg].ijks[1];
+        jce = pG->CGrid[ncg].ijke[1];
+        if (dim==4) k = pG->CGrid[ncg].ijks[2];
+        if (dim==5) k = pG->CGrid[ncg].ijke[2] + 1;
 
-        			for (j=jcs, jj=0; j<=jce; j++, jj++){
-          			for (i=ics, ii=0; i<=ice; i++, ii++){
-           	 			pG->CGrid[ncg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d; 
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My; 
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx; 
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx;
 #ifndef BAROTROPIC
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E; 
+            pG->CGrid[ncg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By; 
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz; 
-            				pG->CGrid[ncg].myFlx[dim][jj][ii].B3c = 0.0;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz;
+            pG->CGrid[ncg].myFlx[dim][jj][ii].B3c = 0.0;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            			for (n=0; n<NSCALARS; n++)
-              				pG->CGrid[ncg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->CGrid[ncg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n];
 #endif
-          			}/* end i */
-        			}/* end j */
+          }/* end i */
+        }/* end j */
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (j=jcs, jj=0; j<=jce+1; j++, jj++){
-          			for (i=ics, ii=0; i<=ice; i++, ii++){
-            				pG->CGrid[ncg].myEMF1[dim][jj][ii] = emf1[k][j][i];
-          			}/* end i */
-        			}/* end j */
-        			for (j=jcs, jj=0; j<=jce; j++, jj++){
-          			for (i=ics, ii=0; i<=ice+1; i++, ii++){
-            				pG->CGrid[ncg].myEMF2[dim][jj][ii] = emf2[k][j][i];
-          			}/* end i */
-        			}/* end j */
+        for (j=jcs, jj=0; j<=jce+1; j++, jj++){
+          for (i=ics, ii=0; i<=ice; i++, ii++){
+            pG->CGrid[ncg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }/* end i */
+        }/* end j */
+        for (j=jcs, jj=0; j<=jce; j++, jj++){
+          for (i=ics, ii=0; i<=ice+1; i++, ii++){
+            pG->CGrid[ncg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }/* end i */
+        }/* end j */
 #endif /* MHD */
-      			}/* end if myFlux is not null */
-    		}/* end dim 4 and 5 */
-  	} /* end loop over child Grids */
+      }/* end if myFlux is not null */
+    }/* end dim 4 and 5 */
+  } /* end loop over child Grids */
 
 /* Loop over all parent grids ------------------*/
 
-  	for (npg=0; npg<pG->NPGrid; npg++) {
+  for (npg=0; npg<pG->NPGrid; npg++) {
 
 /* x1-boundaries of parent Grids (at boundaries of THIS Grid)  */
 
-    		for (dim=0; dim<2; dim++){
-      			if (pG->PGrid[npg].myFlx[dim] != NULL) {
+    for (dim=0; dim<2; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
 
-        			if (dim==0) i = pG->PGrid[npg].ijks[0];
-        			if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
-        			jps = pG->PGrid[npg].ijks[1];
-        			jpe = pG->PGrid[npg].ijke[1];
-        			kps = pG->PGrid[npg].ijks[2];
-        			kpe = pG->PGrid[npg].ijke[2];
+        if (dim==0) i = pG->PGrid[npg].ijks[0];
+        if (dim==1) i = pG->PGrid[npg].ijke[0] + 1;
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
 
-        			for (k=kps, kk=0; k<=kpe; k++, kk++){
-          			for (j=jps, jj=0; j<=jpe; j++, jj++){
-            				pG->PGrid[npg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d; 
-            				pG->PGrid[npg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx; 
-            				pG->PGrid[npg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
-            				pG->PGrid[npg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz; 
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myFlx[dim][kk][jj].d  = x1Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M1 = x1Flux[k][j][i].Mx;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M2 = x1Flux[k][j][i].My;
+            pG->PGrid[npg].myFlx[dim][kk][jj].M3 = x1Flux[k][j][i].Mz;
 #ifndef BAROTROPIC
-            				pG->PGrid[npg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E; 
+            pG->PGrid[npg].myFlx[dim][kk][jj].E  = x1Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->PGrid[npg].myFlx[dim][kk][jj].B1c = 0.0;
-            				pG->PGrid[npg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By; 
-            				pG->PGrid[npg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz; 
+            pG->PGrid[npg].myFlx[dim][kk][jj].B1c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][jj].B2c = x1Flux[k][j][i].By;
+            pG->PGrid[npg].myFlx[dim][kk][jj].B3c = x1Flux[k][j][i].Bz;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            				for (n=0; n<NSCALARS; n++)
-              					pG->PGrid[npg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][jj].s[n]  = x1Flux[k][j][i].s[n];
 #endif
-          			}/* end j */
-        			}/* end k */
+          }/* end j */
+        }/* end k */
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (k=kps, kk=0; k<=kpe+1; k++, kk++){
-          			for (j=jps, jj=0; j<=jpe; j++, jj++){
-            				pG->PGrid[npg].myEMF2[dim][kk][jj] = emf2[k][j][i];
-          			}/* end j */
-        			}/* end k */
-        			for (k=kps, kk=0; k<=kpe; k++, kk++){
-          			for (j=jps, jj=0; j<=jpe+1; j++, jj++){
-            				pG->PGrid[npg].myEMF3[dim][kk][jj] = emf3[k][j][i];
-          			}/* end j*/
-        			}/* end  k */
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (j=jps, jj=0; j<=jpe; j++, jj++){
+            pG->PGrid[npg].myEMF2[dim][kk][jj] = emf2[k][j][i];
+          }/* end j */
+        }/* end k */
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+            pG->PGrid[npg].myEMF3[dim][kk][jj] = emf3[k][j][i];
+          }/* end j*/
+        }/* end  k */
 #endif /* MHD */
-      			}/* end mflux is not null */
-    		}/* end dim 0 to 1 */
+      }/* end mflux is not null */
+    }/* end dim 0 to 1 */
 
 /* x2-boundaries of parent Grids (at boundaries of THIS Grid)  */
 
-    		for (dim=2; dim<4; dim++){
-      			if (pG->PGrid[npg].myFlx[dim] != NULL) {
+    for (dim=2; dim<4; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
 
-        			ips = pG->PGrid[npg].ijks[0];
-        			ipe = pG->PGrid[npg].ijke[0];
-        			if (dim==2) j = pG->PGrid[npg].ijks[1];
-        			if (dim==3) j = pG->PGrid[npg].ijke[1] + 1;
-        			kps = pG->PGrid[npg].ijks[2];
-        			kpe = pG->PGrid[npg].ijke[2];
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        if (dim==2) j = pG->PGrid[npg].ijks[1];
+        if (dim==3) j = pG->PGrid[npg].ijke[1] + 1;
+        kps = pG->PGrid[npg].ijks[2];
+        kpe = pG->PGrid[npg].ijke[2];
 
-        			for (k=kps, kk=0; k<=kpe; k++, kk++){
-          			for (i=ips, ii=0; i<=ipe; i++, ii++){
-            				pG->PGrid[npg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d; 
-            				pG->PGrid[npg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz; 
-            				pG->PGrid[npg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
-            				pG->PGrid[npg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My; 
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][kk][ii].d  = x2Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M1 = x2Flux[k][j][i].Mz;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M2 = x2Flux[k][j][i].Mx;
+            pG->PGrid[npg].myFlx[dim][kk][ii].M3 = x2Flux[k][j][i].My;
 #ifndef BAROTROPIC
-            				pG->PGrid[npg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E; 
+            pG->PGrid[npg].myFlx[dim][kk][ii].E  = x2Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->PGrid[npg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz; 
-            				pG->PGrid[npg].myFlx[dim][kk][ii].B2c = 0.0;
-            				pG->PGrid[npg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By; 
+            pG->PGrid[npg].myFlx[dim][kk][ii].B1c = x2Flux[k][j][i].Bz;
+            pG->PGrid[npg].myFlx[dim][kk][ii].B2c = 0.0;
+            pG->PGrid[npg].myFlx[dim][kk][ii].B3c = x2Flux[k][j][i].By;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            			for (n=0; n<NSCALARS; n++)
-              				pG->PGrid[npg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n];
 #endif
-          			}/* end i*/
-        			}/* end k*/
+          }/* end i*/
+        }/* end k*/
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (k=kps, kk=0; k<=kpe+1; k++, kk++){
-          			for (i=ips, ii=0; i<=ipe; i++, ii++){
-            				pG->PGrid[npg].myEMF1[dim][kk][ii] = emf1[k][j][i];
-          			}/* end i*/
-        			}/* end k */
-        			for (k=kps, kk=0; k<=kpe; k++, kk++){
-          			for (i=ips, ii=0; i<=ipe+1; i++, ii++){
-            				pG->PGrid[npg].myEMF3[dim][kk][ii] = emf3[k][j][i];
-          			}/* end i */
-        			}/* end k*/
+        for (k=kps, kk=0; k<=kpe+1; k++, kk++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][kk][ii] = emf1[k][j][i];
+          }/* end i*/
+        }/* end k */
+        for (k=kps, kk=0; k<=kpe; k++, kk++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF3[dim][kk][ii] = emf3[k][j][i];
+          }/* end i */
+        }/* end k*/
 #endif /* MHD */
-      			}/* end if myflux not null */
-    		}/* end dim 2 to 3 */
+      }/* end if myflux not null */
+    }/* end dim 2 to 3 */
 
 /* x3-boundaries of parent Grids (at boundaries of THIS Grid)  */
 
-    		for (dim=4; dim<6; dim++){
-      			if (pG->PGrid[npg].myFlx[dim] != NULL) {
+    for (dim=4; dim<6; dim++){
+      if (pG->PGrid[npg].myFlx[dim] != NULL) {
 
-        			ips = pG->PGrid[npg].ijks[0];
-        			ipe = pG->PGrid[npg].ijke[0];
-        			jps = pG->PGrid[npg].ijks[1];
-        			jpe = pG->PGrid[npg].ijke[1];
-        			if (dim==4) k = pG->PGrid[npg].ijks[2];
-        			if (dim==5) k = pG->PGrid[npg].ijke[2] + 1;
+        ips = pG->PGrid[npg].ijks[0];
+        ipe = pG->PGrid[npg].ijke[0];
+        jps = pG->PGrid[npg].ijks[1];
+        jpe = pG->PGrid[npg].ijke[1];
+        if (dim==4) k = pG->PGrid[npg].ijks[2];
+        if (dim==5) k = pG->PGrid[npg].ijke[2] + 1;
 
-        			for (j=jps, jj=0; j<=jpe; j++, jj++){
-         	 		for (i=ips, ii=0; i<=ipe; i++, ii++){
-            				pG->PGrid[npg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d; 
-            				pG->PGrid[npg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My; 
-            				pG->PGrid[npg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
-            				pG->PGrid[npg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx; 
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myFlx[dim][jj][ii].d  = x3Flux[k][j][i].d;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M1 = x3Flux[k][j][i].My;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M2 = x3Flux[k][j][i].Mz;
+            pG->PGrid[npg].myFlx[dim][jj][ii].M3 = x3Flux[k][j][i].Mx;
 #ifndef BAROTROPIC
-            				pG->PGrid[npg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E; 
+            pG->PGrid[npg].myFlx[dim][jj][ii].E  = x3Flux[k][j][i].E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            				pG->PGrid[npg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By; 
-            				pG->PGrid[npg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz; 
-            				pG->PGrid[npg].myFlx[dim][jj][ii].B3c = 0.0;
+            pG->PGrid[npg].myFlx[dim][jj][ii].B1c = x3Flux[k][j][i].By;
+            pG->PGrid[npg].myFlx[dim][jj][ii].B2c = x3Flux[k][j][i].Bz;
+            pG->PGrid[npg].myFlx[dim][jj][ii].B3c = 0.0;
 #endif /* MHD */
 #if (NSCALARS > 0)
-            				for (n=0; n<NSCALARS; n++)
-              					pG->PGrid[npg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n]; 
+            for (n=0; n<NSCALARS; n++)
+              pG->PGrid[npg].myFlx[dim][jj][ii].s[n]  = x3Flux[k][j][i].s[n];
 #endif
-          			}/* end i */
-        			}/* end j*/
+          }/* end i */
+        }/* end j*/
 #if defined(MHD) || defined(RADIATION_MHD)
-        			for (j=jps, jj=0; j<=jpe+1; j++, jj++){
-          			for (i=ips, ii=0; i<=ipe; i++, ii++){
-            				pG->PGrid[npg].myEMF1[dim][jj][ii] = emf1[k][j][i];
-          			}/* end i*/
-        			}/* end j*/
-        			for (j=jps, jj=0; j<=jpe; j++, jj++){
-          			for (i=ips, ii=0; i<=ipe+1; i++, ii++){
-            				pG->PGrid[npg].myEMF2[dim][jj][ii] = emf2[k][j][i];
-          			}/* end i*/
-        			}/* end j*/
+        for (j=jps, jj=0; j<=jpe+1; j++, jj++){
+          for (i=ips, ii=0; i<=ipe; i++, ii++){
+            pG->PGrid[npg].myEMF1[dim][jj][ii] = emf1[k][j][i];
+          }/* end i*/
+        }/* end j*/
+        for (j=jps, jj=0; j<=jpe; j++, jj++){
+          for (i=ips, ii=0; i<=ipe+1; i++, ii++){
+            pG->PGrid[npg].myEMF2[dim][jj][ii] = emf2[k][j][i];
+          }/* end i*/
+        }/* end j*/
 #endif /* MHD */
-      			}/* end flux is not null */
-    		}/* end dim 4 to 5 */
-  	}/* end loop parent grids */
+      }/* end flux is not null */
+    }/* end dim 4 to 5 */
+  }/* end loop parent grids */
 
 #endif /* STATIC_MESH_REFINEMENT */
-	
-	
-/* Add density floor and beta floor */
-/*	for(k=ks; k<=ke; k++) {
-		for (j=js; j<=je; j++) {
-			for (i=is; i<=ie; i++) {
-	 
-				badcellflag = 0;
-	 
-				velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
-				velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
-				velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
- 
-				velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-			 
-				Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-	 
-				temperature = Wtemp.P / (Wtemp.d * R_ideal);
-#ifdef RADIATION_MHD	 
-				Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
-#endif	 
-				if((Wtemp.P < 2.0 * TINY_NUMBER) || (temperature < Tfloor)){
-					if(pG->U[k][j][i].d < dfloor){
-						Wtemp.P = dfloor * R_ideal * Tfloor;
-					}
-					else{
-						Wtemp.P = pG->U[k][j][i].d * R_ideal * Tfloor;
-					}
-						temperature = Tfloor;
-						badcellflag = 1;
-					}
-	 
-	 
-				if(pG->U[k][j][i].d < dfloor){
-	 
-					pG->U[k][j][i].d = dfloor;
-	 
-					Wtemp.d =  dfloor;
-					Wtemp.P = Wtemp.d * temperature * R_ideal;
-					pG->U[k][j][i].M1 =  pG->U[k][j][i].d * velocity_x;
-					pG->U[k][j][i].M2 =  pG->U[k][j][i].d * velocity_y;
-					pG->U[k][j][i].M3 =  pG->U[k][j][i].d * velocity_z;
-	 
-				badcellflag = 1;
-			}
- 
-			
-	 
-			if(badcellflag){
-				pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
-#ifdef RADIATION_MHD
-				pG->U[k][j][i].E += Bpre;
-#endif
-	 
-	 
-			}
-	 
 
-#ifdef RADIATION_MHD
-		if(fabs(Bpre) > 0.0){
-				beta = Wtemp.P / Bpre;
-			if(beta < betafloor){
-				Wtemp.P *= betafloor / beta;
-				pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0)  + 0.5 * pG->U[k][j][i].d * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-				pG->U[k][j][i].E += Bpre;
-	 
-			}
-	 
-		}
- #endif
-	 
-	 }
-	 }
-	 }
+
+/* Add density floor and beta floor */
+/*      for(k=ks; k<=ke; k++) {
+        for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++) {
+
+        badcellflag = 0;
+
+        velocity_x = pG->U[k][j][i].M1 / pG->U[k][j][i].d;
+        velocity_y = pG->U[k][j][i].M2 / pG->U[k][j][i].d;
+        velocity_z = pG->U[k][j][i].M3 / pG->U[k][j][i].d;
+
+        velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+
+        Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+
+        temperature = Wtemp.P / (Wtemp.d * R_ideal);
+        #ifdef RADIATION_MHD
+        Bpre = 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+        #endif
+        if((Wtemp.P < 2.0 * TINY_NUMBER) || (temperature < Tfloor)){
+        if(pG->U[k][j][i].d < dfloor){
+        Wtemp.P = dfloor * R_ideal * Tfloor;
+        }
+        else{
+        Wtemp.P = pG->U[k][j][i].d * R_ideal * Tfloor;
+        }
+        temperature = Tfloor;
+        badcellflag = 1;
+        }
+
+
+        if(pG->U[k][j][i].d < dfloor){
+
+        pG->U[k][j][i].d = dfloor;
+
+        Wtemp.d =  dfloor;
+        Wtemp.P = Wtemp.d * temperature * R_ideal;
+        pG->U[k][j][i].M1 =  pG->U[k][j][i].d * velocity_x;
+        pG->U[k][j][i].M2 =  pG->U[k][j][i].d * velocity_y;
+        pG->U[k][j][i].M3 =  pG->U[k][j][i].d * velocity_z;
+
+        badcellflag = 1;
+        }
+
+
+
+        if(badcellflag){
+        pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+        #ifdef RADIATION_MHD
+        pG->U[k][j][i].E += Bpre;
+        #endif
+
+
+        }
+
+
+        #ifdef RADIATION_MHD
+        if(fabs(Bpre) > 0.0){
+        beta = Wtemp.P / Bpre;
+        if(beta < betafloor){
+        Wtemp.P *= betafloor / beta;
+        pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0)  + 0.5 * pG->U[k][j][i].d * (velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+        pG->U[k][j][i].E += Bpre;
+
+        }
+
+        }
+        #endif
+
+        }
+        }
+        }
 */
-	
-	/*====================================================================*/
-	/* Add Compton scattering source term at the end of the integrator */	
-	
-	/* calculate pG->Tguess after magnetic field is updated */
-	
-		
-/*	 for (k=ks; k<=ke; k++) {
-		for (j=js; j<=je; j++) {
-			for (i=is; i<=ie; i++) {
-	 
-				pressure = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
-#ifdef RADIATION_MHD
-				pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
-#endif
-	 
-				pressure *= (Gamma - 1.0);
-	 
-				temperature = pressure / (pG->U[k][j][i].d * R_ideal);
-	 
-	 
-			if(fabs(pow(temperature, 4.0) - pG->U[k][j][i].Er) < TINY_NUMBER){
-				pG->Comp[k][j][i] = 0.0;
-			}
-			else{
-				if(temperature > TINY_NUMBER){
-					Tr = pow(pG->U[k][j][i].Er, 0.25);
-					coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/Tunit);
-					coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d);
-					coefB = temperature + coefK * pG->U[k][j][i].Er;
-					coef1 = coefA * coefK;
-					coef2 = coefA;
-					coef3 = 1.0 - coefA * coefB;
-					coef4 = -pG->U[k][j][i].Er;
-	 
-					if(Tr < temperature){
-						Tr = rtsafe(Tcompton, Tr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
-					}
-					else{
-	 
-						Tr = rtsafe(Tcompton, temperature * (1.0 - 0.01), Tr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
-					}
-	 
-					pG->Comp[k][j][i] = pow(Tr, 4.0) - pG->U[k][j][i].Er;
-					pG->U[k][j][i].E += -Prat * pG->Comp[k][j][i];
-	 
-	 
-				}
-				else{
-					pressure = pow(pG->U[k][j][i].Er, 0.25) * pG->U[k][j][i].d * R_ideal;
-	 
-					pG->U[k][j][i].E = pressure / (Gamma - 1.0) +  0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
-#ifdef RADIATION_MHD
-					pG->U[k][j][i].E += 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
-#endif
-	 
-					pG->Comp[k][j][i] = 0.0;
-		
-				} 
-			}
-		}
-	 }
-	 }
+
+/*====================================================================*/
+/* Add Compton scattering source term at the end of the integrator */
+
+/* calculate pG->Tguess after magnetic field is updated */
+
+
+/*       for (k=ks; k<=ke; k++) {
+         for (j=js; j<=je; j++) {
+         for (i=is; i<=ie; i++) {
+
+         pressure = pG->U[k][j][i].E - 0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+         #ifdef RADIATION_MHD
+         pressure -= 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+         #endif
+
+         pressure *= (Gamma - 1.0);
+
+         temperature = pressure / (pG->U[k][j][i].d * R_ideal);
+
+
+         if(fabs(pow(temperature, 4.0) - pG->U[k][j][i].Er) < TINY_NUMBER){
+         pG->Comp[k][j][i] = 0.0;
+         }
+         else{
+         if(temperature > TINY_NUMBER){
+         Tr = pow(pG->U[k][j][i].Er, 0.25);
+         coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/Tunit);
+         coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d);
+         coefB = temperature + coefK * pG->U[k][j][i].Er;
+         coef1 = coefA * coefK;
+         coef2 = coefA;
+         coef3 = 1.0 - coefA * coefB;
+         coef4 = -pG->U[k][j][i].Er;
+
+         if(Tr < temperature){
+         Tr = rtsafe(Tcompton, Tr * (1.0 - 0.01), temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
+         }
+         else{
+
+         Tr = rtsafe(Tcompton, temperature * (1.0 - 0.01), Tr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, coef4);
+         }
+
+         pG->Comp[k][j][i] = pow(Tr, 4.0) - pG->U[k][j][i].Er;
+         pG->U[k][j][i].E += -Prat * pG->Comp[k][j][i];
+
+
+         }
+         else{
+         pressure = pow(pG->U[k][j][i].Er, 0.25) * pG->U[k][j][i].d * R_ideal;
+
+         pG->U[k][j][i].E = pressure / (Gamma - 1.0) +  0.5 * (pG->U[k][j][i].M1 * pG->U[k][j][i].M1 + pG->U[k][j][i].M2 * pG->U[k][j][i].M2 + pG->U[k][j][i].M3 * pG->U[k][j][i].M3) / pG->U[k][j][i].d;
+         #ifdef RADIATION_MHD
+         pG->U[k][j][i].E += 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+         #endif
+
+         pG->Comp[k][j][i] = 0.0;
+
+         }
+         }
+         }
+         }
+         }
 */
-	/* Boundary condition is applied in the main function */
-	/* Check the pressure to make sure that it is positive */
-	/* This will make the code more robust */
+/* Boundary condition is applied in the main function */
+/* Check the pressure to make sure that it is positive */
+/* This will make the code more robust */
 /* If cell-centered d or P have gone negative, or if v^2 > 1 in SR, correct
  * by using 1st order predictor fluxes */
 #ifdef FIRST_ORDER_FLUX_CORRECTION
 
-	for (k=ks; k<=ke; k++){
-		for (j=js; j<=je; j++) {
-    			for (i=is; i<=ie; i++){
- 		Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-	if (Wtemp.d < 0.0) {
+  for (k=ks; k<=ke; k++){
+    for (j=js; j<=je; j++) {
+      for (i=is; i<=ie; i++){
+        Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+        if (Wtemp.d < 0.0) {
           flag_cell = 1;
           BadCell.i = i;
           BadCell.j = j;
@@ -5436,105 +5436,105 @@ k][j][i].M3);
           BadCell.j = j;
           BadCell.k = k;
           negP++;
-	
+
         }
 
-	
-	if (flag_cell != 0 && (negd >0 || negP > 0)) {
-		cc_pos(pG,i,j,k,&x1,&x2,&x3);
-		if(fabs(x3) < fabs(zmin))
-			zmin = x3;
+
+        if (flag_cell != 0 && (negd >0 || negP > 0)) {
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          if(fabs(x3) < fabs(zmin))
+            zmin = x3;
 
 
-	  if(Prat > 0.0){
-		/*
-	  	pG->Tguess[k][j][i] = -pG->dt * Source[k][j][i][4] / Prat;	
-		*/
-		/* For bad cells, do not include radiation source term */
-		pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+          if(Prat > 0.0){
+/*
+  pG->Tguess[k][j][i] = -pG->dt * Source[k][j][i][4] / Prat;
+*/
+/* For bad cells, do not include radiation source term */
+            pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
 
-	  }	  
+          }
           FixCell(pG, BadCell);
           flag_cell=0;
-        
-	/* Check whether fix this issue */
-	 Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
-	if(Wtemp.P < 2.0 * TINY_NUMBER) {
-		/* Do average */
-		Np = 0;
-		Wtemp1 = Cons_to_Prim(&(pG->U[k][j][i-1]));
-			if(Wtemp1.P > 2.0 * TINY_NUMBER)	Np++;
-		Wtemp2 = Cons_to_Prim(&(pG->U[k][j][i+1]));
-			if(Wtemp2.P > 2.0 * TINY_NUMBER)	Np++;
-		Wtemp3 = Cons_to_Prim(&(pG->U[k][j-1][i]));
-			if(Wtemp3.P > 2.0 * TINY_NUMBER)	Np++;
-		Wtemp4 = Cons_to_Prim(&(pG->U[k][j+1][i]));
-			if(Wtemp4.P > 2.0 * TINY_NUMBER)	Np++;
-		Wtemp5 = Cons_to_Prim(&(pG->U[k-1][j][i]));
-			if(Wtemp5.P > 2.0 * TINY_NUMBER)	Np++;
-		Wtemp6 = Cons_to_Prim(&(pG->U[k+1][j][i]));
-			if(Wtemp6.P > 2.0 * TINY_NUMBER)	Np++;
-		
-		if(Np > 0){
-			Wtemp.P = (Wtemp1.P + Wtemp2.P + Wtemp3.P + Wtemp4.P + Wtemp5.P + Wtemp6.P) / Np;
-		}
-		else{
-			Wtemp.P = INIdata[k][j][i][5];		
-		}
-		pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * Wtemp.d * (Wtemp.V1 * Wtemp.V1 + Wtemp.V2 * Wtemp.V2 + Wtemp.V3 * Wtemp.V3);
+
+/* Check whether fix this issue */
+          Wtemp = Cons_to_Prim(&(pG->U[k][j][i]));
+          if(Wtemp.P < 2.0 * TINY_NUMBER) {
+/* Do average */
+            Np = 0;
+            Wtemp1 = Cons_to_Prim(&(pG->U[k][j][i-1]));
+            if(Wtemp1.P > 2.0 * TINY_NUMBER)    Np++;
+            Wtemp2 = Cons_to_Prim(&(pG->U[k][j][i+1]));
+            if(Wtemp2.P > 2.0 * TINY_NUMBER)    Np++;
+            Wtemp3 = Cons_to_Prim(&(pG->U[k][j-1][i]));
+            if(Wtemp3.P > 2.0 * TINY_NUMBER)    Np++;
+            Wtemp4 = Cons_to_Prim(&(pG->U[k][j+1][i]));
+            if(Wtemp4.P > 2.0 * TINY_NUMBER)    Np++;
+            Wtemp5 = Cons_to_Prim(&(pG->U[k-1][j][i]));
+            if(Wtemp5.P > 2.0 * TINY_NUMBER)    Np++;
+            Wtemp6 = Cons_to_Prim(&(pG->U[k+1][j][i]));
+            if(Wtemp6.P > 2.0 * TINY_NUMBER)    Np++;
+
+            if(Np > 0){
+              Wtemp.P = (Wtemp1.P + Wtemp2.P + Wtemp3.P + Wtemp4.P + Wtemp5.P + Wtemp6.P) / Np;
+            }
+            else{
+              Wtemp.P = INIdata[k][j][i][5];
+            }
+            pG->U[k][j][i].E = Wtemp.P / (Gamma - 1.0) + 0.5 * Wtemp.d * (Wtemp.V1 * Wtemp.V1 + Wtemp.V2 * Wtemp.V2 + Wtemp.V3 * Wtemp.V3);
 #ifdef RADIATION_MHD
-		pG->U[k][j][i].E += 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
+            pG->U[k][j][i].E += 0.5 * (pG->U[k][j][i].B1c * pG->U[k][j][i].B1c + pG->U[k][j][i].B2c * pG->U[k][j][i].B2c + pG->U[k][j][i].B3c * pG->U[k][j][i].B3c);
 #endif
 
-		}
+          }
 
-		}
+        }
 
-	}/* end i */
-	}/* end j */
-	}/* end k */
-	if(fabs(zmin) < 4.0 && (negd >0 || negP > 0)) printf("[Bad Cell]: Maximum height: %f\n",zmin);
-	  if (negd > 0 || negP > 0)
+      }/* end i */
+    }/* end j */
+  }/* end k */
+  if(fabs(zmin) < 4.0 && (negd >0 || negP > 0)) printf("[Bad Cell]: Maximum height: %f\n",zmin);
+  if (negd > 0 || negP > 0)
     printf("[Bad Cells]: at t=%g; %i cells had d<0; %i cells had P<0\n",pG->time,negd,negP);
 
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
 
 
-	/* Update the opacity if Opacity function is set in the problem generator */
+/* Update the opacity if Opacity function is set in the problem generator */
 /* Opacity is updated in the BackEuler step so that they are consistent */
-	if(Opacity != NULL){
-		for (k=ks; k<=ke; k++){
-			for (j=js; j<=je; j++) {
-    				for (i=is; i<=ie; i++){
-				
-				Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
-				
-				/* Add background shearing */
-#ifdef FARGO	
-				cc_pos(pG,i,j,k,&x1,&x2,&x3);
-				Wopacity.V2 -= qom * x1;		
+  if(Opacity != NULL){
+    for (k=ks; k<=ke; k++){
+      for (j=js; j<=je; j++) {
+        for (i=is; i<=ie; i++){
+
+          Wopacity = Cons_to_Prim(&pG->U[k][j][i]);
+
+/* Add background shearing */
+#ifdef FARGO
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          Wopacity.V2 -= qom * x1;
 #endif
 
-				if(Wopacity.P > TINY_NUMBER)
-				{
-					Opacity(&Wopacity,Sigma,NULL);
+          if(Wopacity.P > TINY_NUMBER)
+            {
+              Opacity(&Wopacity,Sigma,NULL);
 
-					for(m=0;m<NOPACITY;m++){
-						pG->U[k][j][i].Sigma[m] = Sigma[m];
-					}
+              for(m=0;m<NOPACITY;m++){
+                pG->U[k][j][i].Sigma[m] = Sigma[m];
+              }
 
-				}
-				else{
-					
-					pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
-				}
+            }
+          else{
 
-			
-				}
-			}
-		}
-	}
+            pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+          }
+
+
+        }
+      }
+    }
+  }
 
 
   return;
@@ -5542,8 +5542,8 @@ k][j][i].M3);
 
 
 /*----------------------------------------------------------------------------*/
-/* integrate_init_3d: Allocate temporary integration arrays 
-*/
+/* integrate_init_3d: Allocate temporary integration arrays
+ */
 
 void integrate_init_3d(MeshS *pM)
 {
@@ -5594,11 +5594,11 @@ void integrate_init_3d(MeshS *pM)
 
 #ifdef RADIATION_MHD
   if ((B1_x1Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((B2_x2Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((B3_x3Face = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
 #endif /* MHD */
 
   if ((U1d=(Cons1DS*)malloc(nmax*sizeof(Cons1DS))) == NULL) goto on_error;
@@ -5609,44 +5609,44 @@ void integrate_init_3d(MeshS *pM)
   if ((Wr =(Prim1DS*)malloc(nmax*sizeof(Prim1DS))) == NULL) goto on_error;
 
   if ((Ul_x1Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((Ur_x1Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((Ul_x2Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((Ur_x2Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((Ul_x3Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((Ur_x3Face=(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
 
   if ((x1Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x2Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x3Flux   =(Cons1DS***)calloc_3d_array(size3,size2,size1,sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
 
 
 #ifdef FIRST_ORDER_FLUX_CORRECTION
   if ((x1FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x2FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x3FluxP =(Cons1DS***)calloc_3d_array(size3,size2,size1, sizeof(Cons1DS)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((INIdata =(Real****)calloc_4d_array(size3,size2,size1, 6, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((dhalfP = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
 #if defined(MHD) || defined(RADIATION_MHD)
   if ((emf1P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((emf2P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((emf3P = (Real***)calloc_3d_array(size3,size2,size1, sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
 #endif
 #endif /* FIRST_ORDER_FLUX_CORRECTION */
 
@@ -5654,22 +5654,22 @@ void integrate_init_3d(MeshS *pM)
 
 #ifdef CONS_GRAVITY
   if ((x1Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x2Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((x3Flux_grav   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
-    == NULL) goto on_error;
+      == NULL) goto on_error;
   if ((density_old   =(Real***)calloc_3d_array(size3,size2,size1,sizeof(Real)))
-    ==NULL)  goto on_error;
+      ==NULL)  goto on_error;
 #endif
 
 
   if ((dhalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
-    goto on_error;  
+    goto on_error;
   if ((phalf = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
-  
-	/* For source term */
+
+/* For source term */
   if ((Source = (Real****)calloc_4d_array(size3, size2, size1,5, sizeof(Real))) == NULL)
     goto on_error;
 
@@ -5679,7 +5679,7 @@ void integrate_init_3d(MeshS *pM)
   if ((Beta = (Real****)calloc_4d_array(size3, size2, size1,3,sizeof(Real))) == NULL)
     goto on_error;
 
-	
+
 
 #ifdef SHEARING_BOX
   if ((Flxiib = (ConsS**)calloc_2d_array(size3,size2,sizeof(ConsS)))==NULL)
@@ -5694,34 +5694,34 @@ void integrate_init_3d(MeshS *pM)
 #endif /* end shearing box */
 
 #ifdef RADIATION_MHD
-	if ((remapEyix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEyox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEzix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEzox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapExix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapExox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
-    		goto on_error;	
-  	if ((remapEzix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEzox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapExix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
-		goto on_error;
-  	if ((remapExox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEyix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
-    		goto on_error;
-  	if ((remapEyox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
-    		goto on_error;
+  if ((remapEyix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEyox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEzix1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEzox1 = (Real**)calloc_2d_array(size3,size2, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapExix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapExox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEzix2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEzox2 = (Real**)calloc_2d_array(size3,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapExix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapExox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEyix3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
+  if ((remapEyox3 = (Real**)calloc_2d_array(size2,size1, sizeof(Real))) == NULL)
+    goto on_error;
 #endif
 
 
-  /* data structures for cylindrical coordinates */
+/* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL
   if ((geom_src = (Real***)calloc_3d_array(size3, size2, size1, sizeof(Real))) == NULL)
     goto on_error;
@@ -5730,13 +5730,13 @@ void integrate_init_3d(MeshS *pM)
 
   return;
 
-  on_error:
-    integrate_destruct();
-    ath_error("[integrate_init]: malloc returned a NULL pointer\n");
+ on_error:
+  integrate_destruct();
+  ath_error("[integrate_init]: malloc returned a NULL pointer\n");
 }
 
 /*----------------------------------------------------------------------------*/
-/* integrate_destruct_3d:  Free temporary integration arrays 
+/* integrate_destruct_3d:  Free temporary integration arrays
  */
 
 void integrate_destruct_3d(void)
@@ -5799,11 +5799,11 @@ void integrate_destruct_3d(void)
   if (dhalf     != NULL) free_3d_array(dhalf);
   if (phalf     != NULL) free_3d_array(phalf);
 
-  if(Source	!= NULL) free_4d_array(Source);
+  if(Source     != NULL) free_4d_array(Source);
 
-  if(Alpha	!= NULL) free_3d_array(Alpha);
+  if(Alpha      != NULL) free_3d_array(Alpha);
 
-  if(Beta	!= NULL) free_4d_array(Beta);
+  if(Beta       != NULL) free_4d_array(Beta);
 
 #ifdef SHEARING_BOX
   if (Flxiib != NULL) free_2d_array(Flxiib);
@@ -5814,18 +5814,18 @@ void integrate_destruct_3d(void)
 #endif /* end shearing box */
 
 #ifdef RADIATION_MHD
-	if (remapEyix1 != NULL) free_2d_array(remapEyix1);
-  	if (remapEyox1 != NULL) free_2d_array(remapEyox1);
-  	if (remapEzix1 != NULL) free_2d_array(remapEzix1);
-  	if (remapEzox1 != NULL) free_2d_array(remapEzox1);
-  	if (remapExix2 != NULL) free_2d_array(remapExix2);
-  	if (remapExox2 != NULL) free_2d_array(remapExox2);
-  	if (remapEzix2 != NULL) free_2d_array(remapEzix2);
-  	if (remapEzox2 != NULL) free_2d_array(remapEzox2);
-  	if (remapExix3 != NULL) free_2d_array(remapExix3);
-  	if (remapExox3 != NULL) free_2d_array(remapExox3);
-  	if (remapEyix3 != NULL) free_2d_array(remapEyix3);
-  	if (remapEyox3 != NULL) free_2d_array(remapEyox3);
+  if (remapEyix1 != NULL) free_2d_array(remapEyix1);
+  if (remapEyox1 != NULL) free_2d_array(remapEyox1);
+  if (remapEzix1 != NULL) free_2d_array(remapEzix1);
+  if (remapEzox1 != NULL) free_2d_array(remapEzox1);
+  if (remapExix2 != NULL) free_2d_array(remapExix2);
+  if (remapExox2 != NULL) free_2d_array(remapExox2);
+  if (remapEzix2 != NULL) free_2d_array(remapEzix2);
+  if (remapEzox2 != NULL) free_2d_array(remapEzox2);
+  if (remapExix3 != NULL) free_2d_array(remapExix3);
+  if (remapExox3 != NULL) free_2d_array(remapExox3);
+  if (remapEyix3 != NULL) free_2d_array(remapEyix3);
+  if (remapEyox3 != NULL) free_2d_array(remapEyox3);
 
 #endif
 
@@ -5842,7 +5842,7 @@ void integrate_destruct_3d(void)
 #endif
 
 
-  /* data structures for cylindrical coordinates */
+/* data structures for cylindrical coordinates */
 #ifdef CYLINDRICAL
   if (geom_src  != NULL) free_3d_array(geom_src);
 #endif
@@ -5862,7 +5862,7 @@ void integrate_destruct_3d(void)
  *   x2Flux.By = VxBy - BxVy = v2*b3-b2*v3 = -EMFX
  *   x2Flux.Bz = VxBz - BxVz = v2*b1-b2*v1 = EMFZ
  *   x3Flux.By = VxBy - BxVy = v3*b1-b3*v1 = -EMFY
- *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX 
+ *   x3Flux.Bz = VxBz - BxVz = v3*b2-b3*v2 = EMFX
  */
 
 #ifdef RADIATION_MHD
@@ -5878,45 +5878,45 @@ static void integrate_emf1_corner(const GridS *pG)
       for (i=is-2; i<=ie+2; i++) {
 /* NOTE: The x2-Flux of By is -E1. */
 /*       The x3-Flux of Bz is +E1. */
-	if (x2Flux[k-1][j][i].d > 0.0)
-	  de1_l3 = x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
-	else if (x2Flux[k-1][j][i].d < 0.0)
-	  de1_l3 = x3Flux[k][j][i].Bz - emf1_cc[k-1][j][i];
-	else {
-	  de1_l3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i] +
-			x3Flux[k][j  ][i].Bz - emf1_cc[k-1][j  ][i] );
-	}
+        if (x2Flux[k-1][j][i].d > 0.0)
+          de1_l3 = x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
+        else if (x2Flux[k-1][j][i].d < 0.0)
+          de1_l3 = x3Flux[k][j][i].Bz - emf1_cc[k-1][j][i];
+        else {
+          de1_l3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k-1][j-1][i] +
+                        x3Flux[k][j  ][i].Bz - emf1_cc[k-1][j  ][i] );
+        }
 
-	if (x2Flux[k][j][i].d > 0.0)
-	  de1_r3 = x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i];
-	else if (x2Flux[k][j][i].d < 0.0)
-	  de1_r3 = x3Flux[k][j][i].Bz - emf1_cc[k][j][i];
-	else {
-	  de1_r3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i] +
-			x3Flux[k][j  ][i].Bz - emf1_cc[k][j  ][i] );
-	}
+        if (x2Flux[k][j][i].d > 0.0)
+          de1_r3 = x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i];
+        else if (x2Flux[k][j][i].d < 0.0)
+          de1_r3 = x3Flux[k][j][i].Bz - emf1_cc[k][j][i];
+        else {
+          de1_r3 = 0.5*(x3Flux[k][j-1][i].Bz - emf1_cc[k][j-1][i] +
+                        x3Flux[k][j  ][i].Bz - emf1_cc[k][j  ][i] );
+        }
 
-	if (x3Flux[k][j-1][i].d > 0.0)
-	  de1_l2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i];
-	else if (x3Flux[k][j-1][i].d < 0.0)
-	  de1_l2 = -x2Flux[k][j][i].By - emf1_cc[k][j-1][i];
-	else {
-	  de1_l2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i]
-			-x2Flux[k  ][j][i].By - emf1_cc[k  ][j-1][i] );
-	}
+        if (x3Flux[k][j-1][i].d > 0.0)
+          de1_l2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i];
+        else if (x3Flux[k][j-1][i].d < 0.0)
+          de1_l2 = -x2Flux[k][j][i].By - emf1_cc[k][j-1][i];
+        else {
+          de1_l2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j-1][i]
+                        -x2Flux[k  ][j][i].By - emf1_cc[k  ][j-1][i] );
+        }
 
-	if (x3Flux[k][j][i].d > 0.0)
-	  de1_r2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i];
-	else if (x3Flux[k][j][i].d < 0.0)
-	  de1_r2 = -x2Flux[k][j][i].By - emf1_cc[k][j][i];
-	else {
-	  de1_r2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i]
-			-x2Flux[k  ][j][i].By - emf1_cc[k  ][j][i] );
-	}
+        if (x3Flux[k][j][i].d > 0.0)
+          de1_r2 = -x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i];
+        else if (x3Flux[k][j][i].d < 0.0)
+          de1_r2 = -x2Flux[k][j][i].By - emf1_cc[k][j][i];
+        else {
+          de1_r2 = 0.5*(-x2Flux[k-1][j][i].By - emf1_cc[k-1][j][i]
+                        -x2Flux[k  ][j][i].By - emf1_cc[k  ][j][i] );
+        }
 
         emf1[k][j][i] = 0.25*(  x3Flux[k][j][i].Bz + x3Flux[k][j-1][i].Bz
-                              - x2Flux[k][j][i].By - x2Flux[k-1][j][i].By 
-			      + de1_l2 + de1_r2 + de1_l3 + de1_r3);
+                                - x2Flux[k][j][i].By - x2Flux[k-1][j][i].By
+                                + de1_l2 + de1_r2 + de1_l3 + de1_r3);
       }
     }
   }
@@ -5936,45 +5936,45 @@ static void integrate_emf2_corner(const GridS *pG)
       for (i=is-1; i<=ie+2; i++) {
 /* NOTE: The x1-Flux of Bz is +E2. */
 /*       The x3-Flux of By is -E2. */
-	if (x1Flux[k-1][j][i].d > 0.0)
-	  de2_l3 = -x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1];
-	else if (x1Flux[k-1][j][i].d < 0.0)
-	  de2_l3 = -x3Flux[k][j][i].By - emf2_cc[k-1][j][i];
-	else {
-	  de2_l3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1] 
-			-x3Flux[k][j][i  ].By - emf2_cc[k-1][j][i  ] );
-	}
+        if (x1Flux[k-1][j][i].d > 0.0)
+          de2_l3 = -x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1];
+        else if (x1Flux[k-1][j][i].d < 0.0)
+          de2_l3 = -x3Flux[k][j][i].By - emf2_cc[k-1][j][i];
+        else {
+          de2_l3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k-1][j][i-1]
+                        -x3Flux[k][j][i  ].By - emf2_cc[k-1][j][i  ] );
+        }
 
-	if (x1Flux[k][j][i].d > 0.0)
-	  de2_r3 = -x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1];
-	else if (x1Flux[k][j][i].d < 0.0)
-	  de2_r3 = -x3Flux[k][j][i].By - emf2_cc[k][j][i];
-	else {
-	  de2_r3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1] 
-			-x3Flux[k][j][i  ].By - emf2_cc[k][j][i  ] );
-	}
+        if (x1Flux[k][j][i].d > 0.0)
+          de2_r3 = -x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1];
+        else if (x1Flux[k][j][i].d < 0.0)
+          de2_r3 = -x3Flux[k][j][i].By - emf2_cc[k][j][i];
+        else {
+          de2_r3 = 0.5*(-x3Flux[k][j][i-1].By - emf2_cc[k][j][i-1]
+                        -x3Flux[k][j][i  ].By - emf2_cc[k][j][i  ] );
+        }
 
-	if (x3Flux[k][j][i-1].d > 0.0)
-	  de2_l1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1];
-	else if (x3Flux[k][j][i-1].d < 0.0)
-	  de2_l1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i-1];
-	else {
-	  de2_l1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1] +
-			x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i-1] );
-	}
+        if (x3Flux[k][j][i-1].d > 0.0)
+          de2_l1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1];
+        else if (x3Flux[k][j][i-1].d < 0.0)
+          de2_l1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i-1];
+        else {
+          de2_l1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i-1] +
+                        x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i-1] );
+        }
 
-	if (x3Flux[k][j][i].d > 0.0)
-	  de2_r1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i];
-	else if (x3Flux[k][j][i].d < 0.0)
-	  de2_r1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i];
-	else {
-	  de2_r1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
-			x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
-	}
+        if (x3Flux[k][j][i].d > 0.0)
+          de2_r1 = x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i];
+        else if (x3Flux[k][j][i].d < 0.0)
+          de2_r1 = x1Flux[k][j][i].Bz - emf2_cc[k][j][i];
+        else {
+          de2_r1 = 0.5*(x1Flux[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
+                        x1Flux[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
+        }
 
-	emf2[k][j][i] = 0.25*(  x1Flux[k][j][i].Bz + x1Flux[k-1][j][i  ].Bz
-                              - x3Flux[k][j][i].By - x3Flux[k  ][j][i-1].By
-			      + de2_l1 + de2_r1 + de2_l3 + de2_r3);
+        emf2[k][j][i] = 0.25*(  x1Flux[k][j][i].Bz + x1Flux[k-1][j][i  ].Bz
+                                - x3Flux[k][j][i].By - x3Flux[k  ][j][i-1].By
+                                + de2_l1 + de2_r1 + de2_l3 + de2_r3);
       }
     }
   }
@@ -5998,45 +5998,45 @@ static void integrate_emf3_corner(const GridS *pG)
 #ifdef CYLINDRICAL
         rsf = pG->ri[i]/pG->r[i];  lsf = pG->ri[i]/pG->r[i-1];
 #endif
-	if (x1Flux[k][j-1][i].d > 0.0)
-	  de3_l2 = (x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf;
-	else if (x1Flux[k][j-1][i].d < 0.0)
-	  de3_l2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j-1][i])*rsf;
-	else {
-	  de3_l2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf + 
-			(x2Flux[k][j][i  ].Bz - emf3_cc[k][j-1][i  ])*rsf );
-	}
+        if (x1Flux[k][j-1][i].d > 0.0)
+          de3_l2 = (x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf;
+        else if (x1Flux[k][j-1][i].d < 0.0)
+          de3_l2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j-1][i])*rsf;
+        else {
+          de3_l2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf +
+                        (x2Flux[k][j][i  ].Bz - emf3_cc[k][j-1][i  ])*rsf );
+        }
 
-	if (x1Flux[k][j][i].d > 0.0)
-	  de3_r2 = (x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf;
-	else if (x1Flux[k][j][i].d < 0.0)
-	  de3_r2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j][i])*rsf;
-	else {
-	  de3_r2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf + 
-			(x2Flux[k][j][i  ].Bz - emf3_cc[k][j][i  ])*rsf );
-	}
+        if (x1Flux[k][j][i].d > 0.0)
+          de3_r2 = (x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf;
+        else if (x1Flux[k][j][i].d < 0.0)
+          de3_r2 = (x2Flux[k][j][i].Bz - emf3_cc[k][j][i])*rsf;
+        else {
+          de3_r2 = 0.5*((x2Flux[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf +
+                        (x2Flux[k][j][i  ].Bz - emf3_cc[k][j][i  ])*rsf );
+        }
 
-	if (x2Flux[k][j][i-1].d > 0.0)
-	  de3_l1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1];
-	else if (x2Flux[k][j][i-1].d < 0.0)
-	  de3_l1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i-1];
-	else {
-	  de3_l1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1]
-			-x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i-1] );
-	}
+        if (x2Flux[k][j][i-1].d > 0.0)
+          de3_l1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1];
+        else if (x2Flux[k][j][i-1].d < 0.0)
+          de3_l1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i-1];
+        else {
+          de3_l1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i-1]
+                        -x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i-1] );
+        }
 
-	if (x2Flux[k][j][i].d > 0.0)
-	  de3_r1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i];
-	else if (x2Flux[k][j][i].d < 0.0)
-	  de3_r1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i];
-	else {
-	  de3_r1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i]
-			-x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i] );
-	}
+        if (x2Flux[k][j][i].d > 0.0)
+          de3_r1 = -x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i];
+        else if (x2Flux[k][j][i].d < 0.0)
+          de3_r1 = -x1Flux[k][j][i].By - emf3_cc[k][j][i];
+        else {
+          de3_r1 = 0.5*(-x1Flux[k][j-1][i].By - emf3_cc[k][j-1][i]
+                        -x1Flux[k][j  ][i].By - emf3_cc[k][j  ][i] );
+        }
 
-	emf3[k][j][i] = 0.25*(  x2Flux[k][j  ][i-1].Bz + x2Flux[k][j][i].Bz
-			      - x1Flux[k][j-1][i  ].By - x1Flux[k][j][i].By
-			      + de3_l1 + de3_r1 + de3_l2 + de3_r2);
+        emf3[k][j][i] = 0.25*(  x2Flux[k][j  ][i-1].Bz + x2Flux[k][j][i].Bz
+                                - x1Flux[k][j-1][i  ].By - x1Flux[k][j][i].By
+                                + de3_l1 + de3_r1 + de3_l2 + de3_r2);
       }
     }
   }
@@ -6061,45 +6061,45 @@ static void integrate_emf1_corner_FOFC(const GridS *pG)
       for (i=is-2; i<=ie+2; i++) {
 /* NOTE: The x2-Flux of By is -E1. */
 /*       The x3-Flux of Bz is +E1. */
-	if (x2FluxP[k-1][j][i].d > 0.0)
-	  de1_l3 = x3FluxP[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
-	else if (x2FluxP[k-1][j][i].d < 0.0)
-	  de1_l3 = x3FluxP[k][j][i].Bz - emf1_cc[k-1][j][i];
-	else {
-	  de1_l3 = 0.5*(x3FluxP[k][j-1][i].Bz - emf1_cc[k-1][j-1][i] +
-			x3FluxP[k][j  ][i].Bz - emf1_cc[k-1][j  ][i] );
-	}
+        if (x2FluxP[k-1][j][i].d > 0.0)
+          de1_l3 = x3FluxP[k][j-1][i].Bz - emf1_cc[k-1][j-1][i];
+        else if (x2FluxP[k-1][j][i].d < 0.0)
+          de1_l3 = x3FluxP[k][j][i].Bz - emf1_cc[k-1][j][i];
+        else {
+          de1_l3 = 0.5*(x3FluxP[k][j-1][i].Bz - emf1_cc[k-1][j-1][i] +
+                        x3FluxP[k][j  ][i].Bz - emf1_cc[k-1][j  ][i] );
+        }
 
-	if (x2FluxP[k][j][i].d > 0.0)
-	  de1_r3 = x3FluxP[k][j-1][i].Bz - emf1_cc[k][j-1][i];
-	else if (x2FluxP[k][j][i].d < 0.0)
-	  de1_r3 = x3FluxP[k][j][i].Bz - emf1_cc[k][j][i];
-	else {
-	  de1_r3 = 0.5*(x3FluxP[k][j-1][i].Bz - emf1_cc[k][j-1][i] +
-			x3FluxP[k][j  ][i].Bz - emf1_cc[k][j  ][i] );
-	}
+        if (x2FluxP[k][j][i].d > 0.0)
+          de1_r3 = x3FluxP[k][j-1][i].Bz - emf1_cc[k][j-1][i];
+        else if (x2FluxP[k][j][i].d < 0.0)
+          de1_r3 = x3FluxP[k][j][i].Bz - emf1_cc[k][j][i];
+        else {
+          de1_r3 = 0.5*(x3FluxP[k][j-1][i].Bz - emf1_cc[k][j-1][i] +
+                        x3FluxP[k][j  ][i].Bz - emf1_cc[k][j  ][i] );
+        }
 
-	if (x3FluxP[k][j-1][i].d > 0.0)
-	  de1_l2 = -x2FluxP[k-1][j][i].By - emf1_cc[k-1][j-1][i];
-	else if (x3FluxP[k][j-1][i].d < 0.0)
-	  de1_l2 = -x2FluxP[k][j][i].By - emf1_cc[k][j-1][i];
-	else {
-	  de1_l2 = 0.5*(-x2FluxP[k-1][j][i].By - emf1_cc[k-1][j-1][i]
-			-x2FluxP[k  ][j][i].By - emf1_cc[k  ][j-1][i] );
-	}
+        if (x3FluxP[k][j-1][i].d > 0.0)
+          de1_l2 = -x2FluxP[k-1][j][i].By - emf1_cc[k-1][j-1][i];
+        else if (x3FluxP[k][j-1][i].d < 0.0)
+          de1_l2 = -x2FluxP[k][j][i].By - emf1_cc[k][j-1][i];
+        else {
+          de1_l2 = 0.5*(-x2FluxP[k-1][j][i].By - emf1_cc[k-1][j-1][i]
+                        -x2FluxP[k  ][j][i].By - emf1_cc[k  ][j-1][i] );
+        }
 
-	if (x3FluxP[k][j][i].d > 0.0)
-	  de1_r2 = -x2FluxP[k-1][j][i].By - emf1_cc[k-1][j][i];
-	else if (x3FluxP[k][j][i].d < 0.0)
-	  de1_r2 = -x2FluxP[k][j][i].By - emf1_cc[k][j][i];
-	else {
-	  de1_r2 = 0.5*(-x2FluxP[k-1][j][i].By - emf1_cc[k-1][j][i]
-			-x2FluxP[k  ][j][i].By - emf1_cc[k  ][j][i] );
-	}
+        if (x3FluxP[k][j][i].d > 0.0)
+          de1_r2 = -x2FluxP[k-1][j][i].By - emf1_cc[k-1][j][i];
+        else if (x3FluxP[k][j][i].d < 0.0)
+          de1_r2 = -x2FluxP[k][j][i].By - emf1_cc[k][j][i];
+        else {
+          de1_r2 = 0.5*(-x2FluxP[k-1][j][i].By - emf1_cc[k-1][j][i]
+                        -x2FluxP[k  ][j][i].By - emf1_cc[k  ][j][i] );
+        }
 
         emf1P[k][j][i] = 0.25*(  x3FluxP[k][j][i].Bz + x3FluxP[k][j-1][i].Bz
-                              - x2FluxP[k][j][i].By - x2FluxP[k-1][j][i].By 
-			      + de1_l2 + de1_r2 + de1_l3 + de1_r3);
+                                 - x2FluxP[k][j][i].By - x2FluxP[k-1][j][i].By
+                                 + de1_l2 + de1_r2 + de1_l3 + de1_r3);
       }
     }
   }
@@ -6119,45 +6119,45 @@ static void integrate_emf2_corner_FOFC(const GridS *pG)
       for (i=is-1; i<=ie+2; i++) {
 /* NOTE: The x1-Flux of Bz is +E2. */
 /*       The x3-Flux of By is -E2. */
-	if (x1FluxP[k-1][j][i].d > 0.0)
-	  de2_l3 = -x3FluxP[k][j][i-1].By - emf2_cc[k-1][j][i-1];
-	else if (x1FluxP[k-1][j][i].d < 0.0)
-	  de2_l3 = -x3FluxP[k][j][i].By - emf2_cc[k-1][j][i];
-	else {
-	  de2_l3 = 0.5*(-x3FluxP[k][j][i-1].By - emf2_cc[k-1][j][i-1] 
-			-x3FluxP[k][j][i  ].By - emf2_cc[k-1][j][i  ] );
-	}
+        if (x1FluxP[k-1][j][i].d > 0.0)
+          de2_l3 = -x3FluxP[k][j][i-1].By - emf2_cc[k-1][j][i-1];
+        else if (x1FluxP[k-1][j][i].d < 0.0)
+          de2_l3 = -x3FluxP[k][j][i].By - emf2_cc[k-1][j][i];
+        else {
+          de2_l3 = 0.5*(-x3FluxP[k][j][i-1].By - emf2_cc[k-1][j][i-1]
+                        -x3FluxP[k][j][i  ].By - emf2_cc[k-1][j][i  ] );
+        }
 
-	if (x1FluxP[k][j][i].d > 0.0)
-	  de2_r3 = -x3FluxP[k][j][i-1].By - emf2_cc[k][j][i-1];
-	else if (x1FluxP[k][j][i].d < 0.0)
-	  de2_r3 = -x3FluxP[k][j][i].By - emf2_cc[k][j][i];
-	else {
-	  de2_r3 = 0.5*(-x3FluxP[k][j][i-1].By - emf2_cc[k][j][i-1] 
-			-x3FluxP[k][j][i  ].By - emf2_cc[k][j][i  ] );
-	}
+        if (x1FluxP[k][j][i].d > 0.0)
+          de2_r3 = -x3FluxP[k][j][i-1].By - emf2_cc[k][j][i-1];
+        else if (x1FluxP[k][j][i].d < 0.0)
+          de2_r3 = -x3FluxP[k][j][i].By - emf2_cc[k][j][i];
+        else {
+          de2_r3 = 0.5*(-x3FluxP[k][j][i-1].By - emf2_cc[k][j][i-1]
+                        -x3FluxP[k][j][i  ].By - emf2_cc[k][j][i  ] );
+        }
 
-	if (x3FluxP[k][j][i-1].d > 0.0)
-	  de2_l1 = x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i-1];
-	else if (x3FluxP[k][j][i-1].d < 0.0)
-	  de2_l1 = x1FluxP[k][j][i].Bz - emf2_cc[k][j][i-1];
-	else {
-	  de2_l1 = 0.5*(x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i-1] +
-			x1FluxP[k  ][j][i].Bz - emf2_cc[k  ][j][i-1] );
-	}
+        if (x3FluxP[k][j][i-1].d > 0.0)
+          de2_l1 = x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i-1];
+        else if (x3FluxP[k][j][i-1].d < 0.0)
+          de2_l1 = x1FluxP[k][j][i].Bz - emf2_cc[k][j][i-1];
+        else {
+          de2_l1 = 0.5*(x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i-1] +
+                        x1FluxP[k  ][j][i].Bz - emf2_cc[k  ][j][i-1] );
+        }
 
-	if (x3FluxP[k][j][i].d > 0.0)
-	  de2_r1 = x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i];
-	else if (x3FluxP[k][j][i].d < 0.0)
-	  de2_r1 = x1FluxP[k][j][i].Bz - emf2_cc[k][j][i];
-	else {
-	  de2_r1 = 0.5*(x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
-			x1FluxP[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
-	}
+        if (x3FluxP[k][j][i].d > 0.0)
+          de2_r1 = x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i];
+        else if (x3FluxP[k][j][i].d < 0.0)
+          de2_r1 = x1FluxP[k][j][i].Bz - emf2_cc[k][j][i];
+        else {
+          de2_r1 = 0.5*(x1FluxP[k-1][j][i].Bz - emf2_cc[k-1][j][i] +
+                        x1FluxP[k  ][j][i].Bz - emf2_cc[k  ][j][i] );
+        }
 
-	emf2P[k][j][i] = 0.25*(  x1FluxP[k][j][i].Bz + x1FluxP[k-1][j][i  ].Bz
-                              - x3FluxP[k][j][i].By - x3FluxP[k  ][j][i-1].By
-			      + de2_l1 + de2_r1 + de2_l3 + de2_r3);
+        emf2P[k][j][i] = 0.25*(  x1FluxP[k][j][i].Bz + x1FluxP[k-1][j][i  ].Bz
+                                 - x3FluxP[k][j][i].By - x3FluxP[k  ][j][i-1].By
+                                 + de2_l1 + de2_r1 + de2_l3 + de2_r3);
       }
     }
   }
@@ -6181,45 +6181,45 @@ static void integrate_emf3_corner_FOFC(const GridS *pG)
 #ifdef CYLINDRICAL
         rsf = pG->ri[i]/pG->r[i];  lsf = pG->ri[i]/pG->r[i-1];
 #endif
-	if (x1FluxP[k][j-1][i].d > 0.0)
-	  de3_l2 = (x2FluxP[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf;
-	else if (x1FluxP[k][j-1][i].d < 0.0)
-	  de3_l2 = (x2FluxP[k][j][i].Bz - emf3_cc[k][j-1][i])*rsf;
-	else {
-	  de3_l2 = 0.5*((x2FluxP[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf + 
-			(x2FluxP[k][j][i  ].Bz - emf3_cc[k][j-1][i  ])*rsf );
-	}
+        if (x1FluxP[k][j-1][i].d > 0.0)
+          de3_l2 = (x2FluxP[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf;
+        else if (x1FluxP[k][j-1][i].d < 0.0)
+          de3_l2 = (x2FluxP[k][j][i].Bz - emf3_cc[k][j-1][i])*rsf;
+        else {
+          de3_l2 = 0.5*((x2FluxP[k][j][i-1].Bz - emf3_cc[k][j-1][i-1])*lsf +
+                        (x2FluxP[k][j][i  ].Bz - emf3_cc[k][j-1][i  ])*rsf );
+        }
 
-	if (x1FluxP[k][j][i].d > 0.0)
-	  de3_r2 = (x2FluxP[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf;
-	else if (x1FluxP[k][j][i].d < 0.0)
-	  de3_r2 = (x2FluxP[k][j][i].Bz - emf3_cc[k][j][i])*rsf;
-	else {
-	  de3_r2 = 0.5*((x2FluxP[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf + 
-			(x2FluxP[k][j][i  ].Bz - emf3_cc[k][j][i  ])*rsf );
-	}
+        if (x1FluxP[k][j][i].d > 0.0)
+          de3_r2 = (x2FluxP[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf;
+        else if (x1FluxP[k][j][i].d < 0.0)
+          de3_r2 = (x2FluxP[k][j][i].Bz - emf3_cc[k][j][i])*rsf;
+        else {
+          de3_r2 = 0.5*((x2FluxP[k][j][i-1].Bz - emf3_cc[k][j][i-1])*lsf +
+                        (x2FluxP[k][j][i  ].Bz - emf3_cc[k][j][i  ])*rsf );
+        }
 
-	if (x2FluxP[k][j][i-1].d > 0.0)
-	  de3_l1 = -x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i-1];
-	else if (x2FluxP[k][j][i-1].d < 0.0)
-	  de3_l1 = -x1FluxP[k][j][i].By - emf3_cc[k][j][i-1];
-	else {
-	  de3_l1 = 0.5*(-x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i-1]
-			-x1FluxP[k][j  ][i].By - emf3_cc[k][j  ][i-1] );
-	}
+        if (x2FluxP[k][j][i-1].d > 0.0)
+          de3_l1 = -x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i-1];
+        else if (x2FluxP[k][j][i-1].d < 0.0)
+          de3_l1 = -x1FluxP[k][j][i].By - emf3_cc[k][j][i-1];
+        else {
+          de3_l1 = 0.5*(-x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i-1]
+                        -x1FluxP[k][j  ][i].By - emf3_cc[k][j  ][i-1] );
+        }
 
-	if (x2FluxP[k][j][i].d > 0.0)
-	  de3_r1 = -x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i];
-	else if (x2FluxP[k][j][i].d < 0.0)
-	  de3_r1 = -x1FluxP[k][j][i].By - emf3_cc[k][j][i];
-	else {
-	  de3_r1 = 0.5*(-x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i]
-			-x1FluxP[k][j  ][i].By - emf3_cc[k][j  ][i] );
-	}
+        if (x2FluxP[k][j][i].d > 0.0)
+          de3_r1 = -x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i];
+        else if (x2FluxP[k][j][i].d < 0.0)
+          de3_r1 = -x1FluxP[k][j][i].By - emf3_cc[k][j][i];
+        else {
+          de3_r1 = 0.5*(-x1FluxP[k][j-1][i].By - emf3_cc[k][j-1][i]
+                        -x1FluxP[k][j  ][i].By - emf3_cc[k][j  ][i] );
+        }
 
-	emf3P[k][j][i] = 0.25*(  x2FluxP[k][j  ][i-1].Bz + x2FluxP[k][j][i].Bz
-			      - x1FluxP[k][j-1][i  ].By - x1FluxP[k][j][i].By
-			      + de3_l1 + de3_r1 + de3_l2 + de3_r2);
+        emf3P[k][j][i] = 0.25*(  x2FluxP[k][j  ][i-1].Bz + x2FluxP[k][j][i].Bz
+                                 - x1FluxP[k][j-1][i  ].By - x1FluxP[k][j][i].By
+                                 + de3_l1 + de3_r1 + de3_l2 + de3_r2);
       }
     }
   }
@@ -6240,238 +6240,238 @@ static void integrate_emf3_corner_FOFC(const GridS *pG)
 void updatesource(GridS *pG)
 {
 
-	int i,il,iu,is=pG->is, ie=pG->ie;
-  	int j,jl,ju,js=pG->js, je=pG->je;
-  	int k, kl, ku, ks=pG->ks, ke=pG->ke, m;
-	double x1, x2, x3;
-	double dt = pG->dt;
+  int i,il,iu,is=pG->is, ie=pG->ie;
+  int j,jl,ju,js=pG->js, je=pG->je;
+  int k, kl, ku, ks=pG->ks, ke=pG->ke, m;
+  double x1, x2, x3;
+  double dt = pG->dt;
 
-	double density, velocity_x, velocity_y, velocity_z, velocity, pressure, temperature;
-	double Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE, Bx, Fr0x, Fr0y, Fr0z;
-	Real SPP, diffTEr;
-/*	Real dSigma[8];
-*/
+  double density, velocity_x, velocity_y, velocity_z, velocity, pressure, temperature;
+  double Sigma_sF, Sigma_aF, Sigma_aP, Sigma_aE, Bx, Fr0x, Fr0y, Fr0z;
+  Real SPP, diffTEr;
+/*      Real dSigma[8];
+ */
 #ifdef SHEARING_BOX
-	Real qom = qshear*Omega_0;
+  Real qom = qshear*Omega_0;
 #endif
-	Cons1DS Usource;
-	/* for source term */
+  Cons1DS Usource;
+/* for source term */
 
-	/* In case momentum becomes stiff */
-	Real SVVx, SVVy, SVVz, betax, betay, betaz, alpha;
-
- 
-	il = is - 2;
-  	iu = ie + 2;
-  	jl = js - 2;
-  	ju = je + 2;
-  	kl = ks - 2;
-  	ku = ke + 2;
+/* In case momentum becomes stiff */
+  Real SVVx, SVVy, SVVz, betax, betay, betaz, alpha;
 
 
-	for(k=kl; k<=ku; k++){
-		for(j=jl; j<=ju; j++){
-			for(i=il; i<=iu; i++){
-	
-			cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  il = is - 2;
+  iu = ie + 2;
+  jl = js - 2;
+  ju = je + 2;
+  kl = ks - 2;
+  ku = ke + 2;
 
-	/* Load 1D vector */
-			Usource.d  = pG->U[k][j][i].d;
-      			Usource.Mx = pG->U[k][j][i].M1;
-      			Usource.My = pG->U[k][j][i].M2;
-      			Usource.Mz = pG->U[k][j][i].M3;
-      			Usource.E  = pG->U[k][j][i].E;
-			Usource.Er  = pG->U[k][j][i].Er;
-    			Usource.Fr1  = pG->U[k][j][i].Fr1;
-    			Usource.Fr2  = pG->U[k][j][i].Fr2;
-    			Usource.Fr3  = pG->U[k][j][i].Fr3;
-			Usource.Edd_11  = pG->U[k][j][i].Edd_11;
-			Usource.Edd_21  = pG->U[k][j][i].Edd_21;
-			Usource.Edd_22  = pG->U[k][j][i].Edd_22;
-			Usource.Edd_31	= pG->U[k][j][i].Edd_31;
-			Usource.Edd_32	= pG->U[k][j][i].Edd_32;
-			Usource.Edd_33	= pG->U[k][j][i].Edd_33;
-			for(m=0;m<NOPACITY;m++){
-				Usource.Sigma[m] = pG->U[k][j][i].Sigma[m];
-			}
+
+  for(k=kl; k<=ku; k++){
+    for(j=jl; j<=ju; j++){
+      for(i=il; i<=iu; i++){
+
+        cc_pos(pG,i,j,k,&x1,&x2,&x3);
+
+/* Load 1D vector */
+        Usource.d  = pG->U[k][j][i].d;
+        Usource.Mx = pG->U[k][j][i].M1;
+        Usource.My = pG->U[k][j][i].M2;
+        Usource.Mz = pG->U[k][j][i].M3;
+        Usource.E  = pG->U[k][j][i].E;
+        Usource.Er  = pG->U[k][j][i].Er;
+        Usource.Fr1  = pG->U[k][j][i].Fr1;
+        Usource.Fr2  = pG->U[k][j][i].Fr2;
+        Usource.Fr3  = pG->U[k][j][i].Fr3;
+        Usource.Edd_11  = pG->U[k][j][i].Edd_11;
+        Usource.Edd_21  = pG->U[k][j][i].Edd_21;
+        Usource.Edd_22  = pG->U[k][j][i].Edd_22;
+        Usource.Edd_31  = pG->U[k][j][i].Edd_31;
+        Usource.Edd_32  = pG->U[k][j][i].Edd_32;
+        Usource.Edd_33  = pG->U[k][j][i].Edd_33;
+        for(m=0;m<NOPACITY;m++){
+          Usource.Sigma[m] = pG->U[k][j][i].Sigma[m];
+        }
 
 
 #ifdef RADIATION_MHD
-      			Usource.By = pG->U[k][j][i].B2c;
-      			Usource.Bz = pG->U[k][j][i].B3c;
-			Bx = pG->U[k][j][i].B1c;
+        Usource.By = pG->U[k][j][i].B2c;
+        Usource.Bz = pG->U[k][j][i].B3c;
+        Bx = pG->U[k][j][i].B1c;
 #else
-			Bx = 0.0;
+        Bx = 0.0;
 #endif /* MHD */
-			
 
-			density = Usource.d;
-			velocity_x = Usource.Mx / density;
-			velocity_y = Usource.My / density;
-			velocity_z = Usource.Mz / density;
 
-			velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
-				
-			pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
-		/* Should include magnetic energy for MHD */
+        density = Usource.d;
+        velocity_x = Usource.Mx / density;
+        velocity_y = Usource.My / density;
+        velocity_z = Usource.Mz / density;
+
+        velocity = sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
+
+        pressure = (pG->U[k][j][i].E - 0.5 * density * velocity * velocity) * (Gamma - 1.0);
+/* Should include magnetic energy for MHD */
 #ifdef RADIATION_MHD
-			pressure -= 0.5 * (Bx * Bx + Usource.By * Usource.By + Usource.Bz * Usource.Bz) * (Gamma - 1.0);
+        pressure -= 0.5 * (Bx * Bx + Usource.By * Usource.By + Usource.Bz * Usource.Bz) * (Gamma - 1.0);
 #endif
-			/* in case pressure is negative */
+/* in case pressure is negative */
 
-			if(pressure > TINY_NUMBER){
+        if(pressure > TINY_NUMBER){
 
-				temperature = pressure / (density * R_ideal);
+          temperature = pressure / (density * R_ideal);
 
-				Sigma_sF = pG->U[k][j][i].Sigma[0];
-				Sigma_aF = pG->U[k][j][i].Sigma[1];
-				Sigma_aP = pG->U[k][j][i].Sigma[2];
-				Sigma_aE = pG->U[k][j][i].Sigma[3];
-			
-
-				/* Opacity is already included in source term */
-				diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
+          Sigma_sF = pG->U[k][j][i].Sigma[0];
+          Sigma_aF = pG->U[k][j][i].Sigma[1];
+          Sigma_aP = pG->U[k][j][i].Sigma[2];
+          Sigma_aE = pG->U[k][j][i].Sigma[3];
 
 
-		
-					
+/* Opacity is already included in source term */
+          diffTEr = Sigma_aP * pow(temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
+
+
+
+
 #ifdef FARGO
-					/* With FARGO, we should add background shearing to the source terms */
-				/* Include background shearing in Usource, which is only used in dSource */
+/* With FARGO, we should add background shearing to the source terms */
+/* Include background shearing in Usource, which is only used in dSource */
 
-				velocity_y -= qom * x1;						
-					
-#endif			
+          velocity_y -= qom * x1;
 
-				/* co-moving flux */
-				Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
-				Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
-				Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+#endif
 
-			/* Source term for momentum, not velocity*/
-				/* The momentum source term v * diffTEr/ Crat is added explicitly */
-				Source[k][j][i][0] = 0.0;
-				Source[k][j][i][1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
-				Source[k][j][i][2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
-				Source[k][j][i][3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
-			
-			/* Source term for energy */
-				Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y 
-												+ velocity_z * Fr0z)/Crat);
+/* co-moving flux */
+          Fr0x = Usource.Fr1 - ((1.0 + Usource.Edd_11) * velocity_x + Usource.Edd_21 * velocity_y + Usource.Edd_31 * velocity_z) * Usource.Er / Crat;
+          Fr0y = Usource.Fr2 - ((1.0 + Usource.Edd_22) * velocity_y + Usource.Edd_21 * velocity_x + Usource.Edd_32 * velocity_z) * Usource.Er / Crat;
+          Fr0z = Usource.Fr3 - ((1.0 + Usource.Edd_33) * velocity_z + Usource.Edd_31 * velocity_x + Usource.Edd_32 * velocity_y) * Usource.Er / Crat;
+
+/* Source term for momentum, not velocity*/
+/* The momentum source term v * diffTEr/ Crat is added explicitly */
+          Source[k][j][i][0] = 0.0;
+          Source[k][j][i][1] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0x); /* + velocity_x * diffTEr / Crat); */
+          Source[k][j][i][2] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0y); /* + velocity_y * diffTEr / Crat); */
+          Source[k][j][i][3] = -Prat * (-(Sigma_aF + Sigma_sF) * Fr0z); /* + velocity_z * diffTEr / Crat); */
+
+/* Source term for energy */
+          Source[k][j][i][4] = -Prat * Crat * (diffTEr + (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y
+                                                                                  + velocity_z * Fr0z)/Crat);
 
 /*
-				if(Opacity != NULL){
-					 Opacity(density, temperature, NULL, dSigma);
-				}
-				else{
-					for(m=0;m<2*NOPACITY;m++)
-						dSigma[m] = 0.0;
-				}
-				
+  if(Opacity != NULL){
+  Opacity(density, temperature, NULL, dSigma);
+  }
+  else{
+  for(m=0;m<2*NOPACITY;m++)
+  dSigma[m] = 0.0;
+  }
+
 */
-				/* dSigma[0] = dSigma_sF/drho, dSigma[1] = dSigma_aF/drho, dSigma[2]=dSigma_aP/drho, dSigma[3]= dSigma_aE/drho */
-				/* dSigma[4] = dSigma_sF/dT, dSigma[5] = dSigma_aF/dT, dSigma[6]=dSigma_aP/dT, dSigma[7]= dSigma_aE/dT */
-						
+/* dSigma[0] = dSigma_sF/drho, dSigma[1] = dSigma_aF/drho, dSigma[2]=dSigma_aP/drho, dSigma[3]= dSigma_aE/drho */
+/* dSigma[4] = dSigma_sF/dT, dSigma[5] = dSigma_aF/dT, dSigma[6]=dSigma_aP/dT, dSigma[7]= dSigma_aE/dT */
 
-/*				dSigmadP[0] =  dSigma[4] / (density * R_ideal); 
-				dSigmadP[1] =  dSigma[5] / (density * R_ideal); 
-				dSigmadP[2] =  dSigma[6] / (density * R_ideal); 
-				dSigmadP[3] =  dSigma[7] / (density * R_ideal); 
 
-				diffTErdP = dSigmadP[2] * pow(temperature, 4.0) - dSigmadP[3] * pG->U[k][j][i].Er;
+/*                              dSigmadP[0] =  dSigma[4] / (density * R_ideal);
+                                dSigmadP[1] =  dSigma[5] / (density * R_ideal);
+                                dSigmadP[2] =  dSigma[6] / (density * R_ideal);
+                                dSigmadP[3] =  dSigma[7] / (density * R_ideal);
+
+                                diffTErdP = dSigmadP[2] * pow(temperature, 4.0) - dSigmadP[3] * pG->U[k][j][i].Er;
 */
-				/* The velocity used to convert primitive variable and conservative variables are not the same as velocity in source term */
+/* The velocity used to convert primitive variable and conservative variables are not the same as velocity in source term */
 
 
-				velocity = velocity_x * velocity_x + velocity_z * velocity_z + velocity_y * velocity_y;
+          velocity = velocity_x * velocity_x + velocity_z * velocity_z + velocity_y * velocity_y;
 
-				/* If  opacity depends on density, temperature, SPP may becomes positive and unstable */
-		/*
-				SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal)
-					-(Gamma - 1.0) * Prat * Crat * diffTErdP * (1.0 - velocity/(Crat * Crat))
-				      -(Gamma - 1.0) * Prat * 2.0 * dSigmadP[1] * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-		*/
-				/* If SPP is positive, then this is numerical unstable. */
-				/* We need to subtract the unstable mode and gurantee that it is negative */ 
-				
-				SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal);			
+/* If  opacity depends on density, temperature, SPP may becomes positive and unstable */
+/*
+  SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal)
+  -(Gamma - 1.0) * Prat * Crat * diffTErdP * (1.0 - velocity/(Crat * Crat))
+  -(Gamma - 1.0) * Prat * 2.0 * dSigmadP[1] * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+*/
+/* If SPP is positive, then this is numerical unstable. */
+/* We need to subtract the unstable mode and gurantee that it is negative */
 
-		/*===================================================================*/
-		/* In case velocity is large, momentum source term is also stiff */
-				SVVx = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er) / (density * Crat);
-			/* + diffTEr) / (density * Crat);*/
-	
-				
-				if(fabs(SVVx * dt * 0.5) > 50.0)
-					betax = -1.0/(SVVx * dt * 0.5);	
-				else if(fabs(SVVx * dt * 0.5) > 0.001)
-					betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
-				else 
-					betax = 1.0 + 0.25 * SVVx * dt;
+          SPP = -4.0 * (Gamma - 1.0) * Prat * Crat * Sigma_aP * pow(temperature, 3.0) * (1.0 - velocity/(Crat * Crat)) /(density * R_ideal);
 
-				SVVy = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er) / (density * Crat);
-				/* + diffTEr) / (density * Crat); */
-		
-				
-				if(fabs(SVVy * dt * 0.5) > 50.0)
-					betay = -1.0/(SVVy * dt * 0.5);
-				else if(fabs(SVVy * dt * 0.5) > 0.001)
-					betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
-				else 
-					betay = 1.0 + 0.25 * SVVy * dt;
+/*===================================================================*/
+/* In case velocity is large, momentum source term is also stiff */
+          SVVx = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_11) * Usource.Er) / (density * Crat);
+/* + diffTEr) / (density * Crat);*/
 
-				SVVz = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er)/ (density * Crat);
-				/* + diffTEr) / (density * Crat);*/
-		
-				
-				if(fabs(SVVz * dt * 0.5) > 50.0)
-					betaz = -1.0/(SVVz * dt * 0.5);
-				else if(fabs(SVVz * dt * 0.5) > 0.001)
-					betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
-				else 	
-					betaz = 1.0 + 0.25 * SVVz * dt;
-		/*===========================================================================*/
-	
-				if(fabs(SPP * dt * 0.5) > 50.0)
-					alpha = -1.0/(SPP * dt * 0.5);
-				else if(fabs(SPP * dt * 0.5) > 0.001)
-					alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
-				else 
-					alpha = 1.0 + 0.25 * SPP * dt;
 
-				
-				Alpha[k][j][i] = alpha;
-				Beta[k][j][i][0] = betax;
-				Beta[k][j][i][1] = betay;
-				Beta[k][j][i][2] = betaz;
-			
-				/* In gas pressure dominated case, do something special */
-				if((4.0 * (Gamma - 1.0) * Prat * temperature * temperature * temperature / (density * R_ideal)) < 1.0){
-					/* Source term for energy */
-					Source[k][j][i][4] = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z)
-					-Prat * pG->Ersource[k][j][i] / (dt * alpha);
-				}		
+          if(fabs(SVVx * dt * 0.5) > 50.0)
+            betax = -1.0/(SVVx * dt * 0.5);
+          else if(fabs(SVVx * dt * 0.5) > 0.001)
+            betax = (exp(SVVx * dt * 0.5) - 1.0)/(SVVx * dt * 0.5);
+          else
+            betax = 1.0 + 0.25 * SVVx * dt;
 
-			}
-			else{
-	
-				/* If pressure becomes negative, we do not add radiation source term */
-				Source[k][j][i][0] = 0.0;
-				Source[k][j][i][1] = 0.0;
-				Source[k][j][i][2] = 0.0;
-				Source[k][j][i][3] = 0.0;
-				Source[k][j][i][4] = 0.0;
+          SVVy = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_22) * Usource.Er) / (density * Crat);
+/* + diffTEr) / (density * Crat); */
 
-				Alpha[k][j][i] = 1.0;
-				Beta[k][j][i][0] = 1.0;
-				Beta[k][j][i][1] = 1.0;
-				Beta[k][j][i][2] = 1.0;
 
-			}
+          if(fabs(SVVy * dt * 0.5) > 50.0)
+            betay = -1.0/(SVVy * dt * 0.5);
+          else if(fabs(SVVy * dt * 0.5) > 0.001)
+            betay = (exp(SVVy * dt * 0.5) - 1.0)/(SVVy * dt * 0.5);
+          else
+            betay = 1.0 + 0.25 * SVVy * dt;
 
-			} /* End i */
-		} /* End j */
-	} /* End k */
+          SVVz = -Prat * ((Sigma_aF + Sigma_sF) * (1.0 + Usource.Edd_33) * Usource.Er)/ (density * Crat);
+/* + diffTEr) / (density * Crat);*/
+
+
+          if(fabs(SVVz * dt * 0.5) > 50.0)
+            betaz = -1.0/(SVVz * dt * 0.5);
+          else if(fabs(SVVz * dt * 0.5) > 0.001)
+            betaz = (exp(SVVz * dt * 0.5) - 1.0)/(SVVz * dt * 0.5);
+          else
+            betaz = 1.0 + 0.25 * SVVz * dt;
+/*===========================================================================*/
+
+          if(fabs(SPP * dt * 0.5) > 50.0)
+            alpha = -1.0/(SPP * dt * 0.5);
+          else if(fabs(SPP * dt * 0.5) > 0.001)
+            alpha = (exp(SPP * dt * 0.5) - 1.0)/(SPP * dt * 0.5);
+          else
+            alpha = 1.0 + 0.25 * SPP * dt;
+
+
+          Alpha[k][j][i] = alpha;
+          Beta[k][j][i][0] = betax;
+          Beta[k][j][i][1] = betay;
+          Beta[k][j][i][2] = betaz;
+
+/* In gas pressure dominated case, do something special */
+          if((4.0 * (Gamma - 1.0) * Prat * temperature * temperature * temperature / (density * R_ideal)) < 1.0){
+/* Source term for energy */
+            Source[k][j][i][4] = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z)
+              -Prat * pG->Ersource[k][j][i] / (dt * alpha);
+          }
+
+        }
+        else{
+
+/* If pressure becomes negative, we do not add radiation source term */
+          Source[k][j][i][0] = 0.0;
+          Source[k][j][i][1] = 0.0;
+          Source[k][j][i][2] = 0.0;
+          Source[k][j][i][3] = 0.0;
+          Source[k][j][i][4] = 0.0;
+
+          Alpha[k][j][i] = 1.0;
+          Beta[k][j][i][0] = 1.0;
+          Beta[k][j][i][1] = 1.0;
+          Beta[k][j][i][2] = 1.0;
+
+        }
+
+      } /* End i */
+    } /* End j */
+  } /* End k */
 
 }
 
@@ -6483,7 +6483,7 @@ void updatesource(GridS *pG)
 /*----------------------------------------------------------------------------*/
 /*! \fn static void FixCell(GridS *pG, Int3Vect ix)
  *  \brief Uses first order fluxes to fix negative d,P or superluminal v
- */ 
+ */
 static void FixCell(GridS *pG, Int3Vect ix)
 {
   int n;
@@ -6572,7 +6572,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 
 
-	/* correct neighbor cells */
+/* correct neighbor cells */
   if (ix.i > pG->is) ApplyCorr2(pG,ix.i-1,ix.j,ix.k,-1,0,0,0,0,0);
   if (ix.i < pG->ie) ApplyCorr2(pG,ix.i+1,ix.j,ix.k,0,-1,0,0,0,0);
 
@@ -6587,31 +6587,31 @@ static void FixCell(GridS *pG, Int3Vect ix)
   FixMHD(pG,ix.i,ix.j,ix.k,1,1,1,1,1,1);
 
 /* Use flux differences to correct cell-centered values at i-1 and i+1 */
-  
+
   if (ix.i > pG->is) FixMHD(pG,ix.i-1,ix.j,ix.k,-1,0,0,0,0,0);
   if (ix.i < pG->ie) FixMHD(pG,ix.i+1,ix.j,ix.k,0,-1,0,0,0,0);
 
 /* Use flux differences to correct cell-centered values at j-1 and j+1 */
-  
+
   if (ix.j > pG->js) FixMHD(pG,ix.i,ix.j-1,ix.k,0,0,-1,0,0,0);
   if (ix.j < pG->je) FixMHD(pG,ix.i,ix.j+1,ix.k,0,0,0,-1,0,0);
 
 /* Use flux differences to correct cell-centered values at k-1 and k+1 */
- 
+
   if (ix.k > pG->ks) FixMHD(pG,ix.i,ix.j,ix.k-1,0,0,0,0,-1,0);
   if (ix.k < pG->ke) FixMHD(pG,ix.i,ix.j,ix.k+1,0,0,0,0,0,-1);
 
 /* Compute new cell-centered fields */
   for (k=(ix.k-1); k<=(ix.k+1); k++) {
-  for (j=(ix.j-1); j<=(ix.j+1); j++) {
-  for (i=(ix.i-1); i<=(ix.i+1); i++) {
+    for (j=(ix.j-1); j<=(ix.j+1); j++) {
+      for (i=(ix.i-1); i<=(ix.i+1); i++) {
 #ifdef CYLINDRICAL
-    rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
+        rsf = pG->ri[i+1]/pG->r[i];  lsf = pG->ri[i]/pG->r[i];
 #endif
-    pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
-    pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
-    pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
-  }}}
+        pG->U[k][j][i].B1c = 0.5*(lsf*pG->B1i[k][j][i] + rsf*pG->B1i[k][j][i+1]);
+        pG->U[k][j][i].B2c = 0.5*(    pG->B2i[k][j][i] +     pG->B2i[k][j+1][i]);
+        pG->U[k][j][i].B3c = 0.5*(    pG->B3i[k][j][i] +     pG->B3i[k+1][j][i]);
+      }}}
 #endif /* MHD */
 
 
@@ -6645,7 +6645,7 @@ static void FixCell(GridS *pG, Int3Vect ix)
 
 
 /* Radiation source terms are not added */
-static void ApplyCorr(GridS *pG, int i, int j, int k, 
+static void ApplyCorr(GridS *pG, int i, int j, int k,
                       int lx1, int rx1, int lx2, int rx2, int lx3, int rx3)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
@@ -6672,31 +6672,31 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
 #endif
 
 
- pG->U[k][j][i].d  = INIdata[k][j][i][0] - (dtodx1 * (x1FluxP[k][j][i+1].d  - x1FluxP[k][j][i].d)
-					 +  dtodx2 * (x2FluxP[k][j+1][i].d  - x2FluxP[k][j][i].d)
-					 +  dtodx3 * (x3FluxP[k+1][j][i].d  - x3FluxP[k][j][i].d));
+  pG->U[k][j][i].d  = INIdata[k][j][i][0] - (dtodx1 * (x1FluxP[k][j][i+1].d  - x1FluxP[k][j][i].d)
+                                             +  dtodx2 * (x2FluxP[k][j+1][i].d  - x2FluxP[k][j][i].d)
+                                             +  dtodx3 * (x3FluxP[k+1][j][i].d  - x3FluxP[k][j][i].d));
 
 
- pG->U[k][j][i].M1 = INIdata[k][j][i][1] - (dtodx1 * (x1FluxP[k][j][i+1].Mx  - x1FluxP[k][j][i].Mx)
-					 +  dtodx2 * (x2FluxP[k][j+1][i].Mz  - x2FluxP[k][j][i].Mz)
-					 +  dtodx3 * (x3FluxP[k+1][j][i].My  - x3FluxP[k][j][i].My));
+  pG->U[k][j][i].M1 = INIdata[k][j][i][1] - (dtodx1 * (x1FluxP[k][j][i+1].Mx  - x1FluxP[k][j][i].Mx)
+                                             +  dtodx2 * (x2FluxP[k][j+1][i].Mz  - x2FluxP[k][j][i].Mz)
+                                             +  dtodx3 * (x3FluxP[k+1][j][i].My  - x3FluxP[k][j][i].My));
 
 
- pG->U[k][j][i].M2 = INIdata[k][j][i][2] - (dtodx1 * (x1FluxP[k][j][i+1].My  - x1FluxP[k][j][i].My)
-					 +  dtodx2 * (x2FluxP[k][j+1][i].Mx  - x2FluxP[k][j][i].Mx)
-					 +  dtodx3 * (x3FluxP[k+1][j][i].Mz  - x3FluxP[k][j][i].Mz));
-
-
-
- pG->U[k][j][i].M3 = INIdata[k][j][i][3] - (dtodx1 * (x1FluxP[k][j][i+1].Mz  - x1FluxP[k][j][i].Mz)
-					 +  dtodx2 * (x2FluxP[k][j+1][i].My  - x2FluxP[k][j][i].My)
-					 +  dtodx3 * (x3FluxP[k+1][j][i].Mx  - x3FluxP[k][j][i].Mx));
+  pG->U[k][j][i].M2 = INIdata[k][j][i][2] - (dtodx1 * (x1FluxP[k][j][i+1].My  - x1FluxP[k][j][i].My)
+                                             +  dtodx2 * (x2FluxP[k][j+1][i].Mx  - x2FluxP[k][j][i].Mx)
+                                             +  dtodx3 * (x3FluxP[k+1][j][i].Mz  - x3FluxP[k][j][i].Mz));
 
 
 
- pG->U[k][j][i].E  = INIdata[k][j][i][4] - (dtodx1 * (x1FluxP[k][j][i+1].E  - x1FluxP[k][j][i].E)
-					 +  dtodx2 * (x2FluxP[k][j+1][i].E  - x2FluxP[k][j][i].E)
-					 +  dtodx3 * (x3FluxP[k+1][j][i].E  - x3FluxP[k][j][i].E));
+  pG->U[k][j][i].M3 = INIdata[k][j][i][3] - (dtodx1 * (x1FluxP[k][j][i+1].Mz  - x1FluxP[k][j][i].Mz)
+                                             +  dtodx2 * (x2FluxP[k][j+1][i].My  - x2FluxP[k][j][i].My)
+                                             +  dtodx3 * (x3FluxP[k+1][j][i].Mx  - x3FluxP[k][j][i].Mx));
+
+
+
+  pG->U[k][j][i].E  = INIdata[k][j][i][4] - (dtodx1 * (x1FluxP[k][j][i+1].E  - x1FluxP[k][j][i].E)
+                                             +  dtodx2 * (x2FluxP[k][j+1][i].E  - x2FluxP[k][j][i].E)
+                                             +  dtodx3 * (x3FluxP[k+1][j][i].E  - x3FluxP[k][j][i].E));
 
 
 #ifdef SHEARING_BOX
@@ -6706,187 +6706,187 @@ static void ApplyCorr(GridS *pG, int i, int j, int k,
   cc_pos(pG,i,j,k,&x1,&x2,&x3);
 
   phic = (*ShearingBoxPot)((x1            ),x2,x3);
-		phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
-		phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
+  phir = (*ShearingBoxPot)((x1+0.5*pG->dx1),x2,x3);
+  phil = (*ShearingBoxPot)((x1-0.5*pG->dx1),x2,x3);
 
-		ShearSource[3] = dtodx1*(x1FluxP[k][j][i  ].d*(phic - phil) +
-				x1FluxP[k][j][i+1].d*(phir - phic));
-					
-		phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
-		phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
+  ShearSource[3] = dtodx1*(x1FluxP[k][j][i  ].d*(phic - phil) +
+                           x1FluxP[k][j][i+1].d*(phir - phic));
 
-		ShearSource[3] -= dtodx2*(x2FluxP[k][j  ][i].d*(phic - phil) +
-				x2FluxP[k][j+1][i].d*(phir - phic));
+  phir = (*ShearingBoxPot)(x1,(x2+0.5*pG->dx2),x3);
+  phil = (*ShearingBoxPot)(x1,(x2-0.5*pG->dx2),x3);
 
-							
-		phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
-		phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+  ShearSource[3] -= dtodx2*(x2FluxP[k][j  ][i].d*(phic - phil) +
+                            x2FluxP[k][j+1][i].d*(phir - phic));
 
-		ShearSource[3] -= dtodx3*(x3FluxP[k  ][j][i].d*(phic - phil) +
-				x3FluxP[k+1][j][i].d*(phir - phic));
 
-		/* Use Crank Nichson but do not include radiation source term for guess solution */
-		/* Store the current state */
-		M1n  = INIdata[k][j][i][1];
+  phir = (*ShearingBoxPot)(x1,x2,(x3+0.5*pG->dx3));
+  phil = (*ShearingBoxPot)(x1,x2,(x3-0.5*pG->dx3));
+
+  ShearSource[3] -= dtodx3*(x3FluxP[k  ][j][i].d*(phic - phil) +
+                            x3FluxP[k+1][j][i].d*(phir - phic));
+
+/* Use Crank Nichson but do not include radiation source term for guess solution */
+/* Store the current state */
+  M1n  = INIdata[k][j][i][1];
 #ifdef FARGO
-		dM2n = INIdata[k][j][i][2];
+  dM2n = INIdata[k][j][i][2];
 #else
-		dM2n = INIdata[k][j][i][2] + qom*x1*INIdata[k][j][i][0];
+  dM2n = INIdata[k][j][i][2] + qom*x1*INIdata[k][j][i][0];
 #endif
-					
+
 
 #ifndef FARGO
-		frx1_dM2 = qom*(x1+0.5*pG->dx1)*x1FluxP[k][j][i+1].d;
-		flx1_dM2 = qom*(x1-0.5*pG->dx1)*x1FluxP[k][j][i  ].d;
-		frx2_dM2 = qom*(x1            )*x2FluxP[k][j+1][i].d;
-		flx2_dM2 = qom*(x1            )*x2FluxP[k][j  ][i].d;
-		frx3_dM2 = qom*(x1            )*x3FluxP[k+1][j][i].d;
-		flx3_dM2 = qom*(x1            )*x3FluxP[k  ][j][i].d;
+  frx1_dM2 = qom*(x1+0.5*pG->dx1)*x1FluxP[k][j][i+1].d;
+  flx1_dM2 = qom*(x1-0.5*pG->dx1)*x1FluxP[k][j][i  ].d;
+  frx2_dM2 = qom*(x1            )*x2FluxP[k][j+1][i].d;
+  flx2_dM2 = qom*(x1            )*x2FluxP[k][j  ][i].d;
+  frx3_dM2 = qom*(x1            )*x3FluxP[k+1][j][i].d;
+  flx3_dM2 = qom*(x1            )*x3FluxP[k  ][j][i].d;
 #endif
 /* Now evolve M1n and dM2n by dt/2 using Forward Euler */
-		M1e  = M1n + 0.5 * (pG->U[k][j][i].M1 - INIdata[k][j][i][1]);
-		dM2e = dM2n + 0.5 * (pG->U[k][j][i].M2 - INIdata[k][j][i][2]);
+  M1e  = M1n + 0.5 * (pG->U[k][j][i].M1 - INIdata[k][j][i][1]);
+  dM2e = dM2n + 0.5 * (pG->U[k][j][i].M2 - INIdata[k][j][i][2]);
 #ifndef FARGO
-		dM2e -= hdtodx1*(frx1_dM2 - flx1_dM2)
-			- hdtodx2*(frx2_dM2 - flx2_dM2) 
-			- hdtodx3*(frx3_dM2 - flx3_dM2);
+  dM2e -= hdtodx1*(frx1_dM2 - flx1_dM2)
+    - hdtodx2*(frx2_dM2 - flx2_dM2)
+    - hdtodx3*(frx3_dM2 - flx3_dM2);
 #endif
 
-		ShearSource[0] = (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact; 
-		ShearSource[1] = 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
+  ShearSource[0] = (4.0*dM2e + 2.0*(qshear-2.)*om_dt*M1e)*fact;
+  ShearSource[1] = 2.0*(qshear-2.)*(M1e + om_dt*dM2e)*fact;
 #ifndef FARGO
-		ShearSource[1] -= 0.5*qshear*om_dt*(x1FluxP[k][j][i].d + x1FluxP[k][j][i+1].d);
-#endif		
-		/* Now add the source term to guess solution */
+  ShearSource[1] -= 0.5*qshear*om_dt*(x1FluxP[k][j][i].d + x1FluxP[k][j][i+1].d);
+#endif
+/* Now add the source term to guess solution */
 
 
-		pG->U[k][j][i].M1 += ShearSource[0];
-		pG->U[k][j][i].M2 += ShearSource[1];
-		pG->U[k][j][i].M3 += ShearSource[2];
-		pG->U[k][j][i].E += ShearSource[3];
+  pG->U[k][j][i].M1 += ShearSource[0];
+  pG->U[k][j][i].M2 += ShearSource[1];
+  pG->U[k][j][i].M3 += ShearSource[2];
+  pG->U[k][j][i].E += ShearSource[3];
 
 
 #endif /* SHEARING_BOX */
 
   if (StaticGravPot != NULL){
-    	cc_pos(pG,i,j,k,&x1,&x2,&x3);
-   	phic = (*StaticGravPot)((x1            ),x2,x3);
-        phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
-        phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
+    cc_pos(pG,i,j,k,&x1,&x2,&x3);
+    phic = (*StaticGravPot)((x1            ),x2,x3);
+    phir = (*StaticGravPot)((x1+0.5*pG->dx1),x2,x3);
+    phil = (*StaticGravPot)((x1-0.5*pG->dx1),x2,x3);
 
-	/* x direction */
+/* x direction */
 
-	pG->U[k][j][i].M1 -= dtodx1 * dhalfP[k][j][i]*(phir-phil);
-        pG->U[k][j][i].E  -= dtodx1 * (x1FluxP[k][j][i  ].d*(phic - phil) +
-		x1FluxP[k][j][i+1].d*(phir - phic));			
+    pG->U[k][j][i].M1 -= dtodx1 * dhalfP[k][j][i]*(phir-phil);
+    pG->U[k][j][i].E  -= dtodx1 * (x1FluxP[k][j][i  ].d*(phic - phil) +
+                                   x1FluxP[k][j][i+1].d*(phir - phic));
 
-	/* y direction */
-			
-        phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
-        phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
+/* y direction */
 
-        pG->U[k][j][i].M2 -= dtodx2 * dhalfP[k][j][i]*(phir-phil);
-        pG->U[k][j][i].E  -= dtodx2 * (x2FluxP[k][j  ][i].d*(phic - phil) +
-                               	     x2FluxP[k][j+1][i].d*(phir - phic));
-	/* z direction */
-	phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
-        phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+    phir = (*StaticGravPot)(x1,(x2+0.5*pG->dx2),x3);
+    phil = (*StaticGravPot)(x1,(x2-0.5*pG->dx2),x3);
 
-	pG->U[k][j][i].M3 -= dtodx3 * dhalfP[k][j][i]*(phir-phil);
-        pG->U[k][j][i].E  -= dtodx3 * (x3FluxP[k][j  ][i].d*(phic - phil) +
-        	     x3FluxP[k + 1][j][i].d*(phir - phic));	
+    pG->U[k][j][i].M2 -= dtodx2 * dhalfP[k][j][i]*(phir-phil);
+    pG->U[k][j][i].E  -= dtodx2 * (x2FluxP[k][j  ][i].d*(phic - phil) +
+                                   x2FluxP[k][j+1][i].d*(phir - phic));
+/* z direction */
+    phir = (*StaticGravPot)(x1,x2,(x3+0.5*pG->dx3));
+    phil = (*StaticGravPot)(x1,x2,(x3-0.5*pG->dx3));
+
+    pG->U[k][j][i].M3 -= dtodx3 * dhalfP[k][j][i]*(phir-phil);
+    pG->U[k][j][i].E  -= dtodx3 * (x3FluxP[k][j  ][i].d*(phic - phil) +
+                                   x3FluxP[k + 1][j][i].d*(phir - phic));
   }
 /* Add radiation momentum source term seperately as first orer */
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	/* Part of momentum source term */
-	/* Use unpdated gas quantities */
-	density = INIdata[k][j][i][0];
+/* Part of momentum source term */
+/* Use unpdated gas quantities */
+  density = INIdata[k][j][i][0];
 
-	velocity_x = INIdata[k][j][i][1] / density;
-	velocity_y = INIdata[k][j][i][2] / density;
+  velocity_x = INIdata[k][j][i][1] / density;
+  velocity_y = INIdata[k][j][i][2] / density;
 #ifdef FARGO
-				
-		/* With FARGO, we should add background shearing to the source terms */
-	cc_pos(pG,i,j,k,&x1,&x2,&x3);
-	velocity_y -= qom * x1;			
-				
-#endif	
-	velocity_z = INIdata[k][j][i][3] / density;
 
-	pressure = INIdata[k][j][i][5];
-	Temperature = pressure / (density * R_ideal);
+/* With FARGO, we should add background shearing to the source terms */
+  cc_pos(pG,i,j,k,&x1,&x2,&x3);
+  velocity_y -= qom * x1;
 
-	Sigma_sF = pG->U[k][j][i].Sigma[0];
-	Sigma_aF = pG->U[k][j][i].Sigma[1];
-	Sigma_aP = pG->U[k][j][i].Sigma[2];
-	Sigma_aE = pG->U[k][j][i].Sigma[3];
+#endif
+  velocity_z = INIdata[k][j][i][3] / density;
 
-	diffTEr = Sigma_aP * pow(Temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er; 
+  pressure = INIdata[k][j][i][5];
+  Temperature = pressure / (density * R_ideal);
 
-	SFmx = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_11) * pG->U[k][j][i].Er / (density * Crat); 
-	SFmy = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_22) * pG->U[k][j][i].Er / (density * Crat); 
-	SFmz = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_33) * pG->U[k][j][i].Er / (density * Crat); 
+  Sigma_sF = pG->U[k][j][i].Sigma[0];
+  Sigma_aF = pG->U[k][j][i].Sigma[1];
+  Sigma_aP = pG->U[k][j][i].Sigma[2];
+  Sigma_aE = pG->U[k][j][i].Sigma[3];
 
-	Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
-	Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
-	Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
-	
-	/* Part of radiation momentum source term is not included in Source */
-	/* We only need first order, we do not do the correct step */
-	pG->U[k][j][i].M1 += pG->dt * Source[k][j][i][1] / (1.0 + pG->dt * Prat * SFmx) + 0.5 * pG->dt * Smx0;
-	pG->U[k][j][i].M2 += pG->dt * Source[k][j][i][2] / (1.0 + pG->dt * Prat * SFmy) + 0.5 * pG->dt * Smy0;
-	pG->U[k][j][i].M3 += pG->dt * Source[k][j][i][3] / (1.0 + pG->dt * Prat * SFmz) + 0.5 * pG->dt * Smz0;
-	
-	/* First add radiation work term explicitly */
-	Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
-							+ pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er/Crat;
-	Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x
-							+ pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er/Crat;
-	Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x
-							+ pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er/Crat;
+  diffTEr = Sigma_aP * pow(Temperature, 4.0) - Sigma_aE * pG->U[k][j][i].Er;
 
-	Prwork = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
-	
-	/* First, add Prwork term explicitly */
-	pG->U[k][j][i].E  += pG->dt * Prwork;
+  SFmx = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_11) * pG->U[k][j][i].Er / (density * Crat);
+  SFmy = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_22) * pG->U[k][j][i].Er / (density * Crat);
+  SFmz = (Sigma_aF + Sigma_sF) * (1.0 + pG->U[k][j][i].Edd_33) * pG->U[k][j][i].Er / (density * Crat);
 
-	/* Then add Sigma(T4 - Er) implicitly */
-	TEr = pow(pG->U[k][j][i].Er, 0.25);
-	Ersum = pressure / (Gamma - 1.0) + Prat * pG->U[k][j][i].Er;
-	coef1 = pG->dt * Prat * Crat * Sigma_aP;
-	coef2 = density * R_ideal * (1.0 + pG->dt * Sigma_aE * Crat) / (Gamma - 1.0);
-	coef3 = -pressure / (Gamma - 1.0) - pG->dt * Sigma_aE * Crat * Ersum;
-	if(fabs(TEr - Temperature) < TINY_NUMBER){
-		pG->Ersource[k][j][i] = 0.0;
-		pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
-	}
-	else{
-		if(TEr < Temperature){
-			Temperature = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
-		}
-		else{
-		
-			Temperature = rtsafe(Tequilibrium, Temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
-		}
-		
-		 pG->U[k][j][i].E += (density * R_ideal * Temperature - pressure) / (Gamma - 1.0);
+  Smx0 = -Prat * velocity_x * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
+  Smy0 = -Prat * velocity_y * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
+  Smz0 = -Prat * velocity_z * (Sigma_aP * pG->Tguess[k][j][i] - Sigma_aE * pG->U[k][j][i].Er) / Crat;
 
-		 pG->Ersource[k][j][i] = -(density * R_ideal * Temperature - pressure) / (Prat * (Gamma - 1.0));
+/* Part of radiation momentum source term is not included in Source */
+/* We only need first order, we do not do the correct step */
+  pG->U[k][j][i].M1 += pG->dt * Source[k][j][i][1] / (1.0 + pG->dt * Prat * SFmx) + 0.5 * pG->dt * Smx0;
+  pG->U[k][j][i].M2 += pG->dt * Source[k][j][i][2] / (1.0 + pG->dt * Prat * SFmy) + 0.5 * pG->dt * Smy0;
+  pG->U[k][j][i].M3 += pG->dt * Source[k][j][i][3] / (1.0 + pG->dt * Prat * SFmz) + 0.5 * pG->dt * Smz0;
 
-		
-		pG->Tguess[k][j][i] = pow(Temperature, 4.0);
-		
-	
-	}
+/* First add radiation work term explicitly */
+  Fr0x = pG->U[k][j][i].Fr1 - ((1.0 + pG->U[k][j][i].Edd_11) * velocity_x + pG->U[k][j][i].Edd_21 * velocity_y
+                               + pG->U[k][j][i].Edd_31 * velocity_z) * pG->U[k][j][i].Er/Crat;
+  Fr0y = pG->U[k][j][i].Fr2 - ((1.0 + pG->U[k][j][i].Edd_22) * velocity_y + pG->U[k][j][i].Edd_21 * velocity_x
+                               + pG->U[k][j][i].Edd_32 * velocity_z) * pG->U[k][j][i].Er/Crat;
+  Fr0z = pG->U[k][j][i].Fr3 - ((1.0 + pG->U[k][j][i].Edd_33) * velocity_z + pG->U[k][j][i].Edd_31 * velocity_x
+                               + pG->U[k][j][i].Edd_32 * velocity_y) * pG->U[k][j][i].Er/Crat;
+
+  Prwork = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z);
+
+/* First, add Prwork term explicitly */
+  pG->U[k][j][i].E  += pG->dt * Prwork;
+
+/* Then add Sigma(T4 - Er) implicitly */
+  TEr = pow(pG->U[k][j][i].Er, 0.25);
+  Ersum = pressure / (Gamma - 1.0) + Prat * pG->U[k][j][i].Er;
+  coef1 = pG->dt * Prat * Crat * Sigma_aP;
+  coef2 = density * R_ideal * (1.0 + pG->dt * Sigma_aE * Crat) / (Gamma - 1.0);
+  coef3 = -pressure / (Gamma - 1.0) - pG->dt * Sigma_aE * Crat * Ersum;
+  if(fabs(TEr - Temperature) < TINY_NUMBER){
+    pG->Ersource[k][j][i] = 0.0;
+    pG->Tguess[k][j][i] = pG->U[k][j][i].Er;
+  }
+  else{
+    if(TEr < Temperature){
+      Temperature = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Temperature * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
+    }
+    else{
+
+      Temperature = rtsafe(Tequilibrium, Temperature * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-14, coef1, coef2, coef3, 0.0);
+    }
+
+    pG->U[k][j][i].E += (density * R_ideal * Temperature - pressure) / (Gamma - 1.0);
+
+    pG->Ersource[k][j][i] = -(density * R_ideal * Temperature - pressure) / (Prat * (Gamma - 1.0));
+
+
+    pG->Tguess[k][j][i] = pow(Temperature, 4.0);
+
+
+  }
 #endif
 
 }
 
 
 /* Use to correct flux of neighbor cells */
-static void ApplyCorr2(GridS *pG, int i, int j, int k, 
-                      int lx1, int rx1, int lx2, int rx2, int lx3, int rx3)
+static void ApplyCorr2(GridS *pG, int i, int j, int k,
+                       int lx1, int rx1, int lx2, int rx2, int lx3, int rx3)
 {
   Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real x1,x2,x3,phil,phir,phic;
@@ -6962,12 +6962,12 @@ static void ApplyCorr2(GridS *pG, int i, int j, int k,
 
 /* Now evolve M1n and dM2n by dt/2 using Forward Euler */
   M1e = q1*(rx1*x1FD_ip1.Mx - lx1*x1FD_i.Mx)
-      + q2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz)
-      + q3*(rx3*x3FD_kp1.My - lx3*x3FD_k.My);
+    + q2*(rx2*x2FD_jp1.Mz - lx2*x2FD_j.Mz)
+    + q3*(rx3*x3FD_kp1.My - lx3*x3FD_k.My);
 
   dM2e = q1*(rx1*frx1_dM2 - lx1*flx1_dM2)
-       + q2*(rx2*frx2_dM2 - lx2*flx2_dM2) 
-       + q3*(rx3*frx3_dM2 - lx3*flx3_dM2);
+    + q2*(rx2*frx2_dM2 - lx2*flx2_dM2)
+    + q3*(rx3*frx3_dM2 - lx3*flx3_dM2);
 
 /* Update the 1- and 2-momentum for the Coriolis and tidal
  * potential momentum source terms using a Crank-Nicholson
@@ -7067,35 +7067,35 @@ static void ApplyCorr2(GridS *pG, int i, int j, int k,
 
 
 #if defined(MHD) || defined(RADIATION_MHD)
-static void FixMHD(GridS *pG, int i, int j, int k, 
-                      int lx1, int rx1, int lx2, int rx2, int lx3, int rx3)
+static void FixMHD(GridS *pG, int i, int j, int k,
+                   int lx1, int rx1, int lx2, int rx2, int lx3, int rx3)
 {
- Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
+  Real dtodx1=pG->dt/pG->dx1, dtodx2=pG->dt/pG->dx2, dtodx3=pG->dt/pG->dx3;
   Real lsf=1.0,rsf=1.0;
 
 #ifdef CYLINDRICAL
   dtodx2 = pG->dt/(pG->ri[i]*pG->dx2);
 #endif
   pG->B1i[k][j][i  ] -= dtodx3*(rx3*emf2D_kp1i   - lx3*emf2D_ki) -
-                        dtodx2*(rx2*emf3D_jp1i   - lx2*emf3D_ji);
+    dtodx2*(rx2*emf3D_jp1i   - lx2*emf3D_ji);
 #ifdef CYLINDRICAL
   dtodx2 = pG->dt/(pG->ri[i+1]*pG->dx2);
 #endif
   pG->B1i[k][j][i+1] -= dtodx3*(rx3*emf2D_kp1ip1 - lx3*emf2D_kip1) -
-                        dtodx2*(rx2*emf3D_jp1ip1 - lx2*emf3D_jip1);
+    dtodx2*(rx2*emf3D_jp1ip1 - lx2*emf3D_jip1);
   pG->B2i[k][j  ][i] -= dtodx1*(rx1*emf3D_jip1   - lx1*emf3D_ji) -
-                        dtodx3*(rx3*emf1D_kp1j   - lx3*emf1D_kj);
+    dtodx3*(rx3*emf1D_kp1j   - lx3*emf1D_kj);
   pG->B2i[k][j+1][i] -= dtodx1*(rx1*emf3D_jp1ip1 - lx1*emf3D_jp1i) -
-                        dtodx3*(rx3*emf1D_kp1jp1 - lx3*emf1D_kjp1);
+    dtodx3*(rx3*emf1D_kp1jp1 - lx3*emf1D_kjp1);
 #ifdef CYLINDRICAL
   rsf = (rx1>0) ? pG->ri[i+1]/pG->r[i] : pG->ri[i  ]/pG->r[i];
   lsf = (lx1>0) ? pG->ri[i  ]/pG->r[i] : pG->ri[i+1]/pG->r[i];
   dtodx2 = pG->dt/(pG->r[i]*pG->dx2);
 #endif
   pG->B3i[k  ][j][i] -= dtodx2*(rx2*emf1D_kjp1   - lx2*emf1D_kj) -
-                        dtodx1*(rsf*rx1*emf2D_kip1   - lsf*lx1*emf2D_ki);
+    dtodx1*(rsf*rx1*emf2D_kip1   - lsf*lx1*emf2D_ki);
   pG->B3i[k+1][j][i] -= dtodx2*(rx2*emf1D_kp1jp1 - lx2*emf1D_kp1j) -
-                        dtodx1*(rsf*rx1*emf2D_kp1ip1 - lsf*lx1*emf2D_kp1i);
+    dtodx1*(rsf*rx1*emf2D_kp1ip1 - lsf*lx1*emf2D_kp1i);
 }
 
 #endif /* End MHD */
@@ -7103,10 +7103,10 @@ static void FixMHD(GridS *pG, int i, int j, int k,
 
 
 void FOFC_Flux(const Cons1DS Ul, const Cons1DS Ur,
-                   const Prim1DS Wl, const Prim1DS Wr,
-                   const Real Bxi, Cons1DS *pFlux)
+               const Prim1DS Wl, const Prim1DS Wr,
+               const Real Bxi, Cons1DS *pFlux)
 {
- Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
+  Real sqrtdl,sqrtdr,isdlpdr,droe,v1roe,v2roe,v3roe,pbl=0.0,pbr=0.0;
   Real asq,vaxsq=0.0,qsq,cfsq,cfl,cfr,bp,bm,ct2=0.0,tmp;
 #ifndef ISOTHERMAL
   Real hroe;
@@ -7153,7 +7153,7 @@ void FOFC_Flux(const Cons1DS Ul, const Cons1DS Ur,
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
   Proe = (sqrtdl*Wl.P + sqrtdr*Wr.P)*isdlpdr;
   for(m=0;m<NOPACITY;m++){
-	Sigma_roe[m] = (sqrtdl*Wl.Sigma[m] + sqrtdr*Wr.Sigma[m] )*isdlpdr;
+    Sigma_roe[m] = (sqrtdl*Wl.Sigma[m] + sqrtdr*Wr.Sigma[m] )*isdlpdr;
   }
 
   Erroe = (sqrtdl*Wl.Er + sqrtdr*Wr.Er)*isdlpdr;
@@ -7202,22 +7202,22 @@ void FOFC_Flux(const Cons1DS Ul, const Cons1DS Ur,
 
 #if defined(MHD) || defined(RADIATION_MHD)
 #ifdef ISOTHERMAL
- esys_roe_iso_mhd(droe,v1roe,v2roe,v3roe,     Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
+  esys_roe_iso_mhd(droe,v1roe,v2roe,v3roe,     Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #else
- esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
+  esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #endif /* ISOTHERMAL */
 #endif /* MHD */
 
 /****************************
- radiation hydro and radiation mhd 
- *****************************/
+ radiation hydro and radiation mhd
+*****************************/
 
 #ifdef RADIATION_HYDRO
- esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM, ev, NULL, NULL);
+  esys_roe_rad_hyd(v1roe, v2roe, v3roe, hroe, dt, Proe, Erroe, Frroe, Edd, Sigma_roe, DIM, ev, NULL, NULL);
 #endif
 
 #ifdef RADIATION_MHD
-esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
+  esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #endif
 
 /*--- Step 4. ------------------------------------------------------------------
@@ -7226,14 +7226,14 @@ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 
 /* left state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  
- asq = eff_sound(Wl,dt,DIM);
+
+  asq = eff_sound(Wl,dt,DIM);
 /*
   asq = sqrt(Gamma * Wl.P / Wl.d);
 */
   asq = asq * asq;
 
-#else 
+#else
 
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
@@ -7255,11 +7255,11 @@ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 
 /* right state */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  
- asq = eff_sound(Wr,dt,DIM);
+
+  asq = eff_sound(Wr,dt,DIM);
 /*
   asq = sqrt(Gamma * Wr.P / Wr.d);
-*/	
+*/
   asq = asq * asq;
 
 #else
@@ -7267,7 +7267,7 @@ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #ifdef ISOTHERMAL
   asq = Iso_csound2;
 #else
-  asq = Gamma*Wr.P/Wr.d; 
+  asq = Gamma*Wr.P/Wr.d;
 #endif
 
 #endif /* radiation hydro and mhd */
@@ -7324,7 +7324,7 @@ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 
   Fl.My -= Bxi*Wl.By;
   Fr.My -= Bxi*Wr.By;
-    
+
   Fl.Mz -= Bxi*Wl.Bz;
   Fr.Mz -= Bxi*Wr.Bz;
 
@@ -7373,7 +7373,7 @@ esys_roe_adb_mhd(droe,v1roe,v2roe,v3roe,hroe,Bxi,b2roe,b3roe,x,y,ev,NULL,NULL);
 #ifdef CYLINDRICAL
   n = NWAVE+NSCALARS;
   pF[n] = 0.5*(pFl[n] + pFr[n]) + (pFl[n] - pFr[n])*tmp;
-#endif 
+#endif
 
   return;
 }

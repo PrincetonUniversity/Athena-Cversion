@@ -2,8 +2,8 @@
 /*==============================================================================
  * FILE: Jacobi3D.c
  *
- * PURPOSE: Use Jacobi method to solve matrix in 3D case. 
- * 
+ * PURPOSE: Use Jacobi method to solve matrix in 3D case.
+ *
  *
  *============================================================================*/
 
@@ -17,7 +17,7 @@
 #include "../prototypes.h"
 #include "../../prototypes.h"
 
-#ifdef MATRIX_MULTIGRID 
+#ifdef MATRIX_MULTIGRID
 
 #if defined(RADIATIONMHD_INTEGRATOR)
 #ifdef SPECIAL_RELATIVITY
@@ -36,180 +36,180 @@ extern void bvals_Matrix(MatrixS *pMat);
 void GaussSeidel3D(MatrixS *pMat, Real ****theta,  Real ****phi,  Real ****psi,  Real ****varphi)
 {
 
-	int i, j, k, n;
-	int is, ie, js, je, ks, ke;
-	is = pMat->is;
-	ie = pMat->ie;
-	js = pMat->js;
-	je = pMat->je;
-	ks = pMat->ks;
-	ke = pMat->ke;
+  int i, j, k, n;
+  int is, ie, js, je, ks, ke;
+  is = pMat->is;
+  ie = pMat->ie;
+  js = pMat->js;
+  je = pMat->je;
+  ks = pMat->ks;
+  ke = pMat->ke;
 
-	
-	Real tempEr1, tempEr2, tempEr3;
-	Real tempFr1, tempFr2, tempFr3, temp0;
 
-	/* damped parameter */
-	Real omega, Ert0, Frt0;
-	omega = 0.4;
+  Real tempEr1, tempEr2, tempEr3;
+  Real tempFr1, tempFr2, tempFr3, temp0;
+
+/* damped parameter */
+  Real omega, Ert0, Frt0;
+  omega = 0.4;
 #ifdef FLD
-	omega = 1.0;
+  omega = 1.0;
 #endif
-	
+
 
 /* Hardware to Ncycle */
-for(n=0; n<Ncycle; n++){
+  for(n=0; n<Ncycle; n++){
 
-	for(k=ks; k<=ke; k++)
-		for(j=js; j<=je; j++)
-			for(i=is; i<=ie; i++){
+    for(k=ks; k<=ke; k++)
+      for(j=js; j<=je; j++)
+        for(i=is; i<=ie; i++){
 
-		/* Only need to set the elements once, at the beginning */
-		/* The right hand side is stored in pMat */
-		/* The coefficients are calculated according to the formula */
-				
-				
+/* Only need to set the elements once, at the beginning */
+/* The right hand side is stored in pMat */
+/* The coefficients are calculated according to the formula */
+
+
 #ifdef FLD
-				
-			/* For Er */
-			Ert0 = pMat->U[k][j][i].Er;
-			pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
-				
-			tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][6] * pMat->U[k+1][j][i].Er;
-			tempEr2 = theta[k][j][i][1] * pMat->U[k][j-1][i].Er + theta[k][j][i][5] * pMat->U[k][j+1][i].Er;
-			tempEr1 = theta[k][j][i][2] * pMat->U[k][j][i-1].Er + theta[k][j][i][4] * pMat->U[k][j][i+1].Er;
-				
-				
-				
-			pMat->U[k][j][i].Er -= (tempEr1 + tempEr2 + tempEr3);
-				
-				
-			/* diagonal elements are not included */
-				
-			pMat->U[k][j][i].Er /= theta[k][j][i][3];
-				
-			pMat->U[k][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[k][j][i].Er;
-				
-				/*****************************************************/
-				
-				
-				
+
+/* For Er */
+          Ert0 = pMat->U[k][j][i].Er;
+          pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
+
+          tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][6] * pMat->U[k+1][j][i].Er;
+          tempEr2 = theta[k][j][i][1] * pMat->U[k][j-1][i].Er + theta[k][j][i][5] * pMat->U[k][j+1][i].Er;
+          tempEr1 = theta[k][j][i][2] * pMat->U[k][j][i-1].Er + theta[k][j][i][4] * pMat->U[k][j][i+1].Er;
+
+
+
+          pMat->U[k][j][i].Er -= (tempEr1 + tempEr2 + tempEr3);
+
+
+/* diagonal elements are not included */
+
+          pMat->U[k][j][i].Er /= theta[k][j][i][3];
+
+          pMat->U[k][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[k][j][i].Er;
+
+/*****************************************************/
+
+
+
 #else
 
-			/* The diagonal elements are theta[6], phi[7], psi[7], varphi[7] */
-		
-			/* For Er */
-			Ert0 = pMat->U[k][j][i].Er;
-			pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
+/* The diagonal elements are theta[6], phi[7], psi[7], varphi[7] */
 
-			tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][14] * pMat->U[k+1][j][i].Er;
-			tempEr2 = theta[k][j][i][2] * pMat->U[k][j-1][i].Er + theta[k][j][i][12] * pMat->U[k][j+1][i].Er;
-			tempEr1 = theta[k][j][i][4] * pMat->U[k][j][i-1].Er + theta[k][j][i][10] * pMat->U[k][j][i+1].Er;
+/* For Er */
+          Ert0 = pMat->U[k][j][i].Er;
+          pMat->U[k][j][i].Er  = pMat->RHS[k][j][i][0];
 
-			tempFr3 = theta[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + theta[k][j][i][15] * pMat->U[k+1][j][i].Fr3;
-			tempFr2 = theta[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + theta[k][j][i][13] * pMat->U[k][j+1][i].Fr2;
-			tempFr1 = theta[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + theta[k][j][i][11] * pMat->U[k][j][i+1].Fr1;
+          tempEr3 = theta[k][j][i][0] * pMat->U[k-1][j][i].Er + theta[k][j][i][14] * pMat->U[k+1][j][i].Er;
+          tempEr2 = theta[k][j][i][2] * pMat->U[k][j-1][i].Er + theta[k][j][i][12] * pMat->U[k][j+1][i].Er;
+          tempEr1 = theta[k][j][i][4] * pMat->U[k][j][i-1].Er + theta[k][j][i][10] * pMat->U[k][j][i+1].Er;
 
-			temp0 = theta[k][j][i][7] * pMat->U[k][j][i].Fr1 + theta[k][j][i][8] * pMat->U[k][j][i].Fr2 + theta[k][j][i][9] * pMat->U[k][j][i].Fr3;
+          tempFr3 = theta[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + theta[k][j][i][15] * pMat->U[k+1][j][i].Fr3;
+          tempFr2 = theta[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + theta[k][j][i][13] * pMat->U[k][j+1][i].Fr2;
+          tempFr1 = theta[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + theta[k][j][i][11] * pMat->U[k][j][i+1].Fr1;
 
-			pMat->U[k][j][i].Er -= ((tempEr1 + tempEr2 + tempEr3));
-			pMat->U[k][j][i].Er -= ((tempFr1 + tempFr2 + tempFr3) + temp0);
+          temp0 = theta[k][j][i][7] * pMat->U[k][j][i].Fr1 + theta[k][j][i][8] * pMat->U[k][j][i].Fr2 + theta[k][j][i][9] * pMat->U[k][j][i].Fr3;
 
-			/* diagonal elements are not included */
+          pMat->U[k][j][i].Er -= ((tempEr1 + tempEr2 + tempEr3));
+          pMat->U[k][j][i].Er -= ((tempFr1 + tempFr2 + tempFr3) + temp0);
 
-			pMat->U[k][j][i].Er /= theta[k][j][i][6];
-	
-			pMat->U[k][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[k][j][i].Er;
+/* diagonal elements are not included */
 
-			/*****************************************************/
-			/* For Fr1 */
+          pMat->U[k][j][i].Er /= theta[k][j][i][6];
 
-			Frt0 = pMat->U[k][j][i].Fr1;
+          pMat->U[k][j][i].Er = (1.0 - omega) * Ert0 + omega * pMat->U[k][j][i].Er;
 
-			pMat->U[k][j][i].Fr1  = pMat->RHS[k][j][i][1];
+/*****************************************************/
+/* For Fr1 */
 
-			tempEr3 = phi[k][j][i][0] * pMat->U[k-1][j][i].Er + phi[k][j][i][12] * pMat->U[k+1][j][i].Er;
-			tempEr2 = phi[k][j][i][2] * pMat->U[k][j-1][i].Er + phi[k][j][i][10] * pMat->U[k][j+1][i].Er;
-			tempEr1 = phi[k][j][i][4] * pMat->U[k][j][i-1].Er + phi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+          Frt0 = pMat->U[k][j][i].Fr1;
 
-			tempFr3 = phi[k][j][i][1] * pMat->U[k-1][j][i].Fr1 + phi[k][j][i][13] * pMat->U[k+1][j][i].Fr1;
-			tempFr2 = phi[k][j][i][3] * pMat->U[k][j-1][i].Fr1 + phi[k][j][i][11] * pMat->U[k][j+1][i].Fr1;
-			tempFr1 = phi[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + phi[k][j][i][9] * pMat->U[k][j][i+1].Fr1;
+          pMat->U[k][j][i].Fr1  = pMat->RHS[k][j][i][1];
 
-			temp0 = phi[k][j][i][6] * pMat->U[k][j][i].Er;
+          tempEr3 = phi[k][j][i][0] * pMat->U[k-1][j][i].Er + phi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+          tempEr2 = phi[k][j][i][2] * pMat->U[k][j-1][i].Er + phi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+          tempEr1 = phi[k][j][i][4] * pMat->U[k][j][i-1].Er + phi[k][j][i][8] * pMat->U[k][j][i+1].Er;
 
-			
-			pMat->U[k][j][i].Fr1 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+          tempFr3 = phi[k][j][i][1] * pMat->U[k-1][j][i].Fr1 + phi[k][j][i][13] * pMat->U[k+1][j][i].Fr1;
+          tempFr2 = phi[k][j][i][3] * pMat->U[k][j-1][i].Fr1 + phi[k][j][i][11] * pMat->U[k][j+1][i].Fr1;
+          tempFr1 = phi[k][j][i][5] * pMat->U[k][j][i-1].Fr1 + phi[k][j][i][9] * pMat->U[k][j][i+1].Fr1;
 
-			pMat->U[k][j][i].Fr1 /= phi[k][j][i][7];
-
-			pMat->U[k][j][i].Fr1 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr1;
-
-			/**************************************************/
-
-			/* For Fr2 */
-
-			Frt0 = pMat->U[k][j][i].Fr2;
-
-			pMat->U[k][j][i].Fr2  = pMat->RHS[k][j][i][2];
+          temp0 = phi[k][j][i][6] * pMat->U[k][j][i].Er;
 
 
-			tempEr3 = psi[k][j][i][0] * pMat->U[k-1][j][i].Er + psi[k][j][i][12] * pMat->U[k+1][j][i].Er;
-			tempEr2 = psi[k][j][i][2] * pMat->U[k][j-1][i].Er + psi[k][j][i][10] * pMat->U[k][j+1][i].Er;
-			tempEr1 = psi[k][j][i][4] * pMat->U[k][j][i-1].Er + psi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+          pMat->U[k][j][i].Fr1 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
 
-			tempFr3 = psi[k][j][i][1] * pMat->U[k-1][j][i].Fr2 + psi[k][j][i][13] * pMat->U[k+1][j][i].Fr2;
-			tempFr2 = psi[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + psi[k][j][i][11] * pMat->U[k][j+1][i].Fr2;
-			tempFr1 = psi[k][j][i][5] * pMat->U[k][j][i-1].Fr2 + psi[k][j][i][9] * pMat->U[k][j][i+1].Fr2;
+          pMat->U[k][j][i].Fr1 /= phi[k][j][i][7];
 
-			temp0 = psi[k][j][i][6] * pMat->U[k][j][i].Er;
+          pMat->U[k][j][i].Fr1 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr1;
 
-			
-			pMat->U[k][j][i].Fr2 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+/**************************************************/
 
-			pMat->U[k][j][i].Fr2 /= psi[k][j][i][7];
+/* For Fr2 */
 
-			pMat->U[k][j][i].Fr2 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr2;
-	
-			/***************************************************/
-			/* For Fr3 */
+          Frt0 = pMat->U[k][j][i].Fr2;
 
-			Frt0 = pMat->U[k][j][i].Fr3;
-
-			pMat->U[k][j][i].Fr3  = pMat->RHS[k][j][i][3];
+          pMat->U[k][j][i].Fr2  = pMat->RHS[k][j][i][2];
 
 
-			tempEr3 = varphi[k][j][i][0] * pMat->U[k-1][j][i].Er + varphi[k][j][i][12] * pMat->U[k+1][j][i].Er;
-			tempEr2 = varphi[k][j][i][2] * pMat->U[k][j-1][i].Er + varphi[k][j][i][10] * pMat->U[k][j+1][i].Er;
-			tempEr1 = varphi[k][j][i][4] * pMat->U[k][j][i-1].Er + varphi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+          tempEr3 = psi[k][j][i][0] * pMat->U[k-1][j][i].Er + psi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+          tempEr2 = psi[k][j][i][2] * pMat->U[k][j-1][i].Er + psi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+          tempEr1 = psi[k][j][i][4] * pMat->U[k][j][i-1].Er + psi[k][j][i][8] * pMat->U[k][j][i+1].Er;
 
-			tempFr3 = varphi[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + varphi[k][j][i][13] * pMat->U[k+1][j][i].Fr3;
-			tempFr2 = varphi[k][j][i][3] * pMat->U[k][j-1][i].Fr3 + varphi[k][j][i][11] * pMat->U[k][j+1][i].Fr3;
-			tempFr1 = varphi[k][j][i][5] * pMat->U[k][j][i-1].Fr3 + varphi[k][j][i][9] * pMat->U[k][j][i+1].Fr3;
+          tempFr3 = psi[k][j][i][1] * pMat->U[k-1][j][i].Fr2 + psi[k][j][i][13] * pMat->U[k+1][j][i].Fr2;
+          tempFr2 = psi[k][j][i][3] * pMat->U[k][j-1][i].Fr2 + psi[k][j][i][11] * pMat->U[k][j+1][i].Fr2;
+          tempFr1 = psi[k][j][i][5] * pMat->U[k][j][i-1].Fr2 + psi[k][j][i][9] * pMat->U[k][j][i+1].Fr2;
 
-			temp0 = varphi[k][j][i][6] * pMat->U[k][j][i].Er;
-
-			
-			pMat->U[k][j][i].Fr3 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
-
-			pMat->U[k][j][i].Fr3 /= varphi[k][j][i][7];
-
-			pMat->U[k][j][i].Fr3 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr3;
-				
-#endif /* FLD */				
-
-	}
-			
-		
-	/* Update the boundary cells */
-	bvals_Matrix(pMat);
+          temp0 = psi[k][j][i][6] * pMat->U[k][j][i].Er;
 
 
-}	  
-	
+          pMat->U[k][j][i].Fr2 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
 
-	return;	
-	
+          pMat->U[k][j][i].Fr2 /= psi[k][j][i][7];
+
+          pMat->U[k][j][i].Fr2 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr2;
+
+/***************************************************/
+/* For Fr3 */
+
+          Frt0 = pMat->U[k][j][i].Fr3;
+
+          pMat->U[k][j][i].Fr3  = pMat->RHS[k][j][i][3];
+
+
+          tempEr3 = varphi[k][j][i][0] * pMat->U[k-1][j][i].Er + varphi[k][j][i][12] * pMat->U[k+1][j][i].Er;
+          tempEr2 = varphi[k][j][i][2] * pMat->U[k][j-1][i].Er + varphi[k][j][i][10] * pMat->U[k][j+1][i].Er;
+          tempEr1 = varphi[k][j][i][4] * pMat->U[k][j][i-1].Er + varphi[k][j][i][8] * pMat->U[k][j][i+1].Er;
+
+          tempFr3 = varphi[k][j][i][1] * pMat->U[k-1][j][i].Fr3 + varphi[k][j][i][13] * pMat->U[k+1][j][i].Fr3;
+          tempFr2 = varphi[k][j][i][3] * pMat->U[k][j-1][i].Fr3 + varphi[k][j][i][11] * pMat->U[k][j+1][i].Fr3;
+          tempFr1 = varphi[k][j][i][5] * pMat->U[k][j][i-1].Fr3 + varphi[k][j][i][9] * pMat->U[k][j][i+1].Fr3;
+
+          temp0 = varphi[k][j][i][6] * pMat->U[k][j][i].Er;
+
+
+          pMat->U[k][j][i].Fr3 -= ((tempEr1 + tempEr2 + tempEr3) + (tempFr1 + tempFr2 + tempFr3) + temp0);
+
+          pMat->U[k][j][i].Fr3 /= varphi[k][j][i][7];
+
+          pMat->U[k][j][i].Fr3 = (1.0 - omega) * Frt0 + omega * pMat->U[k][j][i].Fr3;
+
+#endif /* FLD */
+
+        }
+
+
+/* Update the boundary cells */
+    bvals_Matrix(pMat);
+
+
+  }
+
+
+  return;
+
 }
 
 

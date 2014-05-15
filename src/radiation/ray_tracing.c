@@ -10,7 +10,7 @@
  * of radiation at ix1 boundary.  Currently assumes nu and nu_rt grids are
  * equivalent.
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  *   ray_trace()                    - compute external radiation
  *   init_ray_tracing()             - memory allocation for ray tracing module
  *   destruct_ray_tracing()         - free up memmory used by ray tracing module
@@ -62,9 +62,9 @@ void ray_trace(DomainS *pD, const int outflag)
   MPI_Status status;
 #endif
 
-  if (outflag == 0) 
+  if (outflag == 0)
     pRG = pD->RadGrid;    /* set ptr to RadGrid */
-  else 
+  else
     pRG = pD->RadOutGrid; /* set ptr to RadOutGrid */
 
   nf_rt = pRG->nf_rt;
@@ -74,7 +74,7 @@ void ray_trace(DomainS *pD, const int outflag)
   kl = pRG->ks; ku = pRG->ke;
 
   if (pRG->Nx[1] > 1) {
-    jl--; ju++; 
+    jl--; ju++;
   }
   if (pRG->Nx[2] > 1) {
     kl--; ku++;
@@ -85,73 +85,74 @@ void ray_trace(DomainS *pD, const int outflag)
   if(pRG->lx1_id >= 0) {
 /* set LHS values to 1.0 */
     for(ifr=0; ifr<nf_rt; ifr++) {
-      for(k=kl; k<=ku; k++) { 
-	for(j=jl; j<=ju; j++) {
-	  pRG->H[ifr][k][j][il] = 1.0;
-	}}}
+      for(k=kl; k<=ku; k++) {
+        for(j=jl; j<=ju; j++) {
+          pRG->H[ifr][k][j][il] = 1.0;
+        }}}
   }
- 
+
 /* compute the attenuation across the grid */
    attenuate(pRG);
- 
-/* if left most grid send data immediately */  
+
+/* if left most grid send data immediately */
    if (pRG->lx1_id < 0) {
      if (pRG->rx1_id >= 0) {
 /* pack flux into send buffer */
        pSnd = send_buf;
        for(ifr=0; ifr<nf_rt; ifr++) {
-	 for (k=kl; k<=ku; k++) {
-	   for (j=jl; j<=ju; j++) {
-	     *(pSnd++) = pRG->H[ifr][k][j][ie];  
-	   }}}
+         for (k=kl; k<=ku; k++) {
+           for (j=jl; j<=ju; j++) {
+             *(pSnd++) = pRG->H[ifr][k][j][ie];
+           }}}
 /* send data to right grid */
        ierr = MPI_Send(send_buf,buf_size,MPI_DOUBLE,pRG->rx1_id,LtoR_tag,
-		       pD->Comm_Domain);
+                       pD->Comm_Domain);
      }
    } else {
-   
+
 /* receive data from left grid */
      ierr = MPI_Recv(recv_buf,buf_size,MPI_DOUBLE,pRG->lx1_id,LtoR_tag,
-		     pD->Comm_Domain,&status);
+                     pD->Comm_Domain,&status);
 
 /* unpack flux from receive buffer */
      pRcv = recv_buf;
      for(ifr=0; ifr<nf_rt; ifr++) {
        for (k=kl; k<=ku; k++) {
-	 for (j=jl; j<=ju; j++) {
-	   pRG->H[ifr][k][j][il] = *(pRcv++);
-	 }}}
+         for (j=jl; j<=ju; j++) {
+           pRG->H[ifr][k][j][il] = *(pRcv++);
+         }}}
 
-/* if grid on right, pack and send data */ 
+/* if grid on right, pack and send data */
      if (pRG->rx1_id >= 0) {
 
 /* rescale right boundary flux and pack into send buffer */
        pSnd = send_buf;
        for(ifr=0; ifr<nf_rt; ifr++) {
-	 for(k=kl; k<=ku; k++) { 
-	   for(j=jl; j<=ju; j++) {
-	     *(pSnd++) = pRG->H[ifr][k][j][ie] * pRG->H[ifr][k][j][il];
-	 }}}
+         for(k=kl; k<=ku; k++) {
+           for(j=jl; j<=ju; j++) {
+             *(pSnd++) = pRG->H[ifr][k][j][ie] * pRG->H[ifr][k][j][il];
+         }}}
 
 /* send data to right grid */
        ierr = MPI_Send(send_buf,buf_size,MPI_DOUBLE,pRG->rx1_id,LtoR_tag,
-		       pD->Comm_Domain);
+                       pD->Comm_Domain);
      }
 
 /* rescale flux throughout the volume */
      for(ifr=0; ifr<nf_rt; ifr++) {
-       for(k=kl; k<=ku; k++) { 
-	 for(j=jl; j<=ju; j++) {
-	   for(i=is; i<=ie; i++) {
-	     pRG->H[ifr][k][j][i] *= pRG->H[ifr][k][j][il];
-	     S_rt[ifr][k][j][i] *= pRG->H[ifr][k][j][il];
-	   }
-	   S_rt[ifr][k][j][il] *= pRG->H[ifr][k][j][il];
-	   S_rt[ifr][k][j][ie+1] *= pRG->H[ifr][k][j][il];
-	 }}}
+       for(k=kl; k<=ku; k++) {
+         for(j=jl; j<=ju; j++) {
+           for(i=is; i<=ie; i++) {
+             pRG->H[ifr][k][j][i] *= pRG->H[ifr][k][j][il];
+             S_rt[ifr][k][j][i] *= pRG->H[ifr][k][j][il];
+           }
+           S_rt[ifr][k][j][il] *= pRG->H[ifr][k][j][il];
+           S_rt[ifr][k][j][ie+1] *= pRG->H[ifr][k][j][il];
+         }}}
    }
 #else
-/* Only need to compute the attenuation across the grid for serial computation */
+/* Only need to compute the attenuation across the grid for serial
+ * computation */
    attenuate(pRG);
 #endif
 
@@ -159,13 +160,13 @@ void ray_trace(DomainS *pD, const int outflag)
    for(ifr=0; ifr<pRG->nf; ifr++) {
      for(ifr0=0; ifr0<pRG->nf_rt; ifr0++) {
 /* distribute ray tracing freqs. appropriate freq. in S, Snt */
-       rtcnv = raytrace_to_radtrans(pRG,ifr0,ifr); 
-       for(k=kl; k<=ku; k++) { 
-	 for(j=jl; j<=ju; j++) {
-	   for(i=is; i<=ie; i++) {
-	     pRG->R[ifr][k][j][i].S += rtcnv * S_rt[ifr0][k][j][i];
-	     pRG->R[ifr][k][j][i].Snt = rtcnv * S_rt[ifr0][k][j][i];
-	   }}}
+       rtcnv = raytrace_to_radtrans(pRG,ifr0,ifr);
+       for(k=kl; k<=ku; k++) {
+         for(j=jl; j<=ju; j++) {
+           for(i=is; i<=ie; i++) {
+             pRG->R[ifr][k][j][i].S += rtcnv * S_rt[ifr0][k][j][i];
+             pRG->R[ifr][k][j][i].Snt = rtcnv * S_rt[ifr0][k][j][i];
+           }}}
      }
    }
 
@@ -174,7 +175,7 @@ void ray_trace(DomainS *pD, const int outflag)
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void init_ray_tracing(RadGridS *pRG)
- *  Initalizes communication buffers and allocates memory for 
+ *  Initalizes communication buffers and allocates memory for
  *  working arrays used by ray_tracing algorithms */
 void init_ray_tracing(RadGridS *pRG)
 {
@@ -188,7 +189,7 @@ void init_ray_tracing(RadGridS *pRG)
   if (pRG->wnu_rt == NULL) goto on_error2;
   if (pRG->nf_rt == 1) pRG->wnu_rt[0] = 1.0;
   pRG->H = (Real ****)calloc_4d_array(pRG->nf_rt,pRG->Nx[2]+2,
-				      pRG->Nx[1]+2,pRG->Nx[0]+2,sizeof(Real));
+                                      pRG->Nx[1]+2,pRG->Nx[0]+2,sizeof(Real));
   if (pRG->H == NULL) goto on_error3;
 
 #ifdef MPI_PARALLEL
@@ -218,7 +219,7 @@ void init_ray_tracing(RadGridS *pRG)
  on_error3:
   free_4d_array(pRG->H);
  on_error2:
-  free_1d_array(pRG->wnu_rt);  
+  free_1d_array(pRG->wnu_rt);
  on_error1:
   free_1d_array(pRG->nu_rt);
 
@@ -251,9 +252,9 @@ void destruct_ray_tracing(RadGridS *pRG)
  */
 Real raytrace_to_radtrans_default(RadGridS *pRG, int ifray, int ifrad)
 {
-  if (ifray == ifrad) 
-    return 1.0; 
-  else 
+  if (ifray == ifrad)
+    return 1.0;
+  else
     return 0.0;
 }
 
@@ -267,7 +268,7 @@ void attenuate(RadGridS *pRG)
 {
   GridS *pG=(pRG->pG);
   int i, j, k;
-  int is = pRG->is, ie = pRG->ie; 
+  int is = pRG->is, ie = pRG->ie;
   int jl = pRG->js, ju = pRG->je;
   int kl = pRG->ks, ku = pRG->ke;
   int nf_rt = pRG->nf_rt, ifr;
@@ -280,38 +281,38 @@ void attenuate(RadGridS *pRG)
     ioff = nghost - 1;
   } else ioff = 0;
   if (pG->Nx[1] > 1) {
-    joff = nghost - 1; jl--; ju++; 
-  } else joff = 0; 
+    joff = nghost - 1; jl--; ju++;
+  } else joff = 0;
   if (pG->Nx[2] > 1) {
     koff = nghost - 1; kl--; ku++;
   } else koff = 0;
 
-  for(ifr=0; ifr<nf_rt; ifr++) 
-    for(k=kl; k<=ku; k++) { 
+  for(ifr=0; ifr<nf_rt; ifr++)
+    for(k=kl; k<=ku; k++) {
       kg = k + koff;
       for(j=jl; j<=ju; j++) {
-	jg = j + joff;
-	chitm = get_raytrace_opacity(pG,ifr,is+ioff-1,jg,kg);
-	chit = get_raytrace_opacity(pG,ifr,is+ioff,jg,kg);
-	for(i=is; i<=ie; i++) {
-	  chitp = get_raytrace_opacity(pG,ifr,i+ioff+1,jg,kg);
-	  interp_quad_chi(chitm,chit,chitp,&dtau);
-	  dtau *= dx;
-	  if (dtau < TAUMIN) {
-	    dH = (1.0 - 0.5 * dtau);
-	    edtau = 1.0 - dtau;
-	  } else {
-	    edtau = exp(-dtau);
-	    dH = (1.0 - edtau) / dtau;	      
-	  }
-	  eps = get_raytrace_thermal_fraction(pG,ifr,i+ioff+1,jg,kg);
-	  S_rt[ifr][k][j][i] = dH * (1.0 - eps) * pRG->H[ifr][k][j][i-1];
-	  pRG->H[ifr][k][j][i] = pRG->H[ifr][k][j][i-1] * edtau;
-	  chitm = chit;
-	  chit = chitp;	 
-	}
-	S_rt[ifr][k][j][is-1] = S_rt[ifr][k][j][is];
-	S_rt[ifr][k][j][ie+1] = S_rt[ifr][k][j][ie];
+        jg = j + joff;
+        chitm = get_raytrace_opacity(pG,ifr,is+ioff-1,jg,kg);
+        chit = get_raytrace_opacity(pG,ifr,is+ioff,jg,kg);
+        for(i=is; i<=ie; i++) {
+          chitp = get_raytrace_opacity(pG,ifr,i+ioff+1,jg,kg);
+          interp_quad_chi(chitm,chit,chitp,&dtau);
+          dtau *= dx;
+          if (dtau < TAUMIN) {
+            dH = (1.0 - 0.5 * dtau);
+            edtau = 1.0 - dtau;
+          } else {
+            edtau = exp(-dtau);
+            dH = (1.0 - edtau) / dtau;
+          }
+          eps = get_raytrace_thermal_fraction(pG,ifr,i+ioff+1,jg,kg);
+          S_rt[ifr][k][j][i] = dH * (1.0 - eps) * pRG->H[ifr][k][j][i-1];
+          pRG->H[ifr][k][j][i] = pRG->H[ifr][k][j][i-1] * edtau;
+          chitm = chit;
+          chit = chitp;
+        }
+        S_rt[ifr][k][j][is-1] = S_rt[ifr][k][j][is];
+        S_rt[ifr][k][j][ie+1] = S_rt[ifr][k][j][ie];
       }
     }
 
@@ -319,4 +320,4 @@ void attenuate(RadGridS *pRG)
 }
 
 #endif /* RAY_TRACING */
-    
+

@@ -1,14 +1,14 @@
 #include "copyright.h"
 /*============================================================================*/
 /*! \file init_mesh.c
- *  \brief General initialization of the nested mesh hierarchy. 
+ *  \brief General initialization of the nested mesh hierarchy.
  *
  * PURPOSE: General initialization of the nested mesh hierarchy.  Works for both
  *   nested and uniform meshes, on single and multiple processors.  Each Mesh
  *   contains one or more levels, each level contains one or more Domains
  *   (regions with the same grid resolution), and depending on the
  *   parallelization each Domain contains one or more Grids (however there can
- *   never be more than one Grid per Domain being updated on any given 
+ *   never be more than one Grid per Domain being updated on any given
  *   processor).  In the Mesh, this hierarchy is stored as an "array" of Domains
  *   indexed as Domain[nlevel][ndomain].  Since ndomain is different for each
  *   level, this "array" is not square, (really it is nlevel pointers, each to
@@ -24,24 +24,24 @@
  *   For a nested mesh on multiple processors, there is no relationship between
  *   these quantaties in general.
  *
- *   This function: 
+ *   This function:
  *  - (1) sets properties of each Domain read from <domain> blocks in input file
  *  - (2) allocates and initializes the array of Domains,
  *  - (3) divides each Domain into one or more Grids depending on the
  *        parallelization.
  *
  *   This function supercedes init_domain() from v3.2.
- *   The init_grid() function initializes the data in each Grid structure in 
+ *   The init_grid() function initializes the data in each Grid structure in
  *   each Domain, including finding all child and parent Grids with SMR.
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  * - init_mesh()
- * - get_myGridIndex()							      
+ * - get_myGridIndex()
  *
  * PRIVATE FUNCTION PROTOTYPES:
- * - dom_decomp()    - calls auto domain decomposition functions 
- * - dom_decomp_2d() - finds optimum domain decomposition in 2D 
- * - dom_decomp_3d() - finds optimum domain decomposition in 3D		      */
+ * - dom_decomp()    - calls auto domain decomposition functions
+ * - dom_decomp_2d() - finds optimum domain decomposition in 2D
+ * - dom_decomp_3d() - finds optimum domain decomposition in 3D               */
 /*============================================================================*/
 
 #include <math.h>
@@ -53,9 +53,9 @@
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
- *   dom_decomp()    - calls auto domain decomposition functions 
- *   dom_decomp_2d() - finds optimum domain decomposition in 2D 
- *   dom_decomp_3d() - finds optimum domain decomposition in 3D 
+ *   dom_decomp()    - calls auto domain decomposition functions
+ *   dom_decomp_2d() - finds optimum domain decomposition in 2D
+ *   dom_decomp_3d() - finds optimum domain decomposition in 3D
  *============================================================================*/
 #ifdef MPI_PARALLEL
 /*! \fn static int dom_decomp(const int Nx, const int Ny, const int Nz,
@@ -70,8 +70,8 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,const int Np,
 static int dom_decomp_2d(const int Nx, const int Ny, const int Np,
   int *pNGx, int *pNGy);
 
-/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, 
- *				 const int Np, int *pNGx, int *pNGy, int *pNGz) 
+/*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
+ *                               const int Np, int *pNGx, int *pNGy, int *pNGz)
  *  \brief finds optimum domain decomposition in 3D  */
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, const int Np,
   int *pNGx, int *pNGy, int *pNGz);
@@ -79,7 +79,7 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz, const int Np,
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void init_mesh(MeshS *pM)
- *  \brief General initialization of the nested mesh hierarchy.		      */
+ *  \brief General initialization of the nested mesh hierarchy.               */
 
 void init_mesh(MeshS *pM)
 {
@@ -113,7 +113,7 @@ void init_mesh(MeshS *pM)
 
   num_domains = par_geti("job","num_domains");
 #ifndef STATIC_MESH_REFINEMENT
-  if (num_domains > 1) 
+  if (num_domains > 1)
     ath_error("[init_mesh]: num_domains=%d; for num_domains > 1 configure with --enable-smr\n",num_domains);
 #endif
 
@@ -139,7 +139,7 @@ void init_mesh(MeshS *pM)
     nd_this_level=0;
     for (nblock=1; nblock<=num_domains; nblock++){
       sprintf(block,"domain%d",nblock);
-      if (par_geti(block,"level") == nl) nd_this_level++; 
+      if (par_geti(block,"level") == nl) nd_this_level++;
     }
 
 /* Error if there are any levels with no domains.  Else set DomainsPerLevel */
@@ -232,7 +232,7 @@ void init_mesh(MeshS *pM)
  * because it is not [nl]x[nd].  Rather it is nl pointers to nd[nl] Domains.
  * Compare to the calloc_2d_array() function in ath_array.c
  */
-      
+
   if((pM->Domain = (DomainS**)calloc((maxlevel+1),sizeof(DomainS*))) == NULL){
     ath_error("[init_mesh] failed to allocate memory for %d Domain pointers\n",
      (maxlevel+1));
@@ -322,7 +322,7 @@ void init_mesh(MeshS *pM)
  * displacement, so only read for levels other than root  */
 
     for (i=0; i<3; i++) pM->Domain[nl][nd].Disp[i] = 0;
-    if (nl != 0) {  
+    if (nl != 0) {
       if (par_exist(block,"iDisp") == 0)
         ath_error("[init_mesh]: iDisp does not exist in block %s\n",block);
       pM->Domain[nl][nd].Disp[0] = par_geti(block,"iDisp");
@@ -358,8 +358,8 @@ void init_mesh(MeshS *pM)
 
       if (pM->Domain[nl][nd].Disp[i] == 0) {
         pM->Domain[nl][nd].MinX[i] = root_xmin[i];
-      } else { 
-        pM->Domain[nl][nd].MinX[i] = root_xmin[i] 
+      } else {
+        pM->Domain[nl][nd].MinX[i] = root_xmin[i]
           + ((Real)(pM->Domain[nl][nd].Disp[i]))*pM->Domain[nl][nd].dx[i];
       }
 
@@ -367,7 +367,7 @@ void init_mesh(MeshS *pM)
       if(izones == pM->Nx[i]){
         pM->Domain[nl][nd].MaxX[i] = root_xmax[i];
       } else {
-        pM->Domain[nl][nd].MaxX[i] = pM->Domain[nl][nd].MinX[i] 
+        pM->Domain[nl][nd].MaxX[i] = pM->Domain[nl][nd].MinX[i]
           + ((Real)(pM->Domain[nl][nd].Nx[i]))*pM->Domain[nl][nd].dx[i];
       }
 
@@ -376,7 +376,7 @@ void init_mesh(MeshS *pM)
     }
 
   }  /*---------- end loop over domain blocks in input file ------------------*/
-    
+
 /*--- Step 4: Check that domains on the same level are non-overlapping. ------*/
 /* Compare the integer coordinates of the sides of Domains at the same level.
  * Print error if Domains overlap or touch. */
@@ -440,7 +440,7 @@ void init_mesh(MeshS *pM)
             for (i=0; i<nDim; i++) {
               D1.ijkl[i] /= irefine;  /* report indices scaled to root */
               D1.ijkr[i] /= irefine;
-              D2.ijkl[i] /= irefine; 
+              D2.ijkl[i] /= irefine;
               D2.ijkr[i] /= irefine;
             }
             ath_error("[init_mesh] child Domain D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d] touches parent D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d]\n",
@@ -454,7 +454,7 @@ void init_mesh(MeshS *pM)
             for (i=0; i<nDim; i++) {
               D1.ijkl[i] /= irefine;  /* report indices scaled to root */
               D1.ijkr[i] /= irefine;
-              D2.ijkl[i] /= irefine; 
+              D2.ijkl[i] /= irefine;
               D2.ijkr[i] /= irefine;
             }
             ath_error("[init_mesh] child Domain D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d] extends past parent D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d]\n",
@@ -470,7 +470,7 @@ void init_mesh(MeshS *pM)
             for (i=0; i<nDim; i++) {
               D1.ijkl[i] /= irefine;  /* report indices scaled to root */
               D1.ijkr[i] /= irefine;
-              D2.ijkl[i] /= irefine; 
+              D2.ijkl[i] /= irefine;
               D2.ijkr[i] /= irefine;
             }
             ath_error("[init_mesh] child Domain D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d] closer than nghost/2 to parent D%d[is,ie,js,je,ks,ke]=[%d %d %d %d %d %d]\n",
@@ -546,7 +546,7 @@ void init_mesh(MeshS *pM)
       nproc = (pD->NGrid[0])*(pD->NGrid[1])*(pD->NGrid[2]);
       if(nproc > Nproc_Comm_world) ath_error(
         "[init_mesh]: %d Grids requested by block %s and only %d procs\n"
-        ,nproc,block,Nproc_Comm_world); 
+        ,nproc,block,Nproc_Comm_world);
 
 /* Build 3D array to store data on Grids in this Domain */
 
@@ -608,7 +608,7 @@ void init_mesh(MeshS *pM)
         for(m=0; m<(pD->NGrid[1]); m++){
           pD->GData[n][m][0].Disp[0] = pD->Disp[0];
           for(l=1; l<(pD->NGrid[0]); l++){
-            pD->GData[n][m][l].Disp[0] = pD->GData[n][m][l-1].Disp[0] + 
+            pD->GData[n][m][l].Disp[0] = pD->GData[n][m][l-1].Disp[0] +
                                          pD->GData[n][m][l-1].Nx[0];
           }
         }
@@ -618,7 +618,7 @@ void init_mesh(MeshS *pM)
         for(l=0; l<(pD->NGrid[0]); l++){
           pD->GData[n][0][l].Disp[1] = pD->Disp[1];
           for(m=1; m<(pD->NGrid[1]); m++){
-            pD->GData[n][m][l].Disp[1] = pD->GData[n][m-1][l].Disp[1] + 
+            pD->GData[n][m][l].Disp[1] = pD->GData[n][m-1][l].Disp[1] +
                                          pD->GData[n][m-1][l].Nx[1];
           }
         }
@@ -628,7 +628,7 @@ void init_mesh(MeshS *pM)
         for(l=0; l<(pD->NGrid[0]); l++){
           pD->GData[0][m][l].Disp[2] = pD->Disp[2];
           for(n=1; n<(pD->NGrid[2]); n++){
-            pD->GData[n][m][l].Disp[2] = pD->GData[n-1][m][l].Disp[2] + 
+            pD->GData[n][m][l].Disp[2] = pD->GData[n-1][m][l].Disp[2] +
                                          pD->GData[n-1][m][l].Nx[2];
           }
         }
@@ -638,7 +638,7 @@ void init_mesh(MeshS *pM)
   }    /* end loop over nlevels */
 
 /* check that total number of Grids was partitioned evenly over total number of
- * MPI processes available (equal to one for single processor jobs) */ 
+ * MPI processes available (equal to one for single processor jobs) */
 
   if (next_procID != 0)
     ath_error("[init_mesh]:total # of Grids != total # of MPI procs\n");
@@ -660,7 +660,7 @@ void init_mesh(MeshS *pM)
       pD->RadOutGrid = NULL;
 #endif
 
-/* Loop over GData array, and if there is a Grid assigned to this proc, 
+/* Loop over GData array, and if there is a Grid assigned to this proc,
  * allocate it */
 
       for(n=0; n<(pD->NGrid[2]); n++){
@@ -670,19 +670,19 @@ void init_mesh(MeshS *pM)
           if ((pD->Grid = (GridS*)malloc(sizeof(GridS))) == NULL)
             ath_error("[init_mesh]: Failed to malloc a Grid for %s\n",block);
 #ifdef FULL_RADIATION_TRANSFER
-	  if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
-	    ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+          if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+            ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
 #endif
 #ifdef RADIATION_TRANSFER
-	  if ( (radt_mode == 0) || (radt_mode == 2) ) {
-	    if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
-	      ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
-	  }
-	  if ( (radt_mode == 1) || (radt_mode == 2) ) {
-	    if ((pD->RadOutGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
-	      ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
-	  }
-#endif 
+          if ( (radt_mode == 0) || (radt_mode == 2) ) {
+            if ((pD->RadGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+              ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+          }
+          if ( (radt_mode == 1) || (radt_mode == 2) ) {
+            if ((pD->RadOutGrid = (RadGridS*)malloc(sizeof(RadGridS))) == NULL)
+              ath_error("[init_mesh]: Failed to malloc a RadGrid for %s\n",block);
+          }
+#endif
         }
       }}}
     }
@@ -800,7 +800,7 @@ void init_mesh(MeshS *pM)
 
 /* Child found.  Add child processors to ranks array, but only if they are
  * different from processes currently there (including parent and any previously
- * found children).  Set IDs associated with Comm_Parent communicator, since on 
+ * found children).  Set IDs associated with Comm_Parent communicator, since on
  * the child Domain this is the same as the Comm_Children communicator on the
  * parent Domain  */
 
@@ -834,7 +834,7 @@ void init_mesh(MeshS *pM)
 /* Loop over children to set Comm_Parent communicators */
 
       for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
-        pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);  
+        pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);
 
         for (i=0; i<3; i++) {
           D2.ijkl[i] = pCD->Disp[i]/2;
@@ -858,8 +858,8 @@ void init_mesh(MeshS *pM)
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void get_myGridIndex(DomainS *pD, const int myID, int *pi, 
- *			     int *pj, int *pk)
+/*! \fn void get_myGridIndex(DomainS *pD, const int myID, int *pi,
+ *                           int *pj, int *pk)
  *  \brief Searches GData[][][] array to find i,j,k components
  *   of block being updated on this processor.  */
 
@@ -912,7 +912,7 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,
 /*----------------------------------------------------------------------------*/
 /*! \fn static int dom_decomp_2d(const int Nx, const int Ny,
  *                               const int Np, int *pNGx, int *pNGy)
- *  \brief Pptimizes domain decomposition in 2D.  
+ *  \brief Pptimizes domain decomposition in 2D.
  *
  *    The TOTAL amount of
  *   data communicated (summed over all processes and all INTERNAL boundaries)
@@ -921,12 +921,12 @@ static int dom_decomp(const int Nx, const int Ny, const int Nz,
  *   is I0.  This assumes that in the x-direction we communicate only
  *   computational cells, while in the y-direction we comunicate the
  *   computational cells and x-direction ghost cells.  Then
- *     Total x-communication is (rx - 1)*Ny*(2*nghost) 
+ *     Total x-communication is (rx - 1)*Ny*(2*nghost)
  *     Total y-communication is (ry - 1)*(Nx + rx*(2*nghost))*(2*nghost)
  */
 
 static int dom_decomp_2d(const int Nx, const int Ny,
-			 const int Np, int *pNGx, int *pNGy){
+                         const int Np, int *pNGx, int *pNGy){
 
   int rx, ry, I, rxs, rx_min, rx_max;
   int rx0=1, ry0=1, I0=0, init=1;
@@ -969,10 +969,10 @@ static int dom_decomp_2d(const int Nx, const int Ny,
       I = (rx - 1)*Ny + (ry - 1)*(Nx + 2*nghost*rx);
 
       if(init || I < I0){
-	rx0 = rx;
-	ry0 = ry;
-	I0  = I;
-	init = 0;
+        rx0 = rx;
+        ry0 = ry;
+        I0  = I;
+        init = 0;
       }
       break;
     }
@@ -988,14 +988,14 @@ static int dom_decomp_2d(const int Nx, const int Ny,
 
 /*----------------------------------------------------------------------------*/
 /*! \fn static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
- *			         const int Np, int *pNGx, int *pNGy, int *pNGz)
+ *                               const int Np, int *pNGx, int *pNGy, int *pNGz)
  *  \brief Optimizes domain decomposition in 3D.
  *
  *   See the comments for dom_decomp_2d() for more about the algorithm
  */
 
 static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
-			 const int Np, int *pNGx, int *pNGy, int *pNGz){
+                         const int Np, int *pNGx, int *pNGy, int *pNGz){
 
   div_t dv;
   int rx_min, rx_max, rx, ry, rz, I;
@@ -1020,21 +1020,21 @@ static int dom_decomp_3d(const int Nx, const int Ny, const int Nz,
 
       ierr = dom_decomp_2d(Ny, Nz, Npt, &ry, &rz);
       if(ierr == 0){
-	/* Now compute the amount of messaging */
-	I = (rx - 1)*Ny*Nz + (ry - 1)*(Nx + 2*nghost*rx)*Nz
-	  + (rz - 1)*(Nx + 2*nghost*rx)*(Ny + 2*nghost*ry);
+        /* Now compute the amount of messaging */
+        I = (rx - 1)*Ny*Nz + (ry - 1)*(Nx + 2*nghost*rx)*Nz
+          + (rz - 1)*(Nx + 2*nghost*rx)*(Ny + 2*nghost*ry);
 
-	if(I < 0){ /* Integer Overflow */
-	  continue;
-	}
+        if(I < 0){ /* Integer Overflow */
+          continue;
+        }
 
-	if(init || I < I0){
-	  rx0 = rx;
-	  ry0 = ry;
-	  rz0 = rz;
-	  I0  = I;
-	  init = 0;
-	}
+        if(init || I < I0){
+          rx0 = rx;
+          ry0 = ry;
+          rz0 = rz;
+          I0  = I;
+          init = 0;
+        }
       }
     }
   }

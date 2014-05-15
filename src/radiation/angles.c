@@ -2,10 +2,10 @@
 /*==============================================================================
  * FILE: angles.c
  *
- * PURPOSE:  Contains all routiens for specifing and intializing angular 
+ * PURPOSE:  Contains all routiens for specifing and intializing angular
  *           grid and quadrature.  Called by init_radiation().
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  *   init_angles()
  *============================================================================*/
 
@@ -52,26 +52,26 @@ void init_angles(RadGridS *pRG, const int qmeth, const int outflag)
   if (outflag == 0) radbl = "radiation"; else radbl = "radiation_output";
 
   switch(qmeth) {
-            
-    case 1: /* Carlson symmetric S_N method (default) */
-      nmu = par_geti_def(radbl,"nmu",0);
-      carlson(pRG,nmu);
-      break;
-      
-    case 2: /* Legendre Equal Weight */
-      nmu = par_geti_def(radbl,"nmu",0);
-      nphi = par_geti_def(radbl,"nphi",1);
-      legendre_equal_weight(pRG,nmu,nphi);
-      break;
-      
-    case 10: /* single mu_z */
-      nmu = par_geti_def(radbl,"nmu",0);
-      single_z_ray(pRG,nmu);
-      break;
 
-    default:
-      ath_error("[init_agnles]: ang_quad = %d.\n",qmeth);
-    }
+  case 1: /* Carlson symmetric S_N method (default) */
+    nmu = par_geti_def(radbl,"nmu",0);
+    carlson(pRG,nmu);
+    break;
+
+  case 2: /* Legendre Equal Weight */
+    nmu = par_geti_def(radbl,"nmu",0);
+    nphi = par_geti_def(radbl,"nphi",1);
+    legendre_equal_weight(pRG,nmu,nphi);
+    break;
+
+  case 10: /* single mu_z */
+    nmu = par_geti_def(radbl,"nmu",0);
+    single_z_ray(pRG,nmu);
+    break;
+
+  default:
+    ath_error("[init_agnles]: ang_quad = %d.\n",qmeth);
+  }
 }
 
 /*=========================== PRIVATE FUNCTIONS ==============================*/
@@ -80,7 +80,7 @@ void init_angles(RadGridS *pRG, const int qmeth, const int outflag)
 /*! \fn void init_angles(RadGridS *pRG, const int qmeth, const int nmu)
  *  \brief Initialize angles/angle quadratures using Carlson's symmetric
  *  S_N method */
-void carlson(RadGridS *pRG, const int nmu) 
+void carlson(RadGridS *pRG, const int nmu)
 {
 
   int nDim;
@@ -97,12 +97,12 @@ void carlson(RadGridS *pRG, const int nmu)
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
 
   //printf("ndim, nmu: %d %d\n",nDim,nmu);
- if(nDim == 1) {
+  if(nDim == 1) {
 /* 1D  compute angles using gaussian quadarature */
     mutmp1d = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
-    if (mutmp1d == NULL) goto on_error1; 
+    if (mutmp1d == NULL) goto on_error1;
     wtmp = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
-    if (wtmp == NULL) goto on_error2; 
+    if (wtmp == NULL) goto on_error2;
 
     gauleg(-1.0, 1.0, mutmp1d, wtmp, 2*nmu);
 
@@ -114,8 +114,8 @@ void carlson(RadGridS *pRG, const int nmu)
     free_1d_array(wtmp);
     free_1d_array(mutmp1d);
   } else {
-/* 2D and 3D:  compute angles and weights for angular quadratures following 
-   the algorithm described in Bruls et al. 1999, A&A, 348, 233 */
+/* 2D and 3D:  compute angles and weights for angular quadratures following
+ * the algorithm described in Bruls et al. 1999, A&A, 348, 233 */
 
     mu2tmp = (Real *)calloc_1d_array(nmu,sizeof(Real));
     if (mu2tmp == NULL) goto on_error3;
@@ -131,16 +131,16 @@ void carlson(RadGridS *pRG, const int nmu)
       deltamu = 2.0 / (2 * nmu - 1);
       mu2tmp[0] = 1.0 / (3.0 * (2 * nmu - 1));
       for (i=1; i<nmu; i++) {
-	mu2tmp[i] = mu2tmp[i-1] + deltamu;
+        mu2tmp[i] = mu2tmp[i-1] + deltamu;
       }
     } else {
       mu2tmp[0] = 1.0 / SQR((Real)nmu-1.0);
       deltamu = (1.0 - 3.0 * mu2tmp[0]) / ((Real)nmu-1.0);
       for (i=1; i<nmu; i++) {
-	mu2tmp[i] = mu2tmp[i-1] + deltamu;
+        mu2tmp[i] = mu2tmp[i-1] + deltamu;
       }
     }
-	
+
     W2 = 4.0 * mu2tmp[0];
     Wsum = Wtmp[0] = sqrt(W2);
     for (i=1; i<nmu-2; i++) {
@@ -148,17 +148,17 @@ void carlson(RadGridS *pRG, const int nmu)
       Wsum += Wtmp[i] = sqrt(W2);
     }
     if (nmu > 2) Wtmp[nmu-2] = 2.0*(nmu-1)/3.0 - Wsum;
-    
+
     wsum = wtmp[0] = Wtmp[0];
     for (i=1; i<nmu-1; i++) {
       wsum += wtmp[i] = Wtmp[i] - Wtmp[i-1];
-    }    
+    }
     wtmp[nmu-1] = 1.0 - wsum;
 
 /* Next, set up system of equations for determining how polar weights
-   are distributed in azimuth (along circles of section), subject to
-   the constraint that members of permutation families have identical
-   weights */
+ * are distributed in azimuth (along circles of section), subject to
+ * the constraint that members of permutation families have identical
+ * weights */
 
     pmat = (Real **)calloc_2d_array(nmu,nmu,sizeof(Real));
     if (pmat == NULL) goto on_error7;
@@ -175,90 +175,90 @@ void carlson(RadGridS *pRG, const int nmu)
     iang = 0;
     for (i=0; i<nmu; i++) {
       for (j=0; j<nmu; j++) {
-	for (k=0; k<nmu; k++) {
-	  if (i + j + k == nmu - 1) {
+        for (k=0; k<nmu; k++) {
+          if (i + j + k == nmu - 1) {
 /* assign cosines to temporary array grid */
-	    mutmp[iang][0] = sqrt(mu2tmp[j]);
-	    mutmp[iang][1] = sqrt(mu2tmp[k]);
-	    mutmp[iang][2] = sqrt(mu2tmp[i]);
-	    if (nmu <= 6) {
-	      ip=permutation(i,j,k,pl,np); 
-	      if (ip == -1) {
-		pl[np][0] = i;
-		pl[np][1] = j;
-		pl[np][2] = k;		  
-		pmat[i][np] += 1.0;
-		plab[iang] = np;
-		np++;		
-	      } else {
-		pmat[i][ip] += 1.0;
-		plab[iang] = ip;
-	      }
-	    }
-	    iang++;
-	  }
-	}
+            mutmp[iang][0] = sqrt(mu2tmp[j]);
+            mutmp[iang][1] = sqrt(mu2tmp[k]);
+            mutmp[iang][2] = sqrt(mu2tmp[i]);
+            if (nmu <= 6) {
+              ip=permutation(i,j,k,pl,np);
+              if (ip == -1) {
+                pl[np][0] = i;
+                pl[np][1] = j;
+                pl[np][2] = k;
+                pmat[i][np] += 1.0;
+                plab[iang] = np;
+                np++;
+              } else {
+                pmat[i][ip] += 1.0;
+                plab[iang] = ip;
+              }
+            }
+            iang++;
+          }
+        }
       }
     }
 
-    if (nmu <= 6) {	  
+    if (nmu <= 6) {
 /* Use Bruls/Carlsson formulation */
       if (nmu > 1) {
 /*  Invert matrix of permutations families */
-	InverseMatrix(pmat,nmu-1,pinv);
+        InverseMatrix(pmat,nmu-1,pinv);
 /* Solve for and assign weights for each permutation family */
-	MatrixMult(pinv,wtmp,nmu-1,nmu-1,wpf);
-	for (i=0; i<pRG->nang; i++) 
-	  pRG->wmu[i] = wpf[plab[i]];
-      } else 
-	pRG->wmu[0] = 1.0;
+        MatrixMult(pinv,wtmp,nmu-1,nmu-1,wpf);
+        for (i=0; i<pRG->nang; i++)
+          pRG->wmu[i] = wpf[plab[i]];
+      } else
+        pRG->wmu[0] = 1.0;
     } else {
 /* Use equal weights for all angles */
-      for (i=0; i<pRG->nang; i++) 
-	pRG->wmu[i] = 1.0/(Real)pRG->nang;
+      for (i=0; i<pRG->nang; i++)
+        pRG->wmu[i] = 1.0/(Real)pRG->nang;
     }
 
 /*  assign angles to RadGrid elements */
     if (nDim == 2) {
       for (i=0; i<pRG->nang; i++) {
-	for (j=0; j<2; j++) {
-	  for (k=0; k<2; k++) {
-	    l=2*j+k;
-	    if (k == 0)
-	      pRG->mu[l][i][0] =  mutmp[i][0];
-	    else
-	      pRG->mu[l][i][0] = -mutmp[i][0];
-	    if (j == 0)
-	      pRG->mu[l][i][1] =  mutmp[i][1];
-	    else
-	      pRG->mu[l][i][1] = -mutmp[i][1];
-	    pRG->mu[l][i][2] =  mutmp[i][2];
-	  }
-	}
-	pRG->wmu[i] *= 0.25;
+        for (j=0; j<2; j++) {
+          for (k=0; k<2; k++) {
+            l=2*j+k;
+            if (k == 0)
+              pRG->mu[l][i][0] =  mutmp[i][0];
+            else
+              pRG->mu[l][i][0] = -mutmp[i][0];
+            if (j == 0)
+              pRG->mu[l][i][1] =  mutmp[i][1];
+            else
+              pRG->mu[l][i][1] = -mutmp[i][1];
+            pRG->mu[l][i][2] =  mutmp[i][2];
+          }
+        }
+        pRG->wmu[i] *= 0.25;
       }
     } else if (nDim == 3) {
       for (i=0; i<pRG->nang; i++) {
-	for (j=0; j<2; j++) {
-	  for (k=0; k<2; k++) {
-	    for (l=0; l<2; l++) {
-	      m=4*j+2*k+l;
-	      if (l == 0)
-		pRG->mu[m][i][0] =  mutmp[i][0];
-	      else
-		pRG->mu[m][i][0] = -mutmp[i][0];
-	      if (k == 0)
-		pRG->mu[m][i][1] =  mutmp[i][1];
-	      else
-		pRG->mu[m][i][1] = -mutmp[i][1];
-	      if (j == 0)
-		pRG->mu[m][i][2] =  mutmp[i][2];
-	      else
-		pRG->mu[m][i][2] = -mutmp[i][2];	      
-	    }
-	  }
-	}
-	pRG->wmu[i] *= 0.125;	    
+        for (j=0; j<2; j++) {
+          for (k=0; k<2; k++) {
+            for (l=0; l<2; l++) {
+              m=4*j+2*k+l;
+              if (l == 0)
+                pRG->mu[m][i][0] =  mutmp[i][0];
+              else
+                pRG->mu[m][i][0] = -mutmp[i][0];
+              if (k == 0)
+                pRG->mu[m][i][1] =  mutmp[i][1];
+              else
+                pRG->mu[m][i][1] = -mutmp[i][1];
+              if (j == 0)
+                pRG->mu[m][i][2] =  mutmp[i][2];
+              else
+                pRG->mu[m][i][2] = -mutmp[i][2];
+            }
+          }
+        }
+        pRG->wmu[i] *= 0.125;
       }
     }
 /* deallocate temporary arrays */
@@ -271,7 +271,7 @@ void carlson(RadGridS *pRG, const int nmu)
     free_1d_array(Wtmp);
     free_2d_array(mutmp);
     free_1d_array(mu2tmp);
-  } 
+  }
 /* end of multidimensional quadratures */
 
 
@@ -310,9 +310,9 @@ void carlson(RadGridS *pRG, const int nmu)
  *  \brief Initialize angles/angle quadratures using Gauss-Legendre
  *  quadrature */
 
-void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi) 
+void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi)
 {
-  
+
   int nDim;
   int i,j,k,l,m;
   Real **mutmp = NULL, *mutmp1d = NULL;
@@ -325,10 +325,10 @@ void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi)
 
 /* 1D  compute angles using gaussian quadarature */
   mutmp1d = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
-  if (mutmp1d == NULL) goto on_error1; 
+  if (mutmp1d == NULL) goto on_error1;
   wtmp1d = (Real *)calloc_1d_array(2.0*nmu,sizeof(Real));
-  if (wtmp1d == NULL) goto on_error2; 
-  
+  if (wtmp1d == NULL) goto on_error2;
+
   gauleg(-1.0, 1.0, mutmp1d, wtmp1d, 2*nmu);
 
   if (nDim == 1) {
@@ -340,64 +340,64 @@ void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi)
   } else {
     mutmp = (Real **)calloc_2d_array(pRG->nang,3,sizeof(Real));
     if (mutmp == NULL) goto on_error3;
-    
+
     k=0;
     for(i=0; i<nmu; i++) {
       dphi = 0.5 * PI / (Real) (2*(nphi+i));
       l=2*nmu-1-i;
       sintheta = sqrt(1.0 - mutmp1d[l] * mutmp1d[l]);
       for(j=0; j<=(i+nphi-1); j++) {
-	mutmp[k][0] = sintheta * cos( dphi * (Real)(2*j+1));
-	mutmp[k][1] = sintheta * sin( dphi * (Real)(2*j+1));
-	mutmp[k][2] = mutmp1d[l];
-	pRG->wmu[k] = wtmp1d[l] / (Real)(i+nphi);
-	//	printf("wmu %d %d %g %g\n",k,i,pRG->wmu[k],wtmp1d[l]);
-	//	printf("mu: %d %d %g %g %g %g\n",k,i,mutmp[k][0],mutmp[k][1],mutmp[k][2],dphi * (Real)(2*j+1));
-	k++;
+        mutmp[k][0] = sintheta * cos( dphi * (Real)(2*j+1));
+        mutmp[k][1] = sintheta * sin( dphi * (Real)(2*j+1));
+        mutmp[k][2] = mutmp1d[l];
+        pRG->wmu[k] = wtmp1d[l] / (Real)(i+nphi);
+        //      printf("wmu %d %d %g %g\n",k,i,pRG->wmu[k],wtmp1d[l]);
+        //      printf("mu: %d %d %g %g %g %g\n",k,i,mutmp[k][0],mutmp[k][1],mutmp[k][2],dphi * (Real)(2*j+1));
+        k++;
       }
     }
 
-    /*  assign angles to RadGrid elements */
+/*  assign angles to RadGrid elements */
     if (nDim == 2) {
       for (i=0; i<pRG->nang; i++) {
-	for (j=0; j<2; j++) {
-	  for (k=0; k<2; k++) {
-	    l=2*j+k;
-	    if (k == 0)
-	      pRG->mu[l][i][0] =  mutmp[i][0];
-	    else
-	      pRG->mu[l][i][0] = -mutmp[i][0];
-	    if (j == 0)
-	      pRG->mu[l][i][1] =  mutmp[i][1];
-	    else
-	      pRG->mu[l][i][1] = -mutmp[i][1];	  
-	    pRG->mu[l][i][2] =  mutmp[i][2];
-	  }
-	}
-	pRG->wmu[i] *= 0.25;
+        for (j=0; j<2; j++) {
+          for (k=0; k<2; k++) {
+            l=2*j+k;
+            if (k == 0)
+              pRG->mu[l][i][0] =  mutmp[i][0];
+            else
+              pRG->mu[l][i][0] = -mutmp[i][0];
+            if (j == 0)
+              pRG->mu[l][i][1] =  mutmp[i][1];
+            else
+              pRG->mu[l][i][1] = -mutmp[i][1];
+            pRG->mu[l][i][2] =  mutmp[i][2];
+          }
+        }
+        pRG->wmu[i] *= 0.25;
       }
     } else if (nDim == 3) {
       for (i=0; i<pRG->nang; i++) {
-	for (j=0; j<2; j++) {
-	  for (k=0; k<2; k++) {
-	    for (l=0; l<2; l++) {
-	      m=4*j+2*k+l;
-	      if (l == 0)
-		pRG->mu[m][i][0] =  mutmp[i][0];
-	      else
-		pRG->mu[m][i][0] = -mutmp[i][0];
-	      if (k == 0)
-		pRG->mu[m][i][1] =  mutmp[i][1];
-	      else
-		pRG->mu[m][i][1] = -mutmp[i][1];
-	      if (j == 0)
-		pRG->mu[m][i][2] =  mutmp[i][2];
-	      else
-		pRG->mu[m][i][2] = -mutmp[i][2];	      
-	    }
-	  }
-	}
-	pRG->wmu[i] *= 0.125;	    
+        for (j=0; j<2; j++) {
+          for (k=0; k<2; k++) {
+            for (l=0; l<2; l++) {
+              m=4*j+2*k+l;
+              if (l == 0)
+                pRG->mu[m][i][0] =  mutmp[i][0];
+              else
+                pRG->mu[m][i][0] = -mutmp[i][0];
+              if (k == 0)
+                pRG->mu[m][i][1] =  mutmp[i][1];
+              else
+                pRG->mu[m][i][1] = -mutmp[i][1];
+              if (j == 0)
+                pRG->mu[m][i][2] =  mutmp[i][2];
+              else
+                pRG->mu[m][i][2] = -mutmp[i][2];
+            }
+          }
+        }
+        pRG->wmu[i] *= 0.125;
       }
     }
     free_2d_array(mutmp);
@@ -425,55 +425,57 @@ void legendre_equal_weight(RadGridS *pRG, const int nmu, const int nphi)
 /*! \fn void init_angles(RadGridS *pRG, const int qmeth, const int nmu)
  *  \brief Initialize angles/angle quadratures using Carlson's symmetric
  *  S_N method */
-void single_z_ray(RadGridS *pRG, const int nmu) 
+void single_z_ray(RadGridS *pRG, const int nmu)
 {
-  
+
   int nDim;
   int i,j,k,l;
   Real dphi, mu, sintheta;
   Real **mutmp;
-  
-/* number of dimensions in RadGrid. */
+
+  /* number of dimensions in RadGrid. */
   nDim=1;
   for (i=1; i<3; i++) if (pRG->Nx[i]>1) nDim++;
 
- if (nDim == 1) {
-   ath_error("[single_z_ray]: ang_quad = 10 should be used only for 2D problems.\n");
- } else if (nDim == 2) {
-   mutmp = (Real **)calloc_2d_array(pRG->nang,3,sizeof(Real));
-   if (mutmp == NULL) 
-     ath_error("[single_z_ray]: Error allocating memory\n");
+  if (nDim == 1) {
+    ath_error("[single_z_ray]: ang_quad = 10 should be used only for 2D "
+              "problems.\n");
+  } else if (nDim == 2) {
+    mutmp = (Real **)calloc_2d_array(pRG->nang,3,sizeof(Real));
+    if (mutmp == NULL)
+      ath_error("[single_z_ray]: Error allocating memory\n");
 
-   mu=1.0/sqrt((Real)3.0);
-   sintheta = sqrt((Real)2.0)/sqrt((Real)3.0);
-   dphi = 0.5 * PI / (Real) (2*nmu);
-   for(i=0; i<nmu; i++) {
-	mutmp[i][0] = sintheta * cos( dphi * (Real)(2*i+1));
-	mutmp[i][1] = sintheta * sin( dphi * (Real)(2*i+1));
-	mutmp[i][2] = mu;
-	pRG->wmu[i] = 1 / (Real)nmu;
-   }
-   for (i=0; i<pRG->nang; i++) {
-     for (j=0; j<2; j++) {
-       for (k=0; k<2; k++) {
-	 l=2*j+k;
-	 if (k == 0)
-	   pRG->mu[l][i][0] =  mutmp[i][0];
-	 else
-	   pRG->mu[l][i][0] = -mutmp[i][0];
-	 if (j == 0)
-	   pRG->mu[l][i][1] =  mutmp[i][1];
-	 else
-	   pRG->mu[l][i][1] = -mutmp[i][1];
-	 pRG->mu[l][i][2] =  mutmp[i][2];
-       }
-     }
-     pRG->wmu[i] *= 0.25;
-   }
-   free_2d_array(mutmp);
- } else if (nDim == 3) {
-   ath_error("[single_z_ray]: ang_quad = 10 should be used only for 2D problems.\n");
- }
+    mu=1.0/sqrt((Real)3.0);
+    sintheta = sqrt((Real)2.0)/sqrt((Real)3.0);
+    dphi = 0.5 * PI / (Real) (2*nmu);
+    for(i=0; i<nmu; i++) {
+      mutmp[i][0] = sintheta * cos( dphi * (Real)(2*i+1));
+      mutmp[i][1] = sintheta * sin( dphi * (Real)(2*i+1));
+      mutmp[i][2] = mu;
+      pRG->wmu[i] = 1 / (Real)nmu;
+    }
+    for (i=0; i<pRG->nang; i++) {
+      for (j=0; j<2; j++) {
+        for (k=0; k<2; k++) {
+          l=2*j+k;
+          if (k == 0)
+            pRG->mu[l][i][0] =  mutmp[i][0];
+          else
+            pRG->mu[l][i][0] = -mutmp[i][0];
+          if (j == 0)
+            pRG->mu[l][i][1] =  mutmp[i][1];
+          else
+            pRG->mu[l][i][1] = -mutmp[i][1];
+          pRG->mu[l][i][2] =  mutmp[i][2];
+        }
+      }
+      pRG->wmu[i] *= 0.25;
+    }
+    free_2d_array(mutmp);
+  } else if (nDim == 3) {
+    ath_error("[single_z_ray]: ang_quad = 10 should be used only for 2D "
+              "problems.\n");
+  }
 
 }
 
@@ -489,21 +491,20 @@ int permutation(int i, int j, int k, int **pl, int np)
   int l,m,n,o;
 
 /*  This routine is only called at initialization so brute force
- *  algorithm is fine
- */
+ *  algorithm is fine */
 
 
   for(l=0; l<np; l++) {
 /* check each permutation in the table */
     for(m=0; m<3; m++)
       if(i == pl[l][m])
-	for(n=0; n<3; n++)
-	  if(n != m)
-	    if(j == pl[l][n])
-	      for(o=0;o<3;o++)
-		if((o != m) && (o != n))
-		  if(k == pl[l][o]) 
-		    ip = l;
+        for(n=0; n<3; n++)
+          if(n != m)
+            if(j == pl[l][n])
+              for(o=0;o<3;o++)
+                if((o != m) && (o != n))
+                  if(k == pl[l][o])
+                    ip = l;
   }
 
   return ip;
@@ -527,13 +528,13 @@ void ludcmp_nr(Real **a, int n, int *indx, Real *d)
   *d=1.0;  /* No row interchanges yet */
 
   for (i=0;i<n;i++)
-  { /* Loop over rows to get the implicit scaling information */
-    big=0.0;
-    for (j=0;j<n;j++)
-      if ((temp=fabs(a[i][j])) > big) big=temp;
-    if (big == 0.0) ath_error("[LUdecomp]:Input matrix is singular!");
-    rowscale[i]=1.0/big;  /* Save the scaling */
-  }
+    { /* Loop over rows to get the implicit scaling information */
+      big=0.0;
+      for (j=0;j<n;j++)
+        if ((temp=fabs(a[i][j])) > big) big=temp;
+      if (big == 0.0) ath_error("[LUdecomp]:Input matrix is singular!");
+      rowscale[i]=1.0/big;  /* Save the scaling */
+    }
 
   for (j=0;j<n;j++) { /* Loop over columns of Crout's method */
     /* Calculate the upper block */
@@ -662,9 +663,9 @@ void gauleg(Real x1, Real x2,  Real *x, Real *w, int n)
       p1=1.0;
       p2=0.0;
       for(j=1; j<=n; j++) {
-	p3 = p2;
-	p2 = p1;
-	p1 = ((2.0 * (Real)j - 1.0) * z * p2 - ((Real)j - 1.0) * p3) / (Real)j;
+        p3 = p2;
+        p2 = p1;
+        p1 = ((2.0 * (Real)j - 1.0) * z * p2 - ((Real)j - 1.0) * p3) / (Real)j;
       }
       pp = (Real)n * (z * p1 - p2) / (z * z - 1.0);
       z1 = z;

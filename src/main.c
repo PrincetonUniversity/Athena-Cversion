@@ -22,11 +22,11 @@
  *                     relativity, cylindrical coordinates
  * - v4.0 [Jul 2010] - static mesh refinement with MPI
  *
- * See the GNU General Public License for usage restrictions. 
- *									        
+ * See the GNU General Public License for usage restrictions.
+ *
  * PRIVATE FUNCTION PROTOTYPES:
  * - change_rundir() - creates and outputs data to new directory
- * - usage()         - outputs help message and terminates execution	      */
+ * - usage()         - outputs help message and terminates execution          */
 /*============================================================================*/
 static char *athena_version = "version 4.0 - 01-Jul-2010";
 
@@ -58,12 +58,12 @@ static void usage(const char *prog);
 /* Maximum number of mkdir() and chdir() file operations that will be executed
  * at once in the change_rundir() function when running in parallel, passed to
  * baton_start() and baton_end().
- */ 
+ */
 #define MAX_FILE_OP 256
 
 /*----------------------------------------------------------------------------*/
-/*! \fn int main(int argc, char *argv[]) 
- *  \brief Athena main program  
+/*! \fn int main(int argc, char *argv[])
+ *  \brief Athena main program
  *
  * Steps in main:
  * - 1 - check for command line options and respond
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 
   int iquit=0;  /* quit signal sent to ath_sig_act, our system signal handler */
 
-/* local variables used for timing and performance measures */
+  /* local variables used for timing and performance measures */
 
   time_t start, stop;
   int have_time = time(&start);  /* Is current calendar time (UTC) available? */
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
   if(MPI_SUCCESS != MPI_Init(&argc, &argv))
     ath_error("[main]: Error on calling MPI_Init\n");
 #endif /* MPI_PARALLEL */
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   VMFun_t BackEuler;
 #endif
 
@@ -158,38 +158,38 @@ int main(int argc, char *argv[])
     if(*argv[i] == '-'  && *(argv[i]+1) != '\0' && *(argv[i]+2) == '\0'){
       switch(*(argv[i]+1)) {
       case 'i':                      /* -i <file>   */
-	athinput = argv[++i];
-	break;
+        athinput = argv[++i];
+        break;
       case 'r':                      /* -r <file>   */
-	ires = 1;
-	res_file = argv[++i];
+        ires = 1;
+        res_file = argv[++i];
 /* If input file is not set on command line, use the restart file */
-	if(athinput == definput) athinput = res_file;
-	break;
+        if(athinput == definput) athinput = res_file;
+        break;
       case 'd':                      /* -d <directory>   */
-	rundir = argv[++i];
-	break;
+        rundir = argv[++i];
+        break;
       case 'n':                      /* -n */
-	nflag = 1;
-	break;
+        nflag = 1;
+        break;
       case 'h':                      /* -h */
-	usage(argv[0]);
-	break;
+        usage(argv[0]);
+        break;
       case 'c':                      /* -c */
-	show_config();
-	exit(0);
-	break;
+        show_config();
+        exit(0);
+        break;
 #ifdef MPI_PARALLEL
       case 't':                      /* -t hh:mm:ss */
-	use_wtlim = 1; /* Logical to use a wall time limit */
-	sscanf(argv[++i],"%d:%d:%d",&h,&m,&s);
-	wtend = MPI_Wtime() + s + 60*(m + 60*h);
-	printf("Wall time limit: %d hrs, %d min, %d sec\n",h,m,s);
-	break;
+        use_wtlim = 1; /* Logical to use a wall time limit */
+        sscanf(argv[++i],"%d:%d:%d",&h,&m,&s);
+        wtend = MPI_Wtime() + s + 60*(m + 60*h);
+        printf("Wall time limit: %d hrs, %d min, %d sec\n",h,m,s);
+        break;
 #else
       default:
-	usage(argv[0]);
-	break;
+        usage(argv[0]);
+        break;
 #endif /* MPI_PARALLEL */
       }
     }
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
  * broadcasts the contents of the (updated) parameter file to the children. */
 
   if(myID_Comm_world == 0){
-    par_open(athinput);   /* for restarts, default is athinput=resfile */ 
+    par_open(athinput);   /* for restarts, default is athinput=resfile */
     par_cmdline(argc,argv);
   }
   par_dist_mpi(myID_Comm_world,MPI_COMM_WORLD);
@@ -233,13 +233,13 @@ int main(int argc, char *argv[])
   if(MPI_SUCCESS != MPI_Bcast(&ires, 1, MPI_INT, 0, MPI_COMM_WORLD))
     ath_error("[main]: Error on calling MPI_Bcast\n");
 
-/* rank=0 needs to send the restart file name to the children.  This requires 
+/* rank=0 needs to send the restart file name to the children.  This requires
  * sending the length of the restart filename string, the string, and then
  * having each child add my_id to the name so it opens the appropriate file */
 
 /* Parent finds length of restart filename */
 
-  if(ires){ 
+  if(ires){
     if(myID_Comm_world == 0)
       len = 1 + (int)strlen(res_file);
 
@@ -268,14 +268,14 @@ int main(int argc, char *argv[])
     do{ /* Position the char pointer at the first period */
       pc--;
       if(pc == new_name)
-	ath_error("[main]: Bad Restart filename: %s\n",new_name);
+        ath_error("[main]: Bad Restart filename: %s\n",new_name);
     }while(*pc != '.');
 
 /* Only children add myID_Comm_world to the filename */
 
     if(myID_Comm_world == 0) {
       strcpy(new_name, res_file);
-    } else {       
+    } else {
       suffix = ath_strdup(pc);
       sprintf(pc,"-id%d%s",myID_Comm_world,suffix);
       free(suffix);
@@ -285,8 +285,8 @@ int main(int argc, char *argv[])
 
 /* Quit MPI_PARALLEL job if code was run with -n option. */
 
-  if(nflag){          
-    par_dump(0,stdout);   
+  if(nflag){
+    par_dump(0,stdout);
     par_close();
     MPI_Finalize();
     return 0;
@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
 /*--- Step 3. ----------------------------------------------------------------*/
 /* set up the simulation log files */
 
-/* Open <problem_id>.out and <problem_id>.err files if file_open=1 in the 
+/* Open <problem_id>.out and <problem_id>.err files if file_open=1 in the
  * <log> block of the input file.  Otherwise, diagnositic output will go to
  * stdout and stderr streams. */
 
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
     iflush = par_geti_def("log","iflush",0);
     name = par_gets("job","problem_id");
     lazy = par_geti_def("log","lazy",1);
-    /* On restart we use mode "a", otherwise we use mode "w". */
+/* On restart we use mode "a", otherwise we use mode "w". */
     ath_log_open(name, lazy, (ires ? "a" : "w"));
     free(name);  name = NULL;
   }
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
   out_level = par_geti_def("log","out_level",0);
   err_level = par_geti_def("log","err_level",0);
 #ifdef MPI_PARALLEL
-    if(myID_Comm_world > 0){   /* Children may use different log levels */
+  if(myID_Comm_world > 0){   /* Children may use different log levels */
     out_level = par_geti_def("log","child_out_level",-1);
     err_level = par_geti_def("log","child_err_level",-1);
   }
@@ -346,8 +346,6 @@ int main(int argc, char *argv[])
 
 /*--- Step 4. ----------------------------------------------------------------*/
 /* Initialize nested mesh hierarchy. */
-	
-
 
   init_mesh(&Mesh);
   init_grid(&Mesh);
@@ -362,7 +360,6 @@ int main(int argc, char *argv[])
   FullRT = init_fullradiation(&Mesh);
 #endif
 
-
 /*--- Step 5. ----------------------------------------------------------------*/
 /* Set initial conditions, either by reading from restart or calling problem
  * generator.  But first start by setting variables in <time> block (these
@@ -372,12 +369,11 @@ int main(int argc, char *argv[])
   nlim = par_geti_def("time","nlim",-1);
   tlim = par_getd("time","tlim");
 
- 
 #ifdef ISOTHERMAL
   Iso_csound = par_getd("problem","iso_csound");
   Iso_csound2 = Iso_csound*Iso_csound;
 #else
-  
+
   Gamma = par_getd("problem","gamma");
   Gamma_1 = Gamma - 1.0;
   Gamma_2 = Gamma - 2.0;
@@ -388,7 +384,7 @@ int main(int argc, char *argv[])
   grav_mean_rho = -1.0;
   four_pi_G = -1.0;
 #endif
-  
+
 
 /*-----------------------------------------------------------------------*/
 
@@ -396,14 +392,14 @@ int main(int argc, char *argv[])
     restart_grids(res_file, &Mesh);  /*  Restart */
     nstep_start = Mesh.nstep;
   } else {                           /* New problem */
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL) problem(&(Mesh.Domain[nl][nd]));
       }
     }
   }
 
-	
+
 /* restrict initial solution so grid hierarchy is consistent */
 /* If RSTSMR, we use INI_prolongate function to prolongate data from root level to fine levels */
 #ifdef STATIC_MESH_REFINEMENT
@@ -415,7 +411,7 @@ int main(int argc, char *argv[])
 #endif /* End Rstsmr */
 
 #endif /* end SMR */
-	
+
 
 /* Initialize the first nstep value to flush the output and error logs. */
   nflush = nstep_start + iflush;
@@ -432,11 +428,11 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef RADIATION_TRANSFER
-    bvals_rad_init(&Mesh);
-#endif   
- 
+  bvals_rad_init(&Mesh);
+#endif
+
 #ifdef FULL_RADIATION_TRANSFER
-    bvals_fullrad_init(&Mesh);
+  bvals_fullrad_init(&Mesh);
 #endif
 
 #ifdef SELF_GRAVITY
@@ -446,21 +442,21 @@ int main(int argc, char *argv[])
 #if defined(SHEARING_BOX) || (defined(FARGO) && defined(CYLINDRICAL))
   bvals_shear_init(&Mesh);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	bvals_radMHD_shear_init(&Mesh);
+  bvals_radMHD_shear_init(&Mesh);
 #endif /* END RADIATION HYDRO OR RADIATION MHD */
 #ifdef RADIATION_TRANSFER
-	bvals_rad_shear_init(&Mesh);
-#endif /* RADIATION_TRANSFER */	
+  bvals_rad_shear_init(&Mesh);
+#endif /* RADIATION_TRANSFER */
 #endif /* END SHEARING_BOX */
-	
+
 
 #ifdef PARTICLES
   bvals_particle_init(&Mesh);
   exchange_gpcouple_init(&Mesh);
 #endif
 
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+  for (nl=0; nl<(Mesh.NLevels); nl++){
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
       if (Mesh.Domain[nl][nd].Grid != NULL){
         bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
@@ -468,18 +464,16 @@ int main(int argc, char *argv[])
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+        bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
 
 #ifdef FULL_RADIATION_TRANSFER
-	bvals_fullrad(&(Mesh.Domain[nl][nd]));
-	/* Update the moments in the ghost zones */
-	UpdateRT(&(Mesh.Domain[nl][nd]));
-		  
-	/* Update the opacity for the whole grid */
-	UpdateOpacity(&(Mesh.Domain[nl][nd]));
+        bvals_fullrad(&(Mesh.Domain[nl][nd]));
+/* Update the moments in the ghost zones */
+        UpdateRT(&(Mesh.Domain[nl][nd]));
 
-	
+/* Update the opacity for the whole grid */
+        UpdateOpacity(&(Mesh.Domain[nl][nd]));
 #endif
       }
     }
@@ -487,40 +481,40 @@ int main(int argc, char *argv[])
 
 
 /* set boundary condition for radiation quantities */
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)   
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
 
 
   BackEuler = BackEuler_init(&Mesh);
 
-/* Note that Eddington tensor is not set here. It will be updated once 
- * radiation transfer routine is updated. Initial output needs to update 
+/* Note that Eddington tensor is not set here. It will be updated once
+ * radiation transfer routine is updated. Initial output needs to update
  * the boundary condition. */
 #endif
 
 #ifdef RADIATION_TRANSFER
 /* Initialize working arrays for formal solution and, if not a restart, execute
-   first formal solution to initialize radiation transfer grid */
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+ * first formal solution to initialize radiation transfer grid */
+  for (nl=0; nl<(Mesh.NLevels); nl++){
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
       if (Mesh.Domain[nl][nd].Grid != NULL){
-	/* intialize work arrays */
-	formal_solution_init(&(Mesh.Domain[nl][nd]));
-	if (ires == 0) { /* Not executed on a restart */
-	  /* initialize integration RadGrid */
-	  if ( (radt_mode == 0) || (radt_mode == 2) ) {	  
-	    hydro_to_rad(&(Mesh.Domain[nl][nd]),0);  
-	    formal_solution(&(Mesh.Domain[nl][nd]),0,1);
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) 
-	    /* Update Eddington tensor */
-	    Eddington_FUN(&(Mesh.Domain[nl][nd]));
+/* intialize work arrays */
+        formal_solution_init(&(Mesh.Domain[nl][nd]));
+        if (ires == 0) { /* Not executed on a restart */          
+/* initialize integration RadGrid */
+          if ( (radt_mode == 0) || (radt_mode == 2) ) {
+            hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
+            formal_solution(&(Mesh.Domain[nl][nd]),0,1);
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+/* Update Eddington tensor */
+            Eddington_FUN(&(Mesh.Domain[nl][nd]));
 #endif
-	  }
-	  /* initialize output RadGrid */
-	  if ( (radt_mode == 1) || (radt_mode == 2) ) {	  
-	    hydro_to_rad(&(Mesh.Domain[nl][nd]),1);  
-	    formal_solution(&(Mesh.Domain[nl][nd]),1,1);
-	  }
-	} /* if (ires == 0) */
+          }
+/* initialize output RadGrid */
+          if ( (radt_mode == 1) || (radt_mode == 2) ) {
+            hydro_to_rad(&(Mesh.Domain[nl][nd]),1);
+            formal_solution(&(Mesh.Domain[nl][nd]),1,1);
+          }
+        } /* if (ires == 0) */
       }
     }}
 #endif /* RADIATION_TRANSFER */
@@ -543,20 +537,20 @@ int main(int argc, char *argv[])
  * Initialize gravitational potential for new runs
  * Allocate temporary arrays */
 
-  init_output(&Mesh); 
+  init_output(&Mesh);
   lr_states_init(&Mesh);
   Integrate = integrate_init(&Mesh);
 #ifdef SELF_GRAVITY
   SelfGrav = selfg_init(&Mesh);
 
 #ifdef CONS_GRAVITY
-  /* the function is used in the integrators */
+/* the function is used in the integrators */
   SelfGrav_cons = SelfGrav;
 #endif
 
 
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+  for (nl=0; nl<(Mesh.NLevels); nl++){
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
       if (Mesh.Domain[nl][nd].Grid != NULL){
         (*SelfGrav)(&(Mesh.Domain[nl][nd]));
         bvals_grav(&(Mesh.Domain[nl][nd]));
@@ -590,11 +584,11 @@ int main(int argc, char *argv[])
   else
     time0 = clock();
 
-	
+
 
 /* Force output of everything (by passing last argument of data_output = 1) */
 
-  if (ires==0) 	data_output(&Mesh, 1);
+  if (ires==0)  data_output(&Mesh, 1);
 
   ath_pout(0,"\nSetup complete, entering main loop...\n\n");
   ath_pout(0,"cycle=%i time=%e next dt=%e\n",Mesh.nstep, Mesh.time, Mesh.dt);
@@ -623,25 +617,25 @@ int main(int argc, char *argv[])
 /* operator-split explicit diffusion: thermal conduction, viscosity, resistivity
  * Done first since CFL constraint is applied which may change dt  */
 
-	
+
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
 #ifdef STS
     ath_pout(0,"Next N_STS = %d\n", N_STS);
     for (i=0; i<N_STS; i++) {
       STS_dt = Mesh.diff_dt/(1.0+nu_STS-(1.0-nu_STS)
-               *cos(0.5*PI*(2.0*i+1.0)/(Real)(N_STS)));
+                             *cos(0.5*PI*(2.0*i+1.0)/(Real)(N_STS)));
 #endif
       integrate_diff(&Mesh);
 
 #ifdef STATIC_MESH_REFINEMENT
       RestrictCorrect(&Mesh);
 #endif
-      for (nl=0; nl<(Mesh.NLevels); nl++){ 
-        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+      for (nl=0; nl<(Mesh.NLevels); nl++){
+        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
           if (Mesh.Domain[nl][nd].Grid != NULL){
             bvals_mhd(&(Mesh.Domain[nl][nd]));
           }
-      }}
+        }}
 #ifdef STATIC_MESH_REFINEMENT
       Prolongate(&Mesh);
 #endif
@@ -655,79 +649,69 @@ int main(int argc, char *argv[])
  * source term */
 
 /* radiative transfer must be done before radiaton_hydro or radiation_mhd!
- * If the initial condition requires Eddington tensor to calculate the 
- * radiative flux, after the first step  we calculate the Eddington tensor, 
- * we have to update the initial condition with the corrected Eddington tensor 
+ * If the initial condition requires Eddington tensor to calculate the
+ * radiative flux, after the first step  we calculate the Eddington tensor,
+ * we have to update the initial condition with the corrected Eddington tensor
  */
 
 #ifdef RADIATION_TRANSFER
     if ( (radt_mode == 0) || (radt_mode == 2) ) {
-      for (nl=0; nl<(Mesh.NLevels); nl++){ 
-	for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-	  if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-	    /* compute radiation variables from conserved variables */
-	    hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
-	    /* solve radiative transfer */
-	    formal_solution(&(Mesh.Domain[nl][nd]),0,0);
+      for (nl=0; nl<(Mesh.NLevels); nl++){
+        for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+          if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+/* compute radiation variables from conserved variables */
+            hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
+/* solve radiative transfer */
+            formal_solution(&(Mesh.Domain[nl][nd]),0,0);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	    Eddington_FUN(&(Mesh.Domain[nl][nd]));
-	  //	  Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);   
+            Eddington_FUN(&(Mesh.Domain[nl][nd]));
+            //    Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
 #else
 /* modify timestep if necessary */
-	    dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
-	    Mesh.dt = MIN(Mesh.dt, dt_rad);
-	    Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
-/* operator split update of total energy equation */
-	    rad_to_hydro(&(Mesh.Domain[nl][nd]));
-	    bvals_mhd(&(Mesh.Domain[nl][nd]));
+            dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
+            Mesh.dt = MIN(Mesh.dt, dt_rad);
+            Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
+            /* operator split update of total energy equation */
+            rad_to_hydro(&(Mesh.Domain[nl][nd]));
+            bvals_mhd(&(Mesh.Domain[nl][nd]));
 #endif
-/* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way.
-*/
+/* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way. */
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-	    bvals_radMHD(&(Mesh.Domain[nl][nd]));
-#endif 
-	  }    
-	}}
+            bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#endif
+          }
+        }}
     }
 #endif /* RADIATION_TRANSFER */
-
 
 /* Do the full radiation transfer step */
 /* If momentum equations are used, Eddington tensor also needs to be updated */
 #ifdef FULL_RADIATION_TRANSFER
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-        if (Mesh.Domain[nl][nd].RadGrid != NULL) {		
-		/* Get the gas temperature */
-        	hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
-			/* get the estimate velocity at half time step */
- 
-			GetVelguess(&(Mesh.Domain[nl][nd]));
-            /* Also get the reduce factor for speed of light */
-            GetSpeedfactor(&(Mesh.Domain[nl][nd]));
-            
-            /* Get Compton scattering source term */
-            if(Comptflag)
-                ComptTEr(&(Mesh.Domain[nl][nd]));
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+        if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+/* Get the gas temperature */
+          hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
+/* get the estimate velocity at half time step */
+          GetVelguess(&(Mesh.Domain[nl][nd]));
+/* Also get the reduce factor for speed of light */
+          GetSpeedfactor(&(Mesh.Domain[nl][nd]));
+/* Get Compton scattering source term */
+          if(Comptflag)
+            ComptTEr(&(Mesh.Domain[nl][nd]));
 
-			
-			FullRT(&(Mesh.Domain[nl][nd]));
+          FullRT(&(Mesh.Domain[nl][nd]));
+/* update boundary condition */
+          bvals_fullrad(&(Mesh.Domain[nl][nd]));
+/* Update the moments with the new specific intensities
+ * Only in the ghost zones */
+          UpdateRT(&(Mesh.Domain[nl][nd]));
 
-			/* update boundary condition */
-			bvals_fullrad(&(Mesh.Domain[nl][nd]));
-
-		/* Update the moments with the new specific intensities */
-		/* Only in the ghost zones */
-			UpdateRT(&(Mesh.Domain[nl][nd]));
-
-
-	  }/* end if grid is not null */
+        }/* end if grid is not null */
       }/* end Domain nd */
     }/* END level nl */
 #endif
-
-
 
 /* Backward Euler step first */
 
@@ -735,19 +719,19 @@ int main(int argc, char *argv[])
 
 #ifdef SHEARING_BOX
 #ifdef RADFARGO
-	/* Rad fargo preparation only need background shearing and currect Er */	
-	/* We need to do this for every level and every domain */
-	for(nl=0; nl<(Mesh.NLevels); nl++){
-		for(nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
-			if(Mesh.Domain[nl][nd].Grid != NULL)
-				Rad_Fargo_Pre(&(Mesh.Domain[nl][nd]));
-		}
-	}
+/* Rad fargo preparation only need background shearing and currect Er */
+/* We need to do this for every level and every domain */
+    for(nl=0; nl<(Mesh.NLevels); nl++){
+      for(nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+        if(Mesh.Domain[nl][nd].Grid != NULL)
+          Rad_Fargo_Pre(&(Mesh.Domain[nl][nd]));
+      }
+    }
 #endif
 #endif
 
 
-	GetTguess(&Mesh);	
+    GetTguess(&Mesh);
 
 
 #endif
@@ -757,25 +741,21 @@ int main(int argc, char *argv[])
 /*--- Step 9c. ---------------------------------------------------------------*/
 /* Loop over all Domains and call Integrator */
 
-	/* For radiation code, backward Euler is done for the whole mesh *
-	 * before the integrator step *
-         */
+/* For radiation code, backward Euler is done for the whole mesh *
+ * before the integrator step */
 
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
-			
-	  (*Integrate)(&(Mesh.Domain[nl][nd]));
+
+          (*Integrate)(&(Mesh.Domain[nl][nd]));
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
           advect_particles(&(Mesh.Domain[nl][nd]));
 #endif
-		
+
 #endif /* FARGO */
-            
-
-
         }
       }
     }
@@ -783,53 +763,51 @@ int main(int argc, char *argv[])
 
 /*--- Step 9d. ---------------------------------------------------------------*/
 /* With SMR, restrict solution from Child --> Parent grids  */
-/* For radiation part, the Advection flux is also restricted and corrected during this step */
+/* For radiation part, the Advection flux is also restricted and corrected
+ * during this step */
 
 #ifdef STATIC_MESH_REFINEMENT
     RestrictCorrect(&Mesh);
 #endif
 
+/* For SMR, we need to wait for Restriction of the MHD part to be finished 
+ * before we go to the radiation part */
 
 
-/* For SMR, we need to wait for Restriction  of the MHD part to be finished before we go to the radiation part */
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+/* For radiation, we need to update the boundary condition before doing the
+ * Backward Euler step */
 
-
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)	
-/* For radiation, we need to update the boundary condition before doing the Backward Euler step */
-	
-
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
           bvals_mhd(&(Mesh.Domain[nl][nd]));
         }
       }
     }
 
-	
+
 
 #ifdef STATIC_MESH_REFINEMENT
-	/* update ghost zones for gas quantities */
-    	Prolongate(&Mesh);
+/* update ghost zones for gas quantities */
+    Prolongate(&Mesh);
 
-	/* The advective radiation energy density is calculated at this step */
-	/* Advection energy density for one ghost zones is also calculated here */
-	/* Advective flux is calcuated with updated gas velocity but initial Er */
-	GetAdvErFlx(&Mesh);
-	
-
+/* The advective radiation energy density is calculated at this step */
+/* Advection energy density for one ghost zones is also calculated here */
+/* Advective flux is calcuated with updated gas velocity but initial Er */
+    GetAdvErFlx(&Mesh);
 #endif
-	/* We do gas quantities first and then Backward Euler step */
-	/* Because we put fargo advection steps together */
-	(*BackEuler)(&Mesh);
+/* We do gas quantities first and then Backward Euler step */
+/* Because we put fargo advection steps together */
+    (*BackEuler)(&Mesh);
 
 #ifdef STATIC_MESH_REFINEMENT
-	/* Add the advective flux, which is calculated based on Er at the beginning of the step */
-	/* Flux restriction and correction are also calculated here */
-	/* Boundary condition is updated later */
-	AdvErFlx_pre(&Mesh);
+/* Add the advective flux, which is calculated based on Er at the beginning of the step */
+/* Flux restriction and correction are also calculated here */
+/* Boundary condition is updated later */
+    AdvErFlx_pre(&Mesh);
 #endif
-	
+
 #endif /* End radiation hydro or radiation mhd */
 
 
@@ -843,8 +821,8 @@ int main(int argc, char *argv[])
  * correction to fluxes for accelerations due to self-gravity. */
 
 #ifdef SELF_GRAVITY
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
 #ifndef CONS_GRAVITY
           (*SelfGrav)(&(Mesh.Domain[nl][nd]));
@@ -875,9 +853,8 @@ int main(int argc, char *argv[])
 /* Boundary values must be set after time is updated for t-dependent BCs.
  * With SMR, ghost zones at internal fine/coarse boundaries set by Prolongate */
 
-
-    for (nl=0; nl<(Mesh.NLevels); nl++){ 
-      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
           bvals_mhd(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES
@@ -885,26 +862,24 @@ int main(int argc, char *argv[])
 #endif
 
 
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)	
-	bvals_radMHD(&(Mesh.Domain[nl][nd]));
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+          bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
-			
-			
-			/* update the opacity after the gas quantities are updated, including the ghost zones */
-#ifdef FULL_RADIATION_TRANSFER
-			UpdateOpacity(&(Mesh.Domain[nl][nd]));		
-#endif
-	 
 
+
+/* update the opacity after the gas quantities are updated, including the ghost
+ * zones */
+#ifdef FULL_RADIATION_TRANSFER
+          UpdateOpacity(&(Mesh.Domain[nl][nd]));
+#endif
         }
       }
     }
-	
+
 
 #ifdef STATIC_MESH_REFINEMENT
     Prolongate(&Mesh);
 #endif
-
 
 
 /*--- Step 9i. ---------------------------------------------------------------*/
@@ -925,7 +900,7 @@ int main(int argc, char *argv[])
 /* Print diagnostic message, flush message buffers, and continue... */
 
     ath_pout(0,"cycle=%i time=%e next dt=%e last dt=%e\n",
-	     Mesh.nstep,Mesh.time,Mesh.dt,dt_done);
+             Mesh.nstep,Mesh.time,Mesh.dt,dt_done);
 
     if(nflush == Mesh.nstep){
       ath_flush_out();
@@ -934,7 +909,7 @@ int main(int argc, char *argv[])
     }
   } /* END OF MAIN INTEGRATION LOOP ==========================================*/
 
-/*--- Step 10. ---------------------------------------------------------------*/
+/*--- Step 10. ---------------------------------------------------------------*/  
 /* Finish up by computing zc/sec, dumping data, and deallocate memory */
 
 /* Print diagnostic message as to why run terminated */
@@ -965,14 +940,14 @@ int main(int argc, char *argv[])
 /* Calculate and print the zone-cycles/cpu-second on this processor */
 
   zones = 0;
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-  for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-    if (Mesh.Domain[nl][nd].Grid != NULL) {
-      zones += (Mesh.Domain[nl][nd].Grid->Nx[0])*
-               (Mesh.Domain[nl][nd].Grid->Nx[1])*
-               (Mesh.Domain[nl][nd].Grid->Nx[2]);
-    }
-  }}
+  for (nl=0; nl<(Mesh.NLevels); nl++){
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+      if (Mesh.Domain[nl][nd].Grid != NULL) {
+        zones += (Mesh.Domain[nl][nd].Grid->Nx[0])*
+          (Mesh.Domain[nl][nd].Grid->Nx[1])*
+          (Mesh.Domain[nl][nd].Grid->Nx[2]);
+      }
+    }}
   zcs = (double)zones*(double)((Mesh.nstep) - nstep_start)/cpu_time;
 
   ath_pout(0,"  tlim= %e   nlim= %i\n",tlim,nlim);
@@ -990,12 +965,12 @@ int main(int argc, char *argv[])
 /* Calculate and print total zone-cycles/wall-second on all processors */
 #ifdef MPI_PARALLEL
   zones = 0;
-  for (nl=0; nl<(Mesh.NLevels); nl++){ 
-  for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){  
-    zones += (Mesh.Domain[nl][nd].Nx[0])*
-               (Mesh.Domain[nl][nd].Nx[1])*
-               (Mesh.Domain[nl][nd].Nx[2]);
-  }}
+  for (nl=0; nl<(Mesh.NLevels); nl++){
+    for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+      zones += (Mesh.Domain[nl][nd].Nx[0])*
+        (Mesh.Domain[nl][nd].Nx[1])*
+        (Mesh.Domain[nl][nd].Nx[2]);
+    }}
   zcs = (double)zones*(double)(Mesh.nstep - nstep_start)/cpu_time;
   ath_pout(0,"\ntotal zone-cycles/wall-second = %e\n",zcs);
 #endif /* MPI_PARALLEL */
@@ -1009,7 +984,7 @@ int main(int argc, char *argv[])
   data_output(&Mesh, 1);
 
 /* Free all memory */
- 
+
   lr_states_destruct();
   integrate_destruct();
   data_output_destruct();
@@ -1024,7 +999,7 @@ int main(int argc, char *argv[])
 #endif
 #ifdef RADIATION_TRANSFER
   bvals_rad_shear_destruct();
-#endif	
+#endif
 #endif /* end shearing box */
 
 #if defined(RESISTIVITY) || defined(VISCOSITY) || defined(THERMAL_CONDUCTION)
@@ -1038,11 +1013,11 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef RADIATION_TRANSFER
- radiation_destruct(&Mesh);
+  radiation_destruct(&Mesh);
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	BackEuler_destruct(&Mesh);
+  BackEuler_destruct(&Mesh);
 
 #endif
 
@@ -1061,7 +1036,7 @@ int main(int argc, char *argv[])
 
 /*============================================================================*/
 /*----------------------------------------------------------------------------*/
-/*! \fn void change_rundir(const char *name) 
+/*! \fn void change_rundir(const char *name)
  *  \brief Change run directory;  create it if it does not exist yet
  */
 
@@ -1093,7 +1068,7 @@ void change_rundir(const char *name)
 
     baton_stop(MAX_FILE_OP, ch_rundir0_tag);
 
-    /* Did anyone fail to make and change to the run directory? */
+/* Did anyone fail to make and change to the run directory? */
     rerr = MPI_Allreduce(&err, &gerr, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     if(rerr) ath_perr(-1,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
 
@@ -1117,7 +1092,7 @@ void change_rundir(const char *name)
 
   baton_stop(MAX_FILE_OP, ch_rundir1_tag);
 
-  /* Did anyone fail to make and change to the local run directory? */
+/* Did anyone fail to make and change to the local run directory? */
   rerr = MPI_Allreduce(&err, &gerr, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
   if(rerr) ath_perr(-1,"[change_rundir]: MPI_Allreduce error = %d\n",rerr);
 

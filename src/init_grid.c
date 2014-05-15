@@ -1,6 +1,6 @@
 #include "copyright.h"
 /*============================================================================*/
-/*! \file init_grid.c 
+/*! \file init_grid.c
  *  \brief Initializes most variables in the Grid structure.
  *
  * PURPOSE: Initializes most variables in the Grid structure.  Allocates memory
@@ -8,7 +8,7 @@
  *   between child and parent Grids, and initializes data needed for restriction
  *   flux-correction, and prolongation steps.
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  * - init_grid()
  *
  * PRIVATE FUNCTION PROTOTYPES:
@@ -65,14 +65,14 @@ void init_grid(MeshS *pM)
   int n1r,n2r,n1p,n2p;
 
 #ifdef RSTSMR
-  /* We need extra two cells for prolongation */
+/* We need extra two cells for prolongation */
   int Rstn1z, Rstn2z, Rstn3z;
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  /* We need separate variables for radiation during */
-  /* prolongation, as ghoze zones of radiation and MHD */
-  /* have different sizes */
+/* We need separate variables for radiation during */
+/* prolongation, as ghoze zones of radiation and MHD */
+/* have different sizes */
   int Rad_n1p, Rad_n2p;
   int Rad_n1z, Rad_n2z, Rad_n3z;
 
@@ -97,249 +97,249 @@ void init_grid(MeshS *pM)
 /* Loop over all levels and domains per level */
 
   for (nl=0; nl<pM->NLevels; nl++){
-  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
-      pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
+    for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
+        pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 #ifdef MPI_PARALLEL
-	pG->Comm_Domain = pD->Comm_Domain;
+        pG->Comm_Domain = pD->Comm_Domain;
 #endif
 #endif
 
-      pG->time = pM->time;
+        pG->time = pM->time;
 
 /* get (l,m,n) coordinates of Grid being updated on this processor */
 
-      get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+        get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
 
 /* ---------------------  Intialize grid in 1-direction --------------------- */
 /* Initialize is,ie,dx1
  * Compute Disp, MinX[0], and MaxX[0] using displacement of Domain and Grid
  * location within Domain */
 
-      pG->Nx[0] = pD->GData[myN][myM][myL].Nx[0];
+        pG->Nx[0] = pD->GData[myN][myM][myL].Nx[0];
 
-      if(pG->Nx[0] > 1) {
-        pG->is = nghost;
-        pG->ie = pG->Nx[0] + nghost - 1;
-      }
-      else
-        pG->is = pG->ie = 0;
-    
-      pG->dx1 = pD->dx[0];
-    
-      pG->Disp[0] = pD->Disp[0];
-      pG->MinX[0] = pD->MinX[0];
-      for (l=1; l<=myL; l++) {
-        pG->Disp[0] +=        pD->GData[myN][myM][l-1].Nx[0];
-        pG->MinX[0] += (Real)(pD->GData[myN][myM][l-1].Nx[0])*pG->dx1;
-      }
-      pG->MaxX[0] = pG->MinX[0] + (Real)(pG->Nx[0])*pG->dx1;
-    
+        if(pG->Nx[0] > 1) {
+          pG->is = nghost;
+          pG->ie = pG->Nx[0] + nghost - 1;
+        }
+        else
+          pG->is = pG->ie = 0;
+
+        pG->dx1 = pD->dx[0];
+
+        pG->Disp[0] = pD->Disp[0];
+        pG->MinX[0] = pD->MinX[0];
+        for (l=1; l<=myL; l++) {
+          pG->Disp[0] +=        pD->GData[myN][myM][l-1].Nx[0];
+          pG->MinX[0] += (Real)(pD->GData[myN][myM][l-1].Nx[0])*pG->dx1;
+        }
+        pG->MaxX[0] = pG->MinX[0] + (Real)(pG->Nx[0])*pG->dx1;
+
 /* ---------------------  Intialize grid in 2-direction --------------------- */
 /* Initialize js,je,dx2
  * Compute Disp, MinX[1], and MaxX[1] using displacement of Domain and Grid
  * location within Domain */
 
-      pG->Nx[1] = pD->GData[myN][myM][myL].Nx[1];
-    
-      if(pG->Nx[1] > 1) {
-        pG->js = nghost;
-        pG->je = pG->Nx[1] + nghost - 1;
-      }
-      else
-        pG->js = pG->je = 0;
-    
-      pG->dx2 = pD->dx[1];
+        pG->Nx[1] = pD->GData[myN][myM][myL].Nx[1];
 
-      pG->Disp[1] = pD->Disp[1];
-      pG->MinX[1] = pD->MinX[1];
-      for (m=1; m<=myM; m++) {
-        pG->Disp[1] +=        pD->GData[myN][m-1][myL].Nx[1];
-        pG->MinX[1] += (Real)(pD->GData[myN][m-1][myL].Nx[1])*pG->dx2;
-      }
-      pG->MaxX[1] = pG->MinX[1] + (Real)(pG->Nx[1])*pG->dx2;
+        if(pG->Nx[1] > 1) {
+          pG->js = nghost;
+          pG->je = pG->Nx[1] + nghost - 1;
+        }
+        else
+          pG->js = pG->je = 0;
+
+        pG->dx2 = pD->dx[1];
+
+        pG->Disp[1] = pD->Disp[1];
+        pG->MinX[1] = pD->MinX[1];
+        for (m=1; m<=myM; m++) {
+          pG->Disp[1] +=        pD->GData[myN][m-1][myL].Nx[1];
+          pG->MinX[1] += (Real)(pD->GData[myN][m-1][myL].Nx[1])*pG->dx2;
+        }
+        pG->MaxX[1] = pG->MinX[1] + (Real)(pG->Nx[1])*pG->dx2;
 
 /* ---------------------  Intialize grid in 3-direction --------------------- */
 /* Initialize ks,ke,dx3
  * Compute Disp, MinX[2], and MaxX[2] using displacement of Domain and Grid
  * location within Domain */
 
-      pG->Nx[2] = pD->GData[myN][myM][myL].Nx[2];
+        pG->Nx[2] = pD->GData[myN][myM][myL].Nx[2];
 
-      if(pG->Nx[2] > 1) {
-        pG->ks = nghost;
-        pG->ke = pG->Nx[2] + nghost - 1;
-      }
-      else
-        pG->ks = pG->ke = 0;
+        if(pG->Nx[2] > 1) {
+          pG->ks = nghost;
+          pG->ke = pG->Nx[2] + nghost - 1;
+        }
+        else
+          pG->ks = pG->ke = 0;
 
-      pG->dx3 = pD->dx[2];
+        pG->dx3 = pD->dx[2];
 
-      pG->Disp[2] = pD->Disp[2];
-      pG->MinX[2] = pD->MinX[2];
-      for (n=1; n<=myN; n++) {
-        pG->Disp[2] +=        pD->GData[n-1][myM][myL].Nx[2];
-        pG->MinX[2] += (Real)(pD->GData[n-1][myM][myL].Nx[2])*pG->dx3;
-      }
-      pG->MaxX[2] = pG->MinX[2] + (Real)(pG->Nx[2])*pG->dx3;
+        pG->Disp[2] = pD->Disp[2];
+        pG->MinX[2] = pD->MinX[2];
+        for (n=1; n<=myN; n++) {
+          pG->Disp[2] +=        pD->GData[n-1][myM][myL].Nx[2];
+          pG->MinX[2] += (Real)(pD->GData[n-1][myM][myL].Nx[2])*pG->dx3;
+        }
+        pG->MaxX[2] = pG->MinX[2] + (Real)(pG->Nx[2])*pG->dx3;
 
 /* ---------  Allocate 3D arrays to hold Cons based on size of grid --------- */
 
-      if (pG->Nx[0] > 1)
-        n1z = pG->Nx[0] + 2*nghost;
-      else
-        n1z = 1;
+        if (pG->Nx[0] > 1)
+          n1z = pG->Nx[0] + 2*nghost;
+        else
+          n1z = 1;
 
-      if (pG->Nx[1] > 1)
-        n2z = pG->Nx[1] + 2*nghost;
-      else
-        n2z = 1;
+        if (pG->Nx[1] > 1)
+          n2z = pG->Nx[1] + 2*nghost;
+        else
+          n2z = 1;
 
-      if (pG->Nx[2] > 1)
-        n3z = pG->Nx[2] + 2*nghost;
-      else
-        n3z = 1;
+        if (pG->Nx[2] > 1)
+          n3z = pG->Nx[2] + 2*nghost;
+        else
+          n3z = 1;
 
 /* Build a 3D array of type ConsS */
 
-      pG->U = (ConsS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsS));
-      if (pG->U == NULL) goto on_error1;
-    
+        pG->U = (ConsS***)calloc_3d_array(n3z, n2z, n1z, sizeof(ConsS));
+        if (pG->U == NULL) goto on_error1;
+
 /* Build 3D arrays to hold interface field */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-      pG->B1i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->B1i == NULL) goto on_error2;
+        pG->B1i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->B1i == NULL) goto on_error2;
 
-      pG->B2i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->B2i == NULL) goto on_error3;
+        pG->B2i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->B2i == NULL) goto on_error3;
 
-      pG->B3i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->B3i == NULL) goto on_error4;
+        pG->B3i = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->B3i == NULL) goto on_error4;
 #endif /* MHD */
 
 /* Build 3D arrays to magnetic diffusivities */
 
 #ifdef RESISTIVITY
-      pG->eta_Ohm = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->eta_Ohm == NULL) goto on_error5;
+        pG->eta_Ohm = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->eta_Ohm == NULL) goto on_error5;
 
-      pG->eta_Hall = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->eta_Hall == NULL) goto on_error6;
+        pG->eta_Hall = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->eta_Hall == NULL) goto on_error6;
 
-      pG->eta_AD = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->eta_AD == NULL) goto on_error7;
+        pG->eta_AD = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->eta_AD == NULL) goto on_error7;
 #endif /* RESISTIVITY */
 
 /* Build 3D arrays to gravitational potential and mass fluxes */
 
 #ifdef SELF_GRAVITY
-      pG->Phi = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Phi == NULL) goto on_error9;
+        pG->Phi = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Phi == NULL) goto on_error9;
 
-      pG->Phi_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Phi_old == NULL) goto on_error10;
+        pG->Phi_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Phi_old == NULL) goto on_error10;
 
 #ifdef CONS_GRAVITY
-	
-      pG->dphidt = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->dphidt == NULL) goto on_error18;
 
-      pG->dphidt_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->dphidt_old == NULL) goto on_error19;
-        
-      pG->dphidtsource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->dphidtsource == NULL) goto on_error30;
+        pG->dphidt = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->dphidt == NULL) goto on_error18;
+
+        pG->dphidt_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->dphidt_old == NULL) goto on_error19;
+
+        pG->dphidtsource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->dphidtsource == NULL) goto on_error30;
 
 #endif
 
-      pG->x1MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x1MassFlux == NULL) goto on_error11;
+        pG->x1MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->x1MassFlux == NULL) goto on_error11;
 
-      pG->x2MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x2MassFlux == NULL) goto on_error12;
+        pG->x2MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->x2MassFlux == NULL) goto on_error12;
 
-      pG->x3MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->x3MassFlux == NULL) goto on_error13;
+        pG->x3MassFlux = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->x3MassFlux == NULL) goto on_error13;
 #endif /* SELF_GRAVITY */
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-      pG->Tguess = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Tguess == NULL) goto on_error16;
-      pG->Ersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Ersource == NULL) goto on_error20;
-      pG->Eulersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Eulersource == NULL) goto on_error22;
-       pG->Comp = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->Comp == NULL) goto on_error23;
+        pG->Tguess = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Tguess == NULL) goto on_error16;
+        pG->Ersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Ersource == NULL) goto on_error20;
+        pG->Eulersource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Eulersource == NULL) goto on_error22;
+        pG->Comp = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Comp == NULL) goto on_error23;
 
 
 #ifdef RADFARGO
-	/* The order of Fargo Flx is [k][i][j] */
-       pG->RadFargoFlx = (Real***)calloc_3d_array(n3z, n1z, n2z + 2*nfghost, sizeof(Real));
+/* The order of Fargo Flx is [k][i][j] */
+        pG->RadFargoFlx = (Real***)calloc_3d_array(n3z, n1z, n2z + 2*nfghost, sizeof(Real));
         if (pG->RadFargoFlx == NULL) goto on_error24;
 #endif
 
-	/* Only need to do this for static mesh refinement */
+/* Only need to do this for static mesh refinement */
 #ifdef STATIC_MESH_REFINEMENT
-	/* flux on the left hand side of x direction */
-	pG->AdvErFlx[0] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->AdvErFlx[0] == NULL) goto on_error25;
-	
+/* flux on the left hand side of x direction */
+        pG->AdvErFlx[0] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->AdvErFlx[0] == NULL) goto on_error25;
 
-	if(nDim > 1){
-		/* flux on the left hand side of y direction */
-		pG->AdvErFlx[1] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      		if (pG->AdvErFlx[1] == NULL) goto on_error26;
-	
-	}
-	
-	if(nDim > 2){
-		/* flux on the left hand side of z direction */
-		pG->AdvErFlx[2] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      		if (pG->AdvErFlx[2] == NULL) goto on_error27;
-	}
+
+        if(nDim > 1){
+/* flux on the left hand side of y direction */
+          pG->AdvErFlx[1] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+          if (pG->AdvErFlx[1] == NULL) goto on_error26;
+
+        }
+
+        if(nDim > 2){
+/* flux on the left hand side of z direction */
+          pG->AdvErFlx[2] = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+          if (pG->AdvErFlx[2] == NULL) goto on_error27;
+        }
 
 #endif /* end static mesh refinement */
-		
+
 #endif
 
 
 /* Allocate and initialize cylindrical scaling factors */
 #ifdef CYLINDRICAL
-      pG->r = (Real*)calloc_1d_array(n1z, sizeof(Real));
-      if (pG->r == NULL) goto on_error14;
+        pG->r = (Real*)calloc_1d_array(n1z, sizeof(Real));
+        if (pG->r == NULL) goto on_error14;
 
-      pG->ri = (Real*)calloc_1d_array(n1z, sizeof(Real));
-      if (pG->ri == NULL) goto on_error15;
-      for (i=pG->is-nghost; i<=pG->ie+nghost; i++) {
-        pG->ri[i] = pG->MinX[0] + ((Real)(i - pG->is))*pG->dx1;
-        pG->r[i]  = pG->ri[i] + 0.5*pG->dx1;
-      }
+        pG->ri = (Real*)calloc_1d_array(n1z, sizeof(Real));
+        if (pG->ri == NULL) goto on_error15;
+        for (i=pG->is-nghost; i<=pG->ie+nghost; i++) {
+          pG->ri[i] = pG->MinX[0] + ((Real)(i - pG->is))*pG->dx1;
+          pG->r[i]  = pG->ri[i] + 0.5*pG->dx1;
+        }
 #endif /* CYLINDRICAL */
 
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
-      pG->tgas = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-      if (pG->tgas == NULL) goto on_error17;
+        pG->tgas = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->tgas == NULL) goto on_error17;
 #endif /* RADIATION_TRANSFER */
-		
-		
-#ifdef FULL_RADIATION_TRANSFER		
-	  pG->Radheat = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-	  if (pG->Radheat == NULL) goto on_error21;
-	  pG->Pgsource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
 
-	  pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
-	  if (pG->Frsource == NULL) goto on_error28;
-	  pG->Velguess = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
-	  if (pG->Velguess == NULL) goto on_error29;
-        
-      pG->ComptSource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
-     
-		
+
+#ifdef FULL_RADIATION_TRANSFER
+        pG->Radheat = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+        if (pG->Radheat == NULL) goto on_error21;
+        pG->Pgsource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+
+        pG->Frsource = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
+        if (pG->Frsource == NULL) goto on_error28;
+        pG->Velguess = (Real****)calloc_4d_array(n3z, n2z, n1z, 3, sizeof(Real));
+        if (pG->Velguess == NULL) goto on_error29;
+
+        pG->ComptSource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+
+
 #endif
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
@@ -348,65 +348,65 @@ void init_grid(MeshS *pM)
  */
 
 /* Left-x1 */
-      if(myL > 0) pG->lx1_id = pD->GData[myN][myM][myL-1].ID_Comm_Domain;
-      else pG->lx1_id = -1;
+        if(myL > 0) pG->lx1_id = pD->GData[myN][myM][myL-1].ID_Comm_Domain;
+        else pG->lx1_id = -1;
 
 /* Right-x1 */
-      if(myL <(pD->NGrid[0])-1)
-        pG->rx1_id = pD->GData[myN][myM][myL+1].ID_Comm_Domain;
-      else pG->rx1_id = -1;
+        if(myL <(pD->NGrid[0])-1)
+          pG->rx1_id = pD->GData[myN][myM][myL+1].ID_Comm_Domain;
+        else pG->rx1_id = -1;
 
 /* Left-x2 */
-      if(myM > 0) pG->lx2_id = pD->GData[myN][myM-1][myL].ID_Comm_Domain;
-      else pG->lx2_id = -1;
+        if(myM > 0) pG->lx2_id = pD->GData[myN][myM-1][myL].ID_Comm_Domain;
+        else pG->lx2_id = -1;
 
 /* Right-x2 */
-      if(myM <(pD->NGrid[1])-1)
-        pG->rx2_id = pD->GData[myN][myM+1][myL].ID_Comm_Domain;
-      else pG->rx2_id = -1;
+        if(myM <(pD->NGrid[1])-1)
+          pG->rx2_id = pD->GData[myN][myM+1][myL].ID_Comm_Domain;
+        else pG->rx2_id = -1;
 
 /* Left-x3 */
-      if(myN > 0) pG->lx3_id = pD->GData[myN-1][myM][myL].ID_Comm_Domain;
-      else pG->lx3_id = -1;
+        if(myN > 0) pG->lx3_id = pD->GData[myN-1][myM][myL].ID_Comm_Domain;
+        else pG->lx3_id = -1;
 
 /* Right-x3 */
-      if(myN <(pD->NGrid[2])-1)
-        pG->rx3_id = pD->GData[myN+1][myM][myL].ID_Comm_Domain;
-      else pG->rx3_id = -1;
+        if(myN <(pD->NGrid[2])-1)
+          pG->rx3_id = pD->GData[myN+1][myM][myL].ID_Comm_Domain;
+        else pG->rx3_id = -1;
 
 #ifdef SELF_GRAVITY
-      pG->lx1_Gid=pG->lx1_id;
-      pG->rx1_Gid=pG->rx1_id;
-      pG->lx2_Gid=pG->lx2_id;
-      pG->rx2_Gid=pG->rx2_id;
-      pG->lx3_Gid=pG->lx3_id;
-      pG->rx3_Gid=pG->rx3_id;
+        pG->lx1_Gid=pG->lx1_id;
+        pG->rx1_Gid=pG->rx1_id;
+        pG->lx2_Gid=pG->lx2_id;
+        pG->rx2_Gid=pG->rx2_id;
+        pG->lx3_Gid=pG->lx3_id;
+        pG->rx3_Gid=pG->rx3_id;
 #endif
-   
+
 #ifdef SELF_GRAVITY
-      pG->lx1_Gid=pG->lx1_id;
-      pG->rx1_Gid=pG->rx1_id;
-      pG->lx2_Gid=pG->lx2_id;
-      pG->rx2_Gid=pG->rx2_id;
-      pG->lx3_Gid=pG->lx3_id;
-      pG->rx3_Gid=pG->rx3_id;
+        pG->lx1_Gid=pG->lx1_id;
+        pG->rx1_Gid=pG->rx1_id;
+        pG->lx2_Gid=pG->lx2_id;
+        pG->rx2_Gid=pG->rx2_id;
+        pG->lx3_Gid=pG->lx3_id;
+        pG->rx3_Gid=pG->rx3_id;
 #endif
-   
+
 
 #ifdef STATIC_MESH_REFINEMENT
 /*---------------------- Initialize variables for SMR ------------------------*/
 /* Number of child/parent grids, and data about overlap regions. */
 
-      pG->NCGrid = 0;
-      pG->NPGrid = 0;
-      pG->NmyCGrid = 0;  /* can be as large as # of child Domains */
-      pG->NmyPGrid = 0;  /* must be 0 or 1 */
-      pG->CGrid = NULL;
-      pG->PGrid = NULL;
+        pG->NCGrid = 0;
+        pG->NPGrid = 0;
+        pG->NmyCGrid = 0;  /* can be as large as # of child Domains */
+        pG->NmyPGrid = 0;  /* must be 0 or 1 */
+        pG->CGrid = NULL;
+        pG->PGrid = NULL;
 #endif
 
-    } /* End grid is null */
-  }}
+      } /* End grid is null */
+    }}
 
 #ifdef STATIC_MESH_REFINEMENT
 /*------------------- Count number of child Grids ----------------------------*/
@@ -417,133 +417,133 @@ void init_grid(MeshS *pM)
 /* Loop over levels (up to next to last level: maxlevel-1), and domains/level */
 
   for (nl=0; nl<(pM->NLevels)-1; nl++){
-  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
-      pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
+    for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to this Domain */
+        pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
 
 /* edges of this Domain */
-      for (i=0; i<3; i++) {
-        D1.ijkl[i] = pD->Disp[i];
-        D1.ijkr[i] = pD->Disp[i] + pD->Nx[i];
-      }
+        for (i=0; i<3; i++) {
+          D1.ijkl[i] = pD->Disp[i];
+          D1.ijkr[i] = pD->Disp[i] + pD->Nx[i];
+        }
 
 /* edges of this Grid */
-      for (i=0; i<3; i++) {
-        G1.ijkl[i] = pG->Disp[i];
-        G1.ijkr[i] = pG->Disp[i] + pG->Nx[i];
-      }
+        for (i=0; i<3; i++) {
+          G1.ijkl[i] = pG->Disp[i];
+          G1.ijkr[i] = pG->Disp[i] + pG->Nx[i];
+        }
 
 /* For this Domain, check if there is a Domain at next level that overlaps.
  * Divide by two to check in units of this (not the child) domain coordinates */
 
-      for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
-        pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);  /* ptr to potential child  */
+        for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
+          pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);  /* ptr to potential child  */
 
 /* edges of potential child Domain */
-        for (i=0; i<3; i++) {
-          D2.ijkl[i] = pCD->Disp[i]/2;
-          D2.ijkr[i] = 1;
-          if (pCD->Nx[i] > 1) D2.ijkr[i] = (pCD->Disp[i] + pCD->Nx[i])/2;
-        }
+          for (i=0; i<3; i++) {
+            D2.ijkl[i] = pCD->Disp[i]/2;
+            D2.ijkr[i] = 1;
+            if (pCD->Nx[i] > 1) D2.ijkr[i] = (pCD->Disp[i] + pCD->Nx[i])/2;
+          }
 
-        isDOverlap = checkOverlap(&D1, &D2, &D3);
-        if (isDOverlap == 1){
+          isDOverlap = checkOverlap(&D1, &D2, &D3);
+          if (isDOverlap == 1){
 
 /* There is a child Domain that overlaps. So on the child Domain, find all the
  * Grids that overlap OR touch this Grid. */
 
-          for (n=0; n<pCD->NGrid[2]; n++){
-          for (m=0; m<pCD->NGrid[1]; m++){
-          for (l=0; l<pCD->NGrid[0]; l++){
+            for (n=0; n<pCD->NGrid[2]; n++){
+              for (m=0; m<pCD->NGrid[1]; m++){
+                for (l=0; l<pCD->NGrid[0]; l++){
 
 /* edges of child Grid */
 /* Divide by two to check in units of this (not the child) grid coordinates */
-            for (i=0; i<3; i++) {
-              G2.ijkl[i] = pCD->GData[n][m][l].Disp[i]/2;
-              G2.ijkr[i] = 1;
-              if (pCD->Nx[i] > 1) 
-                G2.ijkr[i] = (pCD->GData[n][m][l].Disp[i]
-                            + pCD->GData[n][m][l].Nx[i])/2;
-            }
+                  for (i=0; i<3; i++) {
+                    G2.ijkl[i] = pCD->GData[n][m][l].Disp[i]/2;
+                    G2.ijkr[i] = 1;
+                    if (pCD->Nx[i] > 1)
+                      G2.ijkr[i] = (pCD->GData[n][m][l].Disp[i]
+                                    + pCD->GData[n][m][l].Nx[i])/2;
+                  }
 
-            isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
+                  isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
 
 /* If Grid overlaps, increment Child counters */
 
-            if (isGOverlap == 1){
-              pG->NCGrid++;
-              if (pCD->GData[n][m][l].ID_Comm_world == myID_Comm_world)
-                pG->NmyCGrid++;
-            }
+                  if (isGOverlap == 1){
+                    pG->NCGrid++;
+                    if (pCD->GData[n][m][l].ID_Comm_world == myID_Comm_world)
+                      pG->NmyCGrid++;
+                  }
 
-          }}} /* end loops over [n,m,l]: all Grids in Domain[nl+1][ncd] */
-        }
-      } /* end loop over all child Domains at level [nl+1] */
+                }}} /* end loops over [n,m,l]: all Grids in Domain[nl+1][ncd] */
+          }
+        } /* end loop over all child Domains at level [nl+1] */
 
 /*------------------------- Allocate CGrid array -----------------------------*/
 /* Now we know how many child Grids there are for the Grid in Domain[nd] at
  * level nl on both the same and other processors.    */
 
-      if (pG->NCGrid > 0) {
-        pG->CGrid =(GridOvrlpS*)calloc_1d_array(pG->NCGrid, sizeof(GridOvrlpS));
-        if(pG->CGrid==NULL) ath_error("[init_grid]:failed to allocate CGrid\n");
+        if (pG->NCGrid > 0) {
+          pG->CGrid =(GridOvrlpS*)calloc_1d_array(pG->NCGrid, sizeof(GridOvrlpS));
+          if(pG->CGrid==NULL) ath_error("[init_grid]:failed to allocate CGrid\n");
 
-        for (ncg=0; ncg<pG->NCGrid; ncg++){
-          for (dim=0; dim<6; dim++) {
-            pG->CGrid[ncg].myFlx[dim] = NULL;
+          for (ncg=0; ncg<pG->NCGrid; ncg++){
+            for (dim=0; dim<6; dim++) {
+              pG->CGrid[ncg].myFlx[dim] = NULL;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	    pG->CGrid[ncg].AdvEr[dim] = 0;	
+              pG->CGrid[ncg].AdvEr[dim] = 0;
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->CGrid[ncg].myEMF1[dim] = NULL;
-            pG->CGrid[ncg].myEMF2[dim] = NULL;
-            pG->CGrid[ncg].myEMF3[dim] = NULL;
+              pG->CGrid[ncg].myEMF1[dim] = NULL;
+              pG->CGrid[ncg].myEMF2[dim] = NULL;
+              pG->CGrid[ncg].myEMF3[dim] = NULL;
 #endif /* MHD */
+            }
           }
         }
-      }
 
 /*-------------------------- Fill in CGrid array -----------------------------*/
 /* Repeat loop over all domains at next level, and all the logic to find
  * overlapping Grids, to fill in data about overlap regions in CGrid array. */
 
-      nMyCG = 0;
-      nCG = pG->NmyCGrid;
+        nMyCG = 0;
+        nCG = pG->NmyCGrid;
 
-      for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
-        pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);   /* ptr to potential child */
+        for (ncd=0; ncd<pM->DomainsPerLevel[nl+1]; ncd++){
+          pCD = (DomainS*)&(pM->Domain[nl+1][ncd]);   /* ptr to potential child */
 
 /* edges of potential child Domain */
-        for (i=0; i<3; i++) {
-          D2.ijkl[i] = pCD->Disp[i]/2;
-          D2.ijkr[i] = 1;
-          if (pCD->Nx[i] > 1) D2.ijkr[i] = (pCD->Disp[i] + pCD->Nx[i])/2;
-        }
+          for (i=0; i<3; i++) {
+            D2.ijkl[i] = pCD->Disp[i]/2;
+            D2.ijkr[i] = 1;
+            if (pCD->Nx[i] > 1) D2.ijkr[i] = (pCD->Disp[i] + pCD->Nx[i])/2;
+          }
 
-        isDOverlap = checkOverlap(&D1, &D2, &D3);
-        if (isDOverlap == 1){
+          isDOverlap = checkOverlap(&D1, &D2, &D3);
+          if (isDOverlap == 1){
 
 /* Found the Domain that overlaps, so on the child Domain check if there
  * is a Grid that overlaps OR touches */
 
-          for (n=0; n<pCD->NGrid[2]; n++){
-          for (m=0; m<pCD->NGrid[1]; m++){
-          for (l=0; l<pCD->NGrid[0]; l++){
+            for (n=0; n<pCD->NGrid[2]; n++){
+              for (m=0; m<pCD->NGrid[1]; m++){
+                for (l=0; l<pCD->NGrid[0]; l++){
 
 /* edges of child Grid */
 /* Divide by two to check in units of this (not the child) grid coordinates */
-            for (i=0; i<3; i++) {
-              G2.ijkl[i] = pCD->GData[n][m][l].Disp[i]/2;
-              G2.ijkr[i] = 1;
-              if (pCD->Nx[i] > 1)
-                G2.ijkr[i] = (pCD->GData[n][m][l].Disp[i]
-                            + pCD->GData[n][m][l].Nx[i])/2;
-            }
+                  for (i=0; i<3; i++) {
+                    G2.ijkl[i] = pCD->GData[n][m][l].Disp[i]/2;
+                    G2.ijkr[i] = 1;
+                    if (pCD->Nx[i] > 1)
+                      G2.ijkr[i] = (pCD->GData[n][m][l].Disp[i]
+                                    + pCD->GData[n][m][l].Nx[i])/2;
+                  }
 
-            isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
-            if (isGOverlap == 1){
+                  isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
+                  if (isGOverlap == 1){
 /**************************
 if (myID_Comm_world == 0)
 printf ("G1 = %i %i  G2 = %i %i  G3 = %i %i\n",
@@ -557,138 +557,138 @@ G3.ijkl[0],G3.ijkr[0]);
 
 /* Index CGrid array so that child Grids on this processor come first */
 
-              if (pCD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
-                ncg=nMyCG;
-                nMyCG++;
-              } else {
-                ncg=nCG;
-                nCG++;
-              }
+                    if (pCD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
+                      ncg=nMyCG;
+                      nMyCG++;
+                    } else {
+                      ncg=nCG;
+                      nCG++;
+                    }
 
 /* If Grids just touch, then ijke[] > ijks[] and zero cells overlap, so only
  * flux corrections will be performed -- no restrictions or prolongations */
 
-              pG->CGrid[ncg].ijks[0] = G3.ijkl[0] - pG->Disp[0] + pG->is;
-              pG->CGrid[ncg].ijke[0] = G3.ijkr[0] - pG->Disp[0] + pG->is - 1;
-              pG->CGrid[ncg].ijks[1] = G3.ijkl[1] - pG->Disp[1] + pG->js;
-              pG->CGrid[ncg].ijke[1] = G3.ijkr[1] - pG->Disp[1] + pG->js - 1;
-              pG->CGrid[ncg].ijks[2] = G3.ijkl[2] - pG->Disp[2] + pG->ks;
-              pG->CGrid[ncg].ijke[2] = G3.ijkr[2] - pG->Disp[2] + pG->ks - 1;
-  
-              pG->CGrid[ncg].DomN = ncd;
-              pG->CGrid[ncg].ID = pCD->GData[n][m][l].ID_Comm_Parent;
+                    pG->CGrid[ncg].ijks[0] = G3.ijkl[0] - pG->Disp[0] + pG->is;
+                    pG->CGrid[ncg].ijke[0] = G3.ijkr[0] - pG->Disp[0] + pG->is - 1;
+                    pG->CGrid[ncg].ijks[1] = G3.ijkl[1] - pG->Disp[1] + pG->js;
+                    pG->CGrid[ncg].ijke[1] = G3.ijkr[1] - pG->Disp[1] + pG->js - 1;
+                    pG->CGrid[ncg].ijks[2] = G3.ijkl[2] - pG->Disp[2] + pG->ks;
+                    pG->CGrid[ncg].ijke[2] = G3.ijkr[2] - pG->Disp[2] + pG->ks - 1;
 
-              n1z = G3.ijkr[0] - G3.ijkl[0];
+                    pG->CGrid[ncg].DomN = ncd;
+                    pG->CGrid[ncg].ID = pCD->GData[n][m][l].ID_Comm_Parent;
 
-	/*-------------------------------------------*/
-	/* Include one ghost zone at each side */
+                    n1z = G3.ijkr[0] - G3.ijkl[0];
+
+/*-------------------------------------------*/
+/* Include one ghost zone at each side */
 #ifdef RSTSMR
-	      if(n1z > 0)
-		Rstn1z = n1z + 2 + 2;	
-	      else
-		Rstn1z = n1z;	
+                    if(n1z > 0)
+                      Rstn1z = n1z + 2 + 2;
+                    else
+                      Rstn1z = n1z;
 #endif
 
-	/*----------------------------------------*/
+/*----------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		/*Only do this if there is data to prolongate. 
-						 Two additional cells at ie direction are required for prolongation */
-	      if(n1z > 0)
-		Rad_n1z = n1z + 2;	
-	      else
-		Rad_n1z = n1z;
+/*Only do this if there is data to prolongate.
+  Two additional cells at ie direction are required for prolongation */
+                    if(n1z > 0)
+                      Rad_n1z = n1z + 2;
+                    else
+                      Rad_n1z = n1z;
 #endif
-	/*---------------------------------------*/
-              n2z = G3.ijkr[1] - G3.ijkl[1];
+/*---------------------------------------*/
+                    n2z = G3.ijkr[1] - G3.ijkl[1];
 
-	/*-------------------------------------------*/
+/*-------------------------------------------*/
 #ifdef RSTSMR
-	      if(n2z > 0)
-		Rstn2z = n2z + 2 + 2;	
-	      else
-		Rstn2z = n2z;	
+                    if(n2z > 0)
+                      Rstn2z = n2z + 2 + 2;
+                    else
+                      Rstn2z = n2z;
 #endif
 
 
-	/*---------------------------------------*/
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
-	      if((pG->Nx[1] > 1) && (n2z > 0))
-			Rad_n2z = n2z + 2;
-	      else
-			Rad_n2z = n2z; 
-#endif
-	/*-----------------------------------------*/
-              n3z = G3.ijkr[2] - G3.ijkl[2];
-
-	/*-------------------------------------------*/
-#ifdef RSTSMR
-	      if(n3z > 0)
-		Rstn3z = n3z + 2 + 2;	
-	      else
-		Rstn3z = n3z;	
-#endif
-
-	/*---------------------------------------*/
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)		
-	      if((pG->Nx[2] > 1) && (n3z > 0))
-			Rad_n3z = n3z + 2;
-	      else
-			Rad_n3z = n3z; 
-#endif
-	/*-----------------------------------------*/
-
-              pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
-              pG->CGrid[ncg].nWordsP  = 0;
-#ifdef RSTSMR
-	      pG->CGrid[ncg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
+/*---------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      pG->CGrid[ncg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);	
+                    if((pG->Nx[1] > 1) && (n2z > 0))
+                      Rad_n2z = n2z + 2;
+                    else
+                      Rad_n2z = n2z;
+#endif
+/*-----------------------------------------*/
+                    n3z = G3.ijkr[2] - G3.ijkl[2];
+
+/*-------------------------------------------*/
+#ifdef RSTSMR
+                    if(n3z > 0)
+                      Rstn3z = n3z + 2 + 2;
+                    else
+                      Rstn3z = n3z;
+#endif
+
+/*---------------------------------------*/
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+                    if((pG->Nx[2] > 1) && (n3z > 0))
+                      Rad_n3z = n3z + 2;
+                    else
+                      Rad_n3z = n3z;
+#endif
+/*-----------------------------------------*/
+
+                    pG->CGrid[ncg].nWordsRC = n1z*n2z*n3z*(NVAR);
+                    pG->CGrid[ncg].nWordsP  = 0;
+#ifdef RSTSMR
+                    pG->CGrid[ncg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+                    pG->CGrid[ncg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);
 #endif
 #endif
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	    
-	      /* Radiation also needs to do prolongation */
-	      /* If grids just touch, n1z, n2z or n3z will be zero, no restriction or prolongation will be needed */
-	     /* If two grids overlap and need to prolongate ghost zones, the ghost zones will be added later */
 
-		/* nWordsAdvEr is the number of words that rquire restriction and correction */ 
-	      pG->CGrid[ncg].nWordsAdvEr = n1z*n2z*n3z;
+/* Radiation also needs to do prolongation */
+/* If grids just touch, n1z, n2z or n3z will be zero, no restriction or prolongation will be needed */
+/* If two grids overlap and need to prolongate ghost zones, the ghost zones will be added later */
 
- 		 /* This is the number of data required for communication to update the Matrix */
-	      pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
-	      pG->CGrid[ncg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);
+/* nWordsAdvEr is the number of words that rquire restriction and correction */
+                    pG->CGrid[ncg].nWordsAdvEr = n1z*n2z*n3z;
+
+/* This is the number of data required for communication to update the Matrix */
+                    pG->CGrid[ncg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
+                    pG->CGrid[ncg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);
 
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /* count B-fields to be passed, but only if there are cells that overlap */
-              if (pG->CGrid[ncg].nWordsRC > 0) {
-                if (nDim==3) {
-                  pG->CGrid[ncg].nWordsRC += 
-                    ((n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1));
+                    if (pG->CGrid[ncg].nWordsRC > 0) {
+                      if (nDim==3) {
+                        pG->CGrid[ncg].nWordsRC +=
+                          ((n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1));
 #ifdef RSTSMR
-		  pG->CGrid[ncg].RstWordsP +=
-			((Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1));
+                        pG->CGrid[ncg].RstWordsP +=
+                          ((Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1));
 #endif
-                } else {
-                  if (nDim==2) {
-                    pG->CGrid[ncg].nWordsRC += ((n1z+1)*n2z + n1z*(n2z+1));
+                      } else {
+                        if (nDim==2) {
+                          pG->CGrid[ncg].nWordsRC += ((n1z+1)*n2z + n1z*(n2z+1));
 #ifdef RSTSMR
-		    pG->CGrid[ncg].RstWordsP += ((Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1));
+                          pG->CGrid[ncg].RstWordsP += ((Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1));
 #endif
-                  }
-                }
-              }
+                        }
+                      }
+                    }
 #endif /* MHD */
 
 /* (2) if edge of the child Grid is at edge of the child Domain, then allocate
  * memory for fluxes and EMFs for Correction, and count GZ for Prolongation */
 
-              for (dim=0; dim<nDim; dim++){    /* only checks nDim directions */
-                if (dim == 0) iGrid=l;
-                if (dim == 1) iGrid=m;
-                if (dim == 2) iGrid=n;
+                    for (dim=0; dim<nDim; dim++){    /* only checks nDim directions */
+                      if (dim == 0) iGrid=l;
+                      if (dim == 1) iGrid=m;
+                      if (dim == 2) iGrid=n;
 
 /* inner x1/x2/x3 boundary.  Check that:
  *  1. L-edge of child Grid is same as L-edge of overlap region (otherwise
@@ -698,269 +698,269 @@ G3.ijkl[0],G3.ijkr[0]);
  *  3. L-edge of child Grid is at L-edge of own Domain (so it is not an internal
  *    MPI boundary on the child Domain). */
 
-                n1p = 0; n2p = 0;
+                      n1p = 0; n2p = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		Rad_n1p = 0; Rad_n2p = 0;		
+                      Rad_n1p = 0; Rad_n2p = 0;
 #endif
-                if ((G2.ijkl[dim] == G3.ijkl[dim]) &&
-                    (pCD->Disp[dim] != 0) &&
-                    (iGrid == 0)) {
+                      if ((G2.ijkl[dim] == G3.ijkl[dim]) &&
+                          (pCD->Disp[dim] != 0) &&
+                          (iGrid == 0)) {
 
 /* calculate size of arrays to store fluxes on this Grid for Correction */
-                  if (dim == 0) {
-                    n1z = G3.ijkr[1] - G3.ijkl[1];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 1) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 2) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[1] - G3.ijkl[1];
-                  }
+                        if (dim == 0) {
+                          n1z = G3.ijkr[1] - G3.ijkl[1];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 1) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 2) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[1] - G3.ijkl[1];
+                        }
 
 /* calculate size of data passed in Prolongation */
-                  if ((G3.ijkr[0]-G3.ijkl[0])*
-                      (G3.ijkr[1]-G3.ijkl[1])*
-                      (G3.ijkr[2]-G3.ijkl[2]) > 0) {
-                    n1p = n1z;
-                    n2p = n2z;
+                        if ((G3.ijkr[0]-G3.ijkl[0])*
+                            (G3.ijkr[1]-G3.ijkl[1])*
+                            (G3.ijkr[2]-G3.ijkl[2]) > 0) {
+                          n1p = n1z;
+                          n2p = n2z;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    Rad_n1p = n1z;
-		    Rad_n2p = n2z;		 
+                          Rad_n1p = n1z;
+                          Rad_n2p = n2z;
 #endif
-                    if (pG->Nx[1] > 1) 	{
-			n1p += (nghost + 2);
+                          if (pG->Nx[1] > 1)    {
+                            n1p += (nghost + 2);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);				
-#endif			
-		    }
+                            Rad_n1p += (Matghost + 2);
+#endif
+                          }
 
-                    if (pG->Nx[2] > 1)  {
-			n2p += nghost + 2;
+                          if (pG->Nx[2] > 1)  {
+                            n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);			
-#endif			
-		    }
-	
-                  }
+                            Rad_n2p += (Matghost + 2);
+#endif
+                          }
 
-                  pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
-                  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+                        }
+
+                        pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR);
+                        pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		/* plus the variables needed to be prolongaed for radiation part */
-		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
-		  /* no ghost zones for Rad restriction */
-		/* One ghost zone plus two additional cells for prolongation */
-		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2+2))*Rad_n1p*Rad_n2p*(4);  
-#endif	
+/* plus the variables needed to be prolongaed for radiation part */
+                        pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
+                        pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
+/* no ghost zones for Rad restriction */
+/* One ghost zone plus two additional cells for prolongation */
+                        pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2+2))*Rad_n1p*Rad_n2p*(4);
+#endif
 
 
 /* Allocate memory for myFlx and myEMFs */
 
-                  if (n1z*n2z > 0) {
-                    pG->CGrid[ncg].myFlx[2*dim] =
-                      (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
-                    if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
-                     "[init_grid]:failed to allocate CGrid ixb myFlx\n");
+                        if (n1z*n2z > 0) {
+                          pG->CGrid[ncg].myFlx[2*dim] =
+                            (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
+                          if(pG->CGrid[ncg].myFlx[2*dim] == NULL) ath_error(
+                                                                            "[init_grid]:failed to allocate CGrid ixb myFlx\n");
 
-			/* Allocate memory for advection flux */
+/* Allocate memory for advection flux */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		     pG->CGrid[ncg].AdvEr[2*dim] = 1;
+                          pG->CGrid[ncg].AdvEr[2*dim] = 1;
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
+                          pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
-                    if (pG->Nx[1] > 1 && dim != 2) {
-                      pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z; 
-                      pG->CGrid[ncg].myEMF3[2*dim] = (Real**)calloc_2d_array(
-                        n2z,n1z+1, sizeof(Real));
-	             if(pG->CGrid[ncg].myEMF3[2*dim] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid ixb myEMF3\n");
-                    }
+                          if (pG->Nx[1] > 1 && dim != 2) {
+                            pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z;
+                            pG->CGrid[ncg].myEMF3[2*dim] = (Real**)calloc_2d_array(
+                                                                                   n2z,n1z+1, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF3[2*dim] == NULL) ath_error(
+                                                                               "[init_grid]:failed to allocate CGrid ixb myEMF3\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 0) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1); 
-                      pG->CGrid[ncg].myEMF2[2*dim] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 0) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
+                            pG->CGrid[ncg].myEMF2[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
+                                                                               "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 1) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1); 
-                      pG->CGrid[ncg].myEMF1[2*dim] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 1) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
+                            pG->CGrid[ncg].myEMF1[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
+                                                                               "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 2) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1) + (n1z+1)*n2z; 
-                      pG->CGrid[ncg].myEMF1[2*dim] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
-                      pG->CGrid[ncg].myEMF2[2*dim] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 2) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1) + (n1z+1)*n2z;
+                            pG->CGrid[ncg].myEMF1[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF1[2*dim] == NULL) ath_error(
+                                                                               "[init_grid]:failed to allocate CGrid ixb myEMF1\n");
+                            pG->CGrid[ncg].myEMF2[2*dim] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF2[2*dim] == NULL) ath_error(
+                                                                               "[init_grid]:failed to allocate CGrid ixb myEMF2\n");
+                          }
 #endif /* MHD */
-                  }
-                }
+                        }
+                      }
 
 /* outer x1/x2/x3 boundary.  Same logic as above for inner boundary */
 
-                n1p = 0; n2p = 0; 
+                      n1p = 0; n2p = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		Rad_n1p = 0;
-		Rad_n2p = 0;	
+                      Rad_n1p = 0;
+                      Rad_n2p = 0;
 #endif
-                irefine = 1;
-                for (i=1;i<=(nl+1);i++) irefine *= 2; /* child refinement lev */
-                if ( (G2.ijkr[dim] == G3.ijkr[dim]) &&
-                    ((pCD->Disp[dim] + pCD->Nx[dim])/irefine != pM->Nx[dim]) &&
-                     (iGrid == (pCD->NGrid[dim]-1)) ) {
+                      irefine = 1;
+                      for (i=1;i<=(nl+1);i++) irefine *= 2; /* child refinement lev */
+                      if ( (G2.ijkr[dim] == G3.ijkr[dim]) &&
+                           ((pCD->Disp[dim] + pCD->Nx[dim])/irefine != pM->Nx[dim]) &&
+                           (iGrid == (pCD->NGrid[dim]-1)) ) {
 
 /* calculate size of arrays to store fluxes on this Grid for Correction */
-                  if (dim == 0) {
-                    n1z = G3.ijkr[1] - G3.ijkl[1];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 1) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 2) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[1] - G3.ijkl[1];
-                  }
+                        if (dim == 0) {
+                          n1z = G3.ijkr[1] - G3.ijkl[1];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 1) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 2) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[1] - G3.ijkl[1];
+                        }
 
 /* calculate size of data passed in Prolongation */
-                  if ((G3.ijkr[0]-G3.ijkl[0])*
-                      (G3.ijkr[1]-G3.ijkl[1])*
-                      (G3.ijkr[2]-G3.ijkl[2]) > 0) {
-                    n1p = n1z;
-                    n2p = n2z;
+                        if ((G3.ijkr[0]-G3.ijkl[0])*
+                            (G3.ijkr[1]-G3.ijkl[1])*
+                            (G3.ijkr[2]-G3.ijkl[2]) > 0) {
+                          n1p = n1z;
+                          n2p = n2z;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    Rad_n1p = n1z;
-		    Rad_n2p = n2z;	
+                          Rad_n1p = n1z;
+                          Rad_n2p = n2z;
 #endif
 
-                    if (pG->Nx[1] > 1) {
-			n1p += nghost + 2;
+                          if (pG->Nx[1] > 1) {
+                            n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+                            Rad_n1p += (Matghost + 2);
 #endif
-		    }			
-                    if (pG->Nx[2] > 1)	{
-			n2p += nghost + 2;
+                          }
+                          if (pG->Nx[2] > 1)    {
+                            n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+                            Rad_n2p += (Matghost + 2);
 #endif
-		    }
+                          }
 
-		    
-                  }
 
-                  pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR); 
-                  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR); 
+                        }
+
+                        pG->CGrid[ncg].nWordsRC += n1z*n2z*(NVAR);
+                        pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		  pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
+                        pG->CGrid[ncg].nWordsAdvEr += n1z*n2z*(1);
 
-		  pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY); 
-		  pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4); 
+                        pG->CGrid[ncg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
+                        pG->CGrid[ncg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 /* Allocate memory for myFlx and myEMFs*/
 
-                  if (n1z*n2z > 0) {
-                    pG->CGrid[ncg].myFlx[(2*dim)+1] =
-                      (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
-                    if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
-                      "[init_grid]:failed to allocate CGrid oxb myFlx\n");
+                        if (n1z*n2z > 0) {
+                          pG->CGrid[ncg].myFlx[(2*dim)+1] =
+                            (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
+                          if(pG->CGrid[ncg].myFlx[(2*dim)+1] == NULL) ath_error(
+                                                                                "[init_grid]:failed to allocate CGrid oxb myFlx\n");
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    pG->CGrid[ncg].AdvEr[(2*dim)+1] = 1;
+                          pG->CGrid[ncg].AdvEr[(2*dim)+1] = 1;
 #endif
 
 
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
+                          pG->CGrid[ncg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
-                    if (pG->Nx[1] > 1 && dim != 2) {
-                      pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z;
-                      pG->CGrid[ncg].myEMF3[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF3[(2*dim)+1] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid oxb myEMF3\n");
-                    }
+                          if (pG->Nx[1] > 1 && dim != 2) {
+                            pG->CGrid[ncg].nWordsRC += (n1z+1)*n2z;
+                            pG->CGrid[ncg].myEMF3[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF3[(2*dim)+1] == NULL) ath_error(
+                                                                                   "[init_grid]:failed to allocate CGrid oxb myEMF3\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 0) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
-		      pG->CGrid[ncg].myEMF2[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 0) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
+                            pG->CGrid[ncg].myEMF2[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
+                                                                                   "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 1) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
-                      pG->CGrid[ncg].myEMF1[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 1) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1);
+                            pG->CGrid[ncg].myEMF1[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
+                                                                                   "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 2) {
-                      pG->CGrid[ncg].nWordsRC += n1z*(n2z+1) + (n1z+1)*n2z;
-                      pG->CGrid[ncg].myEMF1[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
-                      pG->CGrid[ncg].myEMF2[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
-                        "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 2) {
+                            pG->CGrid[ncg].nWordsRC += n1z*(n2z+1) + (n1z+1)*n2z;
+                            pG->CGrid[ncg].myEMF1[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF1[(2*dim)+1] == NULL) ath_error(
+                                                                                   "[init_grid]:failed to allocate CGrid oxb myEMF1\n");
+                            pG->CGrid[ncg].myEMF2[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->CGrid[ncg].myEMF2[(2*dim)+1] == NULL) ath_error(
+                                                                                   "[init_grid]:failed to allocate CGrid oxb myEMF2\n");
+                          }
 #endif /* MHD */
-                  }
-                }
+                        }
+                      }
 
-              } /* end loop over boundary directions */
-            } /* end if child Grid overlaps or touches */
-          }}} /* end loops over all Grids in Domain[nl+1][ncd] */
-        } /* end if child Domain */
-      } /* end loop over all Domains at level [nl+1] */
-    } /* end if Grid on this processor */
-  }} /* end loops over all levels and domains per level */
+                    } /* end loop over boundary directions */
+                  } /* end if child Grid overlaps or touches */
+                }}} /* end loops over all Grids in Domain[nl+1][ncd] */
+          } /* end if child Domain */
+        } /* end loop over all Domains at level [nl+1] */
+      } /* end if Grid on this processor */
+    }} /* end loops over all levels and domains per level */
 
 
 /* output grid geometry if out_level >= 1 */
 
   for (nl=0; nl<(pM->NLevels); nl++){
-  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
+    for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
 
-      ath_pout(1,"\nProcID=%d level=%d Domain=%d NCgrid=%d NmyCGrid=%d\n",
-        myID_Comm_world,nl,nd,pG->NCGrid,pG->NmyCGrid);
-      for (i=0;i<pG->NCGrid; i++){
-        ath_pout(1,"CGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
-          pG->CGrid[i].ijks[0],pG->CGrid[i].ijke[0],
-          pG->CGrid[i].ijks[1],pG->CGrid[i].ijke[1],
-          pG->CGrid[i].ijks[2],pG->CGrid[i].ijke[2]);
-        ath_pout(1,"Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
-          pG->CGrid[i].ID,pG->CGrid[i].DomN,pG->CGrid[i].nWordsRC,
-          pG->CGrid[i].nWordsP);
+        ath_pout(1,"\nProcID=%d level=%d Domain=%d NCgrid=%d NmyCGrid=%d\n",
+                 myID_Comm_world,nl,nd,pG->NCGrid,pG->NmyCGrid);
+        for (i=0;i<pG->NCGrid; i++){
+          ath_pout(1,"CGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
+                   pG->CGrid[i].ijks[0],pG->CGrid[i].ijke[0],
+                   pG->CGrid[i].ijks[1],pG->CGrid[i].ijke[1],
+                   pG->CGrid[i].ijks[2],pG->CGrid[i].ijke[2]);
+          ath_pout(1,"Child_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
+                   pG->CGrid[i].ID,pG->CGrid[i].DomN,pG->CGrid[i].nWordsRC,
+                   pG->CGrid[i].nWordsP);
+        }
       }
-    }
-  }}
+    }}
 
 /*--------------------- Count number of parent Grids -------------------------*/
 /* For each Grid, count the total number of parent Grids before allocating the
@@ -970,140 +970,140 @@ G3.ijkl[0],G3.ijkr[0]);
 /* Loop over levels (except root level=0), and domains per level */
 
   for (nl=1; nl<(pM->NLevels); nl++){
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
-      pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
-      get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pD = (DomainS*)&(pM->Domain[nl][nd]);  /* set ptr to Domain */
+        pG = pM->Domain[nl][nd].Grid;          /* set ptr to Grid */
+        get_myGridIndex(pD, myID_Comm_world, &myL, &myM, &myN);
 
 /* edges of this Domain */
-      for (i=0; i<3; i++) {
-        D1.ijkl[i] = pD->Disp[i];
-        D1.ijkr[i] = pD->Disp[i] + pD->Nx[i];
-      }
+        for (i=0; i<3; i++) {
+          D1.ijkl[i] = pD->Disp[i];
+          D1.ijkr[i] = pD->Disp[i] + pD->Nx[i];
+        }
 
 /* edges of this Grid */
-      for (i=0; i<3; i++) {
-        G1.ijkl[i] = pG->Disp[i];
-        G1.ijkr[i] = pG->Disp[i] + pG->Nx[i];
-      }
+        for (i=0; i<3; i++) {
+          G1.ijkl[i] = pG->Disp[i];
+          G1.ijkr[i] = pG->Disp[i] + pG->Nx[i];
+        }
 
 /* For this domain, find domain at last level that overlaps (parent Domain).
  * Multiply by 2 to check in units of this (not the parent) domain coordinates*/
 
-      for (npd=0; npd<(pM->DomainsPerLevel[nl-1]); npd++){
-        pPD = (DomainS*)&(pM->Domain[nl-1][npd]); /* ptr to potential parent */
+        for (npd=0; npd<(pM->DomainsPerLevel[nl-1]); npd++){
+          pPD = (DomainS*)&(pM->Domain[nl-1][npd]); /* ptr to potential parent */
 
 /* edges of potential parent Domain */
-        for (i=0; i<3; i++) {
-          D2.ijkl[i] = 2*(pPD->Disp[i]);
-          D2.ijkr[i] = 2*(pPD->Disp[i] + pPD->Nx[i]);
-        }
+          for (i=0; i<3; i++) {
+            D2.ijkl[i] = 2*(pPD->Disp[i]);
+            D2.ijkr[i] = 2*(pPD->Disp[i] + pPD->Nx[i]);
+          }
 
-        isDOverlap = checkOverlap(&D1, &D2, &D3);
-        if (isDOverlap == 1){
+          isDOverlap = checkOverlap(&D1, &D2, &D3);
+          if (isDOverlap == 1){
 
 /* There is a parent Domain that overlaps. So on the parent Domain, find all the
  * Grids that overlap OR touch this Grid. */
 
-          for (n=0; n<pPD->NGrid[2]; n++){
-          for (m=0; m<pPD->NGrid[1]; m++){
-          for (l=0; l<pPD->NGrid[0]; l++){
+            for (n=0; n<pPD->NGrid[2]; n++){
+              for (m=0; m<pPD->NGrid[1]; m++){
+                for (l=0; l<pPD->NGrid[0]; l++){
 
 /* edges of parent Grid */
 /* Multiply by two to check in units of this (not the parent) grid coord */
-            for (i=0; i<3; i++) {
-              G2.ijkl[i] = 2*(pPD->GData[n][m][l].Disp[i]);
-              G2.ijkr[i] = 2*(pPD->GData[n][m][l].Disp[i] + 
-                              pPD->GData[n][m][l].Nx[i]);
-            }
+                  for (i=0; i<3; i++) {
+                    G2.ijkl[i] = 2*(pPD->GData[n][m][l].Disp[i]);
+                    G2.ijkr[i] = 2*(pPD->GData[n][m][l].Disp[i] +
+                                    pPD->GData[n][m][l].Nx[i]);
+                  }
 
-            isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
+                  isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
 
 /* If Grid overlaps, increment Parent counters */
 
-            if (isGOverlap == 1){
-              pG->NPGrid++;
-              if (pPD->GData[n][m][l].ID_Comm_world == myID_Comm_world)
-                pG->NmyPGrid++;
-            }
+                  if (isGOverlap == 1){
+                    pG->NPGrid++;
+                    if (pPD->GData[n][m][l].ID_Comm_world == myID_Comm_world)
+                      pG->NmyPGrid++;
+                  }
 
-          }}} /* end loops over [n,m,l]: all Grids in Domain[nl-1][npd] */
-        }
-      } /* end loop over all parent Domains at level [nl-1] */
+                }}} /* end loops over [n,m,l]: all Grids in Domain[nl-1][npd] */
+          }
+        } /* end loop over all parent Domains at level [nl-1] */
 
 /*-------------------------- Allocate PGrid array ----------------------------*/
 /* Now we know how many parent Grids there are for the Grid in Domain[nd] at
  * level nl on both this and other processors. */
 
-      if (pG->NPGrid > 0) {
-        pG->PGrid =(GridOvrlpS*)calloc_1d_array(pG->NPGrid, sizeof(GridOvrlpS));
-        if(pG->PGrid==NULL) ath_error("[init_grid]:failed to allocate PGrid\n");
+        if (pG->NPGrid > 0) {
+          pG->PGrid =(GridOvrlpS*)calloc_1d_array(pG->NPGrid, sizeof(GridOvrlpS));
+          if(pG->PGrid==NULL) ath_error("[init_grid]:failed to allocate PGrid\n");
 
-        for (npg=0; npg<pG->NPGrid; npg++){
-          for (dim=0; dim<6; dim++) {
-            pG->PGrid[npg].myFlx[dim] = NULL;
+          for (npg=0; npg<pG->NPGrid; npg++){
+            for (dim=0; dim<6; dim++) {
+              pG->PGrid[npg].myFlx[dim] = NULL;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	    pG->PGrid[npg].AdvEr[dim] = 0;
+              pG->PGrid[npg].AdvEr[dim] = 0;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->PGrid[npg].myEMF1[dim] = NULL;
-            pG->PGrid[npg].myEMF2[dim] = NULL;
-            pG->PGrid[npg].myEMF3[dim] = NULL;
+              pG->PGrid[npg].myEMF1[dim] = NULL;
+              pG->PGrid[npg].myEMF2[dim] = NULL;
+              pG->PGrid[npg].myEMF3[dim] = NULL;
 #endif /* MHD */
+            }
           }
         }
-      }
 
 /*--------------------------- Fill in PGrid array ----------------------------*/
 /* Repeat loop over all domains at last level, and all the logic to find
  * overlapping Grids, to fill in data about overlap regions in PGrid array */
 
-      nMyPG = 0;
-      nPG = pG->NmyPGrid;
+        nMyPG = 0;
+        nPG = pG->NmyPGrid;
 
-      for (npd=0; npd<pM->DomainsPerLevel[nl-1]; npd++){
-        pPD = (DomainS*)&(pM->Domain[nl-1][npd]);   /* ptr to potential parent*/
+        for (npd=0; npd<pM->DomainsPerLevel[nl-1]; npd++){
+          pPD = (DomainS*)&(pM->Domain[nl-1][npd]);   /* ptr to potential parent*/
 
 /* edges of potential parent Domain */
-        for (i=0; i<3; i++) {
-          D2.ijkl[i] = 2*(pPD->Disp[i]);
-          D2.ijkr[i] = 2*(pPD->Disp[i] + pPD->Nx[i]);
-        }
+          for (i=0; i<3; i++) {
+            D2.ijkl[i] = 2*(pPD->Disp[i]);
+            D2.ijkr[i] = 2*(pPD->Disp[i] + pPD->Nx[i]);
+          }
 
-        isDOverlap = checkOverlap(&D1, &D2, &D3);
-        if (isDOverlap == 1){
+          isDOverlap = checkOverlap(&D1, &D2, &D3);
+          if (isDOverlap == 1){
 
 /* Found the Domain that overlaps, so on the parent Domain check if there is a
  * Grid that overlaps OR touches */
 
-          for (n=0; n<pPD->NGrid[2]; n++){
-          for (m=0; m<pPD->NGrid[1]; m++){
-          for (l=0; l<pPD->NGrid[0]; l++){
+            for (n=0; n<pPD->NGrid[2]; n++){
+              for (m=0; m<pPD->NGrid[1]; m++){
+                for (l=0; l<pPD->NGrid[0]; l++){
 
 /* edges of parent Grid */
 /* Multiply by two to check in units of this (not the parent) grid coord */
-            for (i=0; i<3; i++) {
-              G2.ijkl[i] = 2*(pPD->GData[n][m][l].Disp[i]);
-              G2.ijkr[i] = 2*(pPD->GData[n][m][l].Disp[i] +
-                              pPD->GData[n][m][l].Nx[i]);
-            }
+                  for (i=0; i<3; i++) {
+                    G2.ijkl[i] = 2*(pPD->GData[n][m][l].Disp[i]);
+                    G2.ijkr[i] = 2*(pPD->GData[n][m][l].Disp[i] +
+                                    pPD->GData[n][m][l].Nx[i]);
+                  }
 
-            isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
-            if (isGOverlap == 1){
+                  isGOverlap = checkOverlapTouch(&G1, &G2, &G3);
+                  if (isGOverlap == 1){
 
 /* If Grid OVERLAPS or TOUCHES, then:
  * (1) fill-in data in PGrid array */
 
 /* Index PGrid array so that parent Grids on this processor come first */
 
-              if (pPD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
-                npg=nMyPG;
-                nMyPG++;
-              } else {
-                npg=nPG;
-                nPG++;
-              }
+                    if (pPD->GData[n][m][l].ID_Comm_world == myID_Comm_world) {
+                      npg=nMyPG;
+                      nMyPG++;
+                    } else {
+                      npg=nPG;
+                      nPG++;
+                    }
 
 /* If Grids just touch, then ijke[] < ijks[] and zero cells overlap, so only
  * flux corrections will be performed -- no restrictions or prolongations */
@@ -1115,133 +1115,133 @@ G3.ijkl[1],G3.ijkr[1],
 G3.ijkl[2],G3.ijkr[2]);
 *****************************/
 
-              pG->PGrid[npg].ijks[0] = G3.ijkl[0] - pG->Disp[0] + pG->is;
-              pG->PGrid[npg].ijke[0] = G3.ijkr[0] - pG->Disp[0] + pG->is - 1;
-              pG->PGrid[npg].ijks[1] = G3.ijkl[1] - pG->Disp[1] + pG->js;
-              pG->PGrid[npg].ijke[1] = G3.ijkr[1] - pG->Disp[1] + pG->js - 1;
-              pG->PGrid[npg].ijks[2] = G3.ijkl[2] - pG->Disp[2] + pG->ks;
-              pG->PGrid[npg].ijke[2] = G3.ijkr[2] - pG->Disp[2] + pG->ks - 1;
-  
-              pG->PGrid[npg].DomN = npd;
-              pG->PGrid[npg].ID = pPD->GData[n][m][l].ID_Comm_Children;
+                    pG->PGrid[npg].ijks[0] = G3.ijkl[0] - pG->Disp[0] + pG->is;
+                    pG->PGrid[npg].ijke[0] = G3.ijkr[0] - pG->Disp[0] + pG->is - 1;
+                    pG->PGrid[npg].ijks[1] = G3.ijkl[1] - pG->Disp[1] + pG->js;
+                    pG->PGrid[npg].ijke[1] = G3.ijkr[1] - pG->Disp[1] + pG->js - 1;
+                    pG->PGrid[npg].ijks[2] = G3.ijkl[2] - pG->Disp[2] + pG->ks;
+                    pG->PGrid[npg].ijke[2] = G3.ijkr[2] - pG->Disp[2] + pG->ks - 1;
 
-              n1z = (G3.ijkr[0] - G3.ijkl[0])/2;
+                    pG->PGrid[npg].DomN = npd;
+                    pG->PGrid[npg].ID = pPD->GData[n][m][l].ID_Comm_Children;
 
-	/*------------------------------------------*/
+                    n1z = (G3.ijkr[0] - G3.ijkl[0])/2;
 
-#ifdef RSTSMR
-	     if(n1z > 0)
-	     	Rstn1z = n1z + 2 + 2;
-	     else
-		Rstn1z = n1z;
-#endif
-
-
-	/*---------------------------------------------*/
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      if(n1z > 0)
-		Rad_n1z = n1z + 2;	/* Two additional cells at ie direction are required for prolongation */
-		else
-		Rad_n1z = n1z;
-#endif
-
-
-              n2z = 1; n3z = 1;
-		 /*------------------------------------*/
-#ifdef RSTSMR
-		Rstn2z = 1; Rstn3z = 1;
-#endif
-	      /*------------------------------------*/
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      Rad_n2z = 1; 
-	      Rad_n3z = 1;
-#endif
-	     /*-------------------------------------*/
-
-
-
-              if (pG->Nx[1]>1){ 
-		n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
-#ifdef RSTSMR
-		if(n2z > 1)
-			Rstn2z = n2z + 2 + 2;
-		else
-			Rstn2z = n2z;
-#endif
-
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		if(n2z > 1)
-		Rad_n2z = n2z + 2;
-		else
-		Rad_n2z = n2z;
-#endif
-	      }
-
-              if (pG->Nx[2]>1){
-		n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
+/*------------------------------------------*/
 
 #ifdef RSTSMR
-		if(n3z > 1)
-			Rstn3z = n3z + 2 + 2;
-		else
-			Rstn3z = n3z;
+                    if(n1z > 0)
+                      Rstn1z = n1z + 2 + 2;
+                    else
+                      Rstn1z = n1z;
 #endif
 
+
+/*---------------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		if(n3z > 1)
-		Rad_n3z = n3z + 2;
-		else
-		Rad_n3z = n3z;
+                    if(n1z > 0)
+                      Rad_n1z = n1z + 2;        /* Two additional cells at ie direction are required for prolongation */
+                    else
+                      Rad_n1z = n1z;
 #endif
-	      }
 
-              pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
+
+                    n2z = 1; n3z = 1;
+/*------------------------------------*/
 #ifdef RSTSMR
-	      pG->PGrid[npg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
-#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      pG->PGrid[npg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);	
-#endif	
+                    Rstn2z = 1; Rstn3z = 1;
 #endif
-              pG->PGrid[npg].nWordsP  = 0;
+/*------------------------------------*/
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	      /* If grids just touch, n1z, n2z or n3z can be zero */
-	      /* Then no restriction or prolongation inside domain */
-	     /* ghost zones for prolongation will be added later */
-	      pG->PGrid[npg].nWordsAdvEr = n1z*n2z*n3z;	
-		
-	      pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
-	      pG->PGrid[npg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);	
+                    Rad_n2z = 1;
+                    Rad_n3z = 1;
+#endif
+/*-------------------------------------*/
+
+
+
+                    if (pG->Nx[1]>1){
+                      n2z = (G3.ijkr[1] - G3.ijkl[1])/2;
+#ifdef RSTSMR
+                      if(n2z > 1)
+                        Rstn2z = n2z + 2 + 2;
+                      else
+                        Rstn2z = n2z;
+#endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+                      if(n2z > 1)
+                        Rad_n2z = n2z + 2;
+                      else
+                        Rad_n2z = n2z;
+#endif
+                    }
+
+                    if (pG->Nx[2]>1){
+                      n3z = (G3.ijkr[2] - G3.ijkl[2])/2;
+
+#ifdef RSTSMR
+                      if(n3z > 1)
+                        Rstn3z = n3z + 2 + 2;
+                      else
+                        Rstn3z = n3z;
+#endif
+
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+                      if(n3z > 1)
+                        Rad_n3z = n3z + 2;
+                      else
+                        Rad_n3z = n3z;
+#endif
+                    }
+
+                    pG->PGrid[npg].nWordsRC = n1z*n2z*n3z*(NVAR);
+#ifdef RSTSMR
+                    pG->PGrid[npg].RstWordsP = Rstn1z*Rstn2z*Rstn3z*(NVAR);
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+                    pG->PGrid[npg].RstWordsP += Rstn1z*Rstn2z*Rstn3z*(10+NOPACITY);
+#endif
+#endif
+                    pG->PGrid[npg].nWordsP  = 0;
+#if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
+/* If grids just touch, n1z, n2z or n3z can be zero */
+/* Then no restriction or prolongation inside domain */
+/* ghost zones for prolongation will be added later */
+                    pG->PGrid[npg].nWordsAdvEr = n1z*n2z*n3z;
+
+                    pG->PGrid[npg].Rad_nWordsRC = n1z*n2z*n3z*(11+NOPACITY+4+4);
+                    pG->PGrid[npg].Rad_nWordsP  = Rad_n1z*Rad_n2z*Rad_n3z*(4);
 #endif
 
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /* count B-fields to be passed, but only if there are cells that overlap */
-              if (pG->PGrid[npg].nWordsRC > 0) {
-                if (nDim==3) {
-                  pG->PGrid[npg].nWordsRC += 
-                    (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
+                    if (pG->PGrid[npg].nWordsRC > 0) {
+                      if (nDim==3) {
+                        pG->PGrid[npg].nWordsRC +=
+                          (n1z+1)*n2z*n3z + n1z*(n2z+1)*n3z + n1z*n2z*(n3z+1);
 #ifdef RSTSMR
-		  pG->PGrid[npg].RstWordsP += 
-                    (Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1);
+                        pG->PGrid[npg].RstWordsP +=
+                          (Rstn1z+1)*Rstn2z*Rstn3z + Rstn1z*(Rstn2z+1)*Rstn3z + Rstn1z*Rstn2z*(Rstn3z+1);
 #endif
-                } else {
-                  if (nDim==2) {
-                    pG->PGrid[npg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
+                      } else {
+                        if (nDim==2) {
+                          pG->PGrid[npg].nWordsRC += (n1z+1)*n2z + n1z*(n2z+1);
 #ifdef RSTSMR
-		    pG->PGrid[npg].RstWordsP += (Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1);
+                          pG->PGrid[npg].RstWordsP += (Rstn1z+1)*Rstn2z + Rstn1z*(Rstn2z+1);
 #endif
-                  }
-                }
-              }
+                        }
+                      }
+                    }
 #endif /* MHD */
 
 /* (2) If edge of this Grid is at edge of this Domain, then allocate
  * memory for fluxes and EMFs for Correction, and count GZ for Prolongation  */
 
-              for (dim=0; dim<nDim; dim++){    /* only checks nDim directions */
-                if (dim == 0) iGrid=myL;
-                if (dim == 1) iGrid=myM;
-                if (dim == 2) iGrid=myN;
+                    for (dim=0; dim<nDim; dim++){    /* only checks nDim directions */
+                      if (dim == 0) iGrid=myL;
+                      if (dim == 1) iGrid=myM;
+                      if (dim == 2) iGrid=myN;
 
 /* inner x1/x2/x3 boundary:  Check that:
  *  1. L-edge of this Grid is same as L-edge of overlap region (otherwise
@@ -1251,189 +1251,189 @@ G3.ijkl[2],G3.ijkr[2]);
  *  3. L-edge of this Grid is at L-edge of own Domain (so it is not an internal
  *    MPI boundary on this Domain). */
 
-                n1p = 0; n2p = 0;
+                      n1p = 0; n2p = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		Rad_n1p = 0; Rad_n2p = 0;
+                      Rad_n1p = 0; Rad_n2p = 0;
 #endif
 
-                if ((G1.ijkl[dim] == G3.ijkl[dim]) &&
-                    (pD->Disp[dim] != 0) &&
-                    (iGrid == 0)) {
+                      if ((G1.ijkl[dim] == G3.ijkl[dim]) &&
+                          (pD->Disp[dim] != 0) &&
+                          (iGrid == 0)) {
 
 /* calculate size of arrays to store fluxes on this Grid for Correction */
-                  if (dim == 0) {
-                    n1z = G3.ijkr[1] - G3.ijkl[1];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 1) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 2) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[1] - G3.ijkl[1];
-                  }
+                        if (dim == 0) {
+                          n1z = G3.ijkr[1] - G3.ijkl[1];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 1) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 2) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[1] - G3.ijkl[1];
+                        }
 
 /* calculate size of data passed in Prolongation */
-                  n1r = n1z; n2r = n2z;
-                  if (n1z > 1) n1r = n1z/2;
-                  if (n2z > 1) n2r = n2z/2;
+                        n1r = n1z; n2r = n2z;
+                        if (n1z > 1) n1r = n1z/2;
+                        if (n2z > 1) n2r = n2z/2;
 
-                  if ((G3.ijkr[0]-G3.ijkl[0])*
-                      (G3.ijkr[1]-G3.ijkl[1])*
-                      (G3.ijkr[2]-G3.ijkl[2]) > 0) {
-                    n1p = n1r;
-                    n2p = n2r;
+                        if ((G3.ijkr[0]-G3.ijkl[0])*
+                            (G3.ijkr[1]-G3.ijkl[1])*
+                            (G3.ijkr[2]-G3.ijkl[2]) > 0) {
+                          n1p = n1r;
+                          n2p = n2r;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    Rad_n1p = n1r;
-		    Rad_n2p = n2r;
+                          Rad_n1p = n1r;
+                          Rad_n2p = n2r;
 #endif
 
-                    if (pG->Nx[1] > 1)	{
-			n1p += nghost + 2;
+                          if (pG->Nx[1] > 1)    {
+                            n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+                            Rad_n1p += (Matghost + 2);
 #endif
-		    }
-                    if (pG->Nx[2] > 1)	{
-			n2p += nghost + 2;
+                          }
+                          if (pG->Nx[2] > 1)    {
+                            n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+                            Rad_n2p += (Matghost + 2);
 #endif
-		
-		    }
 
-                  }
+                          }
 
-                  pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
+                        }
 
-                  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+                        pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
+
+                        pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
+                        pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
-		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
+                        pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
+                        pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 /* Allocate memory for myFlx and my EMFS.  Note they have dimension of the
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
  * overlap on the parent Grid (the actual number of words sent). */
 
-                  if (n1z*n2z > 0) {
-                    pG->PGrid[npg].myFlx[2*dim] =
-                      (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
-                    if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
-                      "[init_grid]:failed to allocate PGrid ixb myFlx\n");
+                        if (n1z*n2z > 0) {
+                          pG->PGrid[npg].myFlx[2*dim] =
+                            (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
+                          if(pG->PGrid[npg].myFlx[2*dim] == NULL) ath_error(
+                                                                            "[init_grid]:failed to allocate PGrid ixb myFlx\n");
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    pG->PGrid[npg].AdvEr[2*dim] = 1;
+                          pG->PGrid[npg].AdvEr[2*dim] = 1;
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
+                          pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
-                    if (pG->Nx[1] > 1 && dim != 2) {
-                      pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
-	             pG->PGrid[npg].myEMF3[2*dim] = 
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF3[2*dim]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid ixb myEMF3\n");
-                    }
+                          if (pG->Nx[1] > 1 && dim != 2) {
+                            pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
+                            pG->PGrid[npg].myEMF3[2*dim] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF3[2*dim]==NULL) ath_error(
+                                                                             "[init_grid]:failed to allocate PGrid ixb myEMF3\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 0) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
-                      pG->PGrid[npg].myEMF2[2*dim] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 0) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
+                            pG->PGrid[npg].myEMF2[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
+                                                                             "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 1) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
-	              pG->PGrid[npg].myEMF1[2*dim] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 1) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
+                            pG->PGrid[npg].myEMF1[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
+                                                                             "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 2) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1) + (n1r+1)*n2r;
-                      pG->PGrid[npg].myEMF1[2*dim] = 
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
-                      pG->PGrid[npg].myEMF2[2*dim] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 2) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1) + (n1r+1)*n2r;
+                            pG->PGrid[npg].myEMF1[2*dim] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF1[2*dim]==NULL) ath_error(
+                                                                             "[init_grid]:failed to allocate PGrid ixb myEMF1\n");
+                            pG->PGrid[npg].myEMF2[2*dim] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF2[2*dim]==NULL) ath_error(
+                                                                             "[init_grid]:failed to allocate PGrid ixb myEMF2\n");
+                          }
 #endif /* MHD */
-                  }
-                }
+                        }
+                      }
 
 /* outer x1/x2/x3 boundary.  Same logic as above for inner boundary */
 
-                n1p = 0; n2p = 0;
+                      n1p = 0; n2p = 0;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		Rad_n1p = 0; Rad_n2p = 0;
+                      Rad_n1p = 0; Rad_n2p = 0;
 #endif
-                irefine = 1;
-                for (i=1;i<=nl;i++) irefine *= 2; /* this level refinement */
-                if ( (G1.ijkr[dim] == G3.ijkr[dim]) &&
-                    ((pD->Disp[dim] + pD->Nx[dim])/irefine != pM->Nx[dim]) &&
-                     (iGrid == (pD->NGrid[dim]-1)) ) {
-  
+                      irefine = 1;
+                      for (i=1;i<=nl;i++) irefine *= 2; /* this level refinement */
+                      if ( (G1.ijkr[dim] == G3.ijkr[dim]) &&
+                           ((pD->Disp[dim] + pD->Nx[dim])/irefine != pM->Nx[dim]) &&
+                           (iGrid == (pD->NGrid[dim]-1)) ) {
+
 /* calculate size of arrays to store fluxes on this Grid for Correction */
-                  if (dim == 0) {
-                    n1z = G3.ijkr[1] - G3.ijkl[1];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 1) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[2] - G3.ijkl[2];
-                  }
-                  if (dim == 2) {
-                    n1z = G3.ijkr[0] - G3.ijkl[0];
-                    n2z = G3.ijkr[1] - G3.ijkl[1];
-                  }
+                        if (dim == 0) {
+                          n1z = G3.ijkr[1] - G3.ijkl[1];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 1) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[2] - G3.ijkl[2];
+                        }
+                        if (dim == 2) {
+                          n1z = G3.ijkr[0] - G3.ijkl[0];
+                          n2z = G3.ijkr[1] - G3.ijkl[1];
+                        }
 
 /* calculate size of data passed in Prolongation */
-                  n1r = n1z; n2r = n2z;
-                  if (n1z > 1) n1r = n1z/2;
-                  if (n2z > 1) n2r = n2z/2;
+                        n1r = n1z; n2r = n2z;
+                        if (n1z > 1) n1r = n1z/2;
+                        if (n2z > 1) n2r = n2z/2;
 
-                  if ((G3.ijkr[0]-G3.ijkl[0])*
-                      (G3.ijkr[1]-G3.ijkl[1])*
-                      (G3.ijkr[2]-G3.ijkl[2]) > 0) {
-                    n1p = n1r;
-                    n2p = n2r;
+                        if ((G3.ijkr[0]-G3.ijkl[0])*
+                            (G3.ijkr[1]-G3.ijkl[1])*
+                            (G3.ijkr[2]-G3.ijkl[2]) > 0) {
+                          n1p = n1r;
+                          n2p = n2r;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    Rad_n1p = n1r;
-		    Rad_n2p = n2r;
+                          Rad_n1p = n1r;
+                          Rad_n2p = n2r;
 #endif
 
-                    if (pG->Nx[1] > 1)	{
-			n1p += nghost + 2;
+                          if (pG->Nx[1] > 1)    {
+                            n1p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n1p += (Matghost + 2);
+                            Rad_n1p += (Matghost + 2);
 #endif
-		    }
-                    if (pG->Nx[2] > 1)	{
-			n2p += nghost + 2;
+                          }
+                          if (pG->Nx[2] > 1)    {
+                            n2p += nghost + 2;
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-			Rad_n2p += (Matghost + 2);
+                            Rad_n2p += (Matghost + 2);
 #endif
-		    }
+                          }
 
-                  }
+                        }
 
-                  pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
-                  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
+                        pG->PGrid[npg].nWordsRC += n1r*n2r*(NVAR);
+                        pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(NVAR);
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		  pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
+                        pG->PGrid[npg].nWordsAdvEr += n1r * n2r * (1);
 
-		  pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
-		  pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
+                        pG->PGrid[npg].nWordsP  += ((nghost/2)+2)*n1p*n2p*(10+NOPACITY);
+                        pG->PGrid[npg].Rad_nWordsP  += ((Matghost/2)+2)*Rad_n1p*Rad_n2p*(4);
 #endif
 
 
@@ -1441,85 +1441,85 @@ G3.ijkl[2],G3.ijkr[2]);
  * parent overlap on THIS Grid, which is 2x the transverse dimension of the
  * overlap on the parent Grid (the actual number of words sent). */
 
-                  if (n1z*n2z > 0) {
-                    pG->PGrid[npg].myFlx[(2*dim)+1] =
-                      (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
-                    if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
-                      "[init_grid]:failed to allocate PGrid oxb myFlx\n");
+                        if (n1z*n2z > 0) {
+                          pG->PGrid[npg].myFlx[(2*dim)+1] =
+                            (ConsS**)calloc_2d_array(n2z,n1z, sizeof(ConsS));
+                          if(pG->PGrid[npg].myFlx[(2*dim)+1] == NULL) ath_error(
+                                                                                "[init_grid]:failed to allocate PGrid oxb myFlx\n");
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-		    pG->PGrid[npg].AdvEr[2*dim+1] = 1;
+                          pG->PGrid[npg].AdvEr[2*dim+1] = 1;
 #endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
-                    pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
+                          pG->PGrid[npg].nWordsP += 3*((nghost/2)+2)*n1p*n2p;
 
-                    if (pG->Nx[1] > 1 && dim != 2) {
-                      pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
-                      pG->PGrid[npg].myEMF3[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF3[(2*dim)+1]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid oxb myEMF3\n");
-                    }
+                          if (pG->Nx[1] > 1 && dim != 2) {
+                            pG->PGrid[npg].nWordsRC += (n1r+1)*n2r;
+                            pG->PGrid[npg].myEMF3[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF3[(2*dim)+1]==NULL) ath_error(
+                                                                                 "[init_grid]:failed to allocate PGrid oxb myEMF3\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 0) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
-                      pG->PGrid[npg].myEMF2[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 0) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
+                            pG->PGrid[npg].myEMF2[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
+                                                                                 "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 1) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
-                      pG->PGrid[npg].myEMF1[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 1) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1);
+                            pG->PGrid[npg].myEMF1[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
+                                                                                 "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
+                          }
 
-                    if (pG->Nx[2] > 1  && dim == 2) {
-                      pG->PGrid[npg].nWordsRC += n1r*(n2r+1) + (n1r+1)*n2r;
-                      pG->PGrid[npg].myEMF1[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
-                      pG->PGrid[npg].myEMF2[(2*dim)+1] =
-                        (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
-                      if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
-                        "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
-                    }
+                          if (pG->Nx[2] > 1  && dim == 2) {
+                            pG->PGrid[npg].nWordsRC += n1r*(n2r+1) + (n1r+1)*n2r;
+                            pG->PGrid[npg].myEMF1[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z+1,n1z, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF1[(2*dim)+1]==NULL) ath_error(
+                                                                                 "[init_grid]:failed to allocate PGrid oxb myEMF1\n");
+                            pG->PGrid[npg].myEMF2[(2*dim)+1] =
+                              (Real**)calloc_2d_array(n2z,n1z+1, sizeof(Real));
+                            if(pG->PGrid[npg].myEMF2[(2*dim)+1]==NULL) ath_error(
+                                                                                 "[init_grid]:failed to allocate PGrid oxb myEMF2\n");
+                          }
 #endif /* MHD */
-                  }
-                }
+                        }
+                      }
 
-              } /* end loop over boundary directions */
-            } /* end if parent Grid overlaps or touches */
-          }}} /* end loops over all Grids in Domain[nl-1][npd] */
-        } /* end if parent Domain */
-      } /* end loop over all Domains at level [nl-1] */
-    } /* end if Grid on this processor */
-  }} /* end loops over all levels and domains per level */
+                    } /* end loop over boundary directions */
+                  } /* end if parent Grid overlaps or touches */
+                }}} /* end loops over all Grids in Domain[nl-1][npd] */
+          } /* end if parent Domain */
+        } /* end loop over all Domains at level [nl-1] */
+      } /* end if Grid on this processor */
+    }} /* end loops over all levels and domains per level */
 
 /* output grid geometry if out_level >= 1 */
 
   for (nl=0; nl<(pM->NLevels); nl++){
-  for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
+    for (nd=0; nd<pM->DomainsPerLevel[nl]; nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG = pM->Domain[nl][nd].Grid;          /* set ptr to this Grid */
 
-      ath_pout(1,"\nProcID=%d level=%d Domain=%d NPgrid=%d NmyPGrid=%d\n",
-        myID_Comm_world,nl,nd,pG->NPGrid,pG->NmyPGrid);
-      for (i=0;i<pG->NPGrid; i++){
-        ath_pout(1,"PGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
-          pG->PGrid[i].ijks[0],pG->PGrid[i].ijke[0],
-          pG->PGrid[i].ijks[1],pG->PGrid[i].ijke[1],
-          pG->PGrid[i].ijks[2],pG->PGrid[i].ijke[2]);
-        ath_pout(1,"Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
-          pG->PGrid[i].ID,pG->PGrid[i].DomN,pG->PGrid[i].nWordsRC,
-          pG->PGrid[i].nWordsP);
+        ath_pout(1,"\nProcID=%d level=%d Domain=%d NPgrid=%d NmyPGrid=%d\n",
+                 myID_Comm_world,nl,nd,pG->NPGrid,pG->NmyPGrid);
+        for (i=0;i<pG->NPGrid; i++){
+          ath_pout(1,"PGrid=%d, [is,ie,js,je,ks,ke]=%d %d %d %d %d %d\n",i,
+                   pG->PGrid[i].ijks[0],pG->PGrid[i].ijke[0],
+                   pG->PGrid[i].ijks[1],pG->PGrid[i].ijke[1],
+                   pG->PGrid[i].ijks[2],pG->PGrid[i].ijke[2]);
+          ath_pout(1,"Parent_ID=%d DomN=%d nWordsRC=%d nWordsP=%d\n",
+                   pG->PGrid[i].ID,pG->PGrid[i].DomN,pG->PGrid[i].nWordsRC,
+                   pG->PGrid[i].nWordsP);
+        }
       }
-    } 
-  }}
+    }}
 
 #endif /* STATIC_MESH_REFINEMENT */
 
@@ -1529,87 +1529,87 @@ G3.ijkl[2],G3.ijkr[2]);
 
 #ifdef FULL_RADIATION_TRANSFER
  on_error28:
-    free_4d_array(pG->Frsource);
- on_error29:	
-    free_4d_array(pG->Velguess);
+  free_4d_array(pG->Frsource);
+ on_error29:
+  free_4d_array(pG->Velguess);
  on_error21:
-    free_3d_array(pG->Radheat);
+  free_3d_array(pG->Radheat);
 #endif
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
  on_error17:
-    free_3d_array(pG->tgas);
+  free_3d_array(pG->tgas);
 #endif
-	
+
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-   on_error16:
-    free_3d_array(pG->Tguess);
-   on_error20:
-    free_3d_array(pG->Ersource);
-   on_error22:
-    free_3d_array(pG->Eulersource); 
-    on_error23:
-    free_3d_array(pG->Comp);
+ on_error16:
+  free_3d_array(pG->Tguess);
+ on_error20:
+  free_3d_array(pG->Ersource);
+ on_error22:
+  free_3d_array(pG->Eulersource);
+ on_error23:
+  free_3d_array(pG->Comp);
 #ifdef RADFARGO
-    on_error24:
-    free_3d_array(pG->RadFargoFlx);
+ on_error24:
+  free_3d_array(pG->RadFargoFlx);
 #endif
 
 #ifdef STATIC_MESH_REFINEMENT
-   on_error25:
-    free_3d_array(pG->AdvErFlx[0]);
-   on_error26:
-    free_3d_array(pG->AdvErFlx[1]);
-   on_error27:
-    free_3d_array(pG->AdvErFlx[2]);   
+ on_error25:
+  free_3d_array(pG->AdvErFlx[0]);
+ on_error26:
+  free_3d_array(pG->AdvErFlx[1]);
+ on_error27:
+  free_3d_array(pG->AdvErFlx[2]);
 #endif
-  
+
 #endif
 #ifdef CYLINDRICAL
-  on_error15:
-    free_1d_array(pG->ri);
-  on_error14:
-    free_1d_array(pG->r);
+ on_error15:
+  free_1d_array(pG->ri);
+ on_error14:
+  free_1d_array(pG->r);
 #endif
 #ifdef SELF_GRAVITY
-  on_error13:
-    free_3d_array(pG->x3MassFlux);
-  on_error12:
-    free_3d_array(pG->x2MassFlux);
-  on_error11:
-    free_3d_array(pG->x1MassFlux);
-  on_error10:
-    free_3d_array(pG->Phi_old);
-  on_error9:
-    free_3d_array(pG->Phi);
+ on_error13:
+  free_3d_array(pG->x3MassFlux);
+ on_error12:
+  free_3d_array(pG->x2MassFlux);
+ on_error11:
+  free_3d_array(pG->x1MassFlux);
+ on_error10:
+  free_3d_array(pG->Phi_old);
+ on_error9:
+  free_3d_array(pG->Phi);
 #ifdef CONS_GRAVITY
-  on_error18:
-    free_3d_array(pG->dphidt);
-  on_error19:
-    free_3d_array(pG->dphidt_old);
-  on_error30:
-    free_3d_array(pG->dphidtsource);
+ on_error18:
+  free_3d_array(pG->dphidt);
+ on_error19:
+  free_3d_array(pG->dphidt_old);
+ on_error30:
+  free_3d_array(pG->dphidtsource);
 #endif
 #endif
 
 #ifdef RESISTIVITY
-  on_error7:
-    free_3d_array(pG->eta_AD);
-  on_error6:
-    free_3d_array(pG->eta_Hall);
-  on_error5:
-    free_3d_array(pG->eta_Ohm);
+ on_error7:
+  free_3d_array(pG->eta_AD);
+ on_error6:
+  free_3d_array(pG->eta_Hall);
+ on_error5:
+  free_3d_array(pG->eta_Ohm);
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-  on_error4:
-    free_3d_array(pG->B3i);
-  on_error3:
-    free_3d_array(pG->B2i);
-  on_error2:
-    free_3d_array(pG->B1i);
+ on_error4:
+  free_3d_array(pG->B3i);
+ on_error3:
+  free_3d_array(pG->B2i);
+ on_error2:
+  free_3d_array(pG->B1i);
 #endif
-  on_error1:
-    free_3d_array(pG->U);
-    ath_error("[init_grid]: Error allocating memory\n");
+ on_error1:
+  free_3d_array(pG->U);
+  ath_error("[init_grid]: Error allocating memory\n");
 }
 
 #ifdef STATIC_MESH_REFINEMENT

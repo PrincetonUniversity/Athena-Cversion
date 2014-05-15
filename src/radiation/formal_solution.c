@@ -7,7 +7,7 @@
  *          iteratively call formal_solution until convergence criterion
  *          is met.
  *
- * CONTAINS PUBLIC FUNCTIONS: 
+ * CONTAINS PUBLIC FUNCTIONS:
  *   formal_solution()  - interate formal solution until convergence
  *============================================================================*/
 
@@ -25,7 +25,7 @@
 
 /*----------------------------------------------------------------------------*/
 /*! \fn formal_solution(DomainS *pD)
- * Controls computation of formal solution 
+ * Controls computation of formal solution
  */
 void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 {
@@ -36,7 +36,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
   Real *dSmaxa, dSmax = 0.0, dsm, dSmin, dSrmax;
   Real dScnv;
   int  ism, *iconv;
-  
+
 #ifdef MPI_PARALLEL
   Real gdSrmax;
 #endif
@@ -50,7 +50,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
       niter = par_geti_def("radiation","niter0",niter);
       dScnv = par_getd_def("radiation","dScnv0",dScnv);
     }
-  } else { 
+  } else {
     pRG = pD->RadOutGrid; /* set ptr to RadOutGrid */
     niter = par_geti("radiation_output","niter");
     dScnv = par_getd("radiation_output","dScnv");
@@ -72,7 +72,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
   }
 
 /* set iconv = 0 indicating non-convergence */
-  for(ifr=0; ifr<nf; ifr++) 
+  for(ifr=0; ifr<nf; ifr++)
     iconv[ifr] = 0;
 
 /* number of dimensions in Grid. */
@@ -102,55 +102,55 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
     for(i=0; i<niter; i++) {
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
-      
+
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
-	if(iconv[ifr] != 1) {
-	  bvals_rad(pD,ifr,outflag);
-	  formal_solution_1d(pRG,&dSrmax,ifr);
+        if(iconv[ifr] != 1) {
+          bvals_rad(pD,ifr,outflag);
+          formal_solution_1d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL
-	  MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-	  dSrmax=gdSrmax;
+          MPI_Allreduce(&dSrmax,&gdSrmax,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+          dSrmax=gdSrmax;
 #endif
-	  dSmaxa[ifr] = dSrmax;
-/* Check whether convergence criterion is met. */   
-	  if(dSrmax <= dScnv) {
-	    i++;
-	    nfc++;
-	    iconv[ifr] = 1;
-	  }
-	}
+          dSmaxa[ifr] = dSrmax;
+/* Check whether convergence criterion is met. */
+          if(dSrmax <= dScnv) {
+            i++;
+            nfc++;
+            iconv[ifr] = 1;
+          }
+        }
       }
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }
   } else if (ndim == 2) {
 /* compute formal solution with 2D method*/
-    for(i=0; i<niter; i++) { 
+    for(i=0; i<niter; i++) {
 /* break out of loop if all frequencies are converged */
       if (nfc == nf) break;
 
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
-	if(iconv[ifr] != 1) {
-	  bvals_rad(pD,ifr,outflag);
-	  formal_solution_2d(pRG,&dSrmax,ifr);
+        if(iconv[ifr] != 1) {
+          bvals_rad(pD,ifr,outflag);
+          formal_solution_2d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL
-	  MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-	  dSrmax=gdSrmax;
+          MPI_Allreduce(&dSrmax,&gdSrmax,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+          dSrmax=gdSrmax;
 #endif
-	  dSmaxa[ifr] = dSrmax;
+          dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
-	  if(dSrmax <= dScnv) {
-	    i++;
-	    nfc++;
-	    iconv[ifr] = 1;
-	  }
-	}
+          if(dSrmax <= dScnv) {
+            i++;
+            nfc++;
+            iconv[ifr] = 1;
+          }
+        }
       }
-  
+
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
     }
@@ -163,23 +163,23 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 
       for(ifr=0; ifr<nf; ifr++) {
 /* perform iteration only if frequency has not converged */
-	if(iconv[ifr] != 1) {
-	  bvals_rad(pD,ifr,outflag);
-	  formal_solution_3d(pRG,&dSrmax,ifr);
+        if(iconv[ifr] != 1) {
+          bvals_rad(pD,ifr,outflag);
+          formal_solution_3d(pRG,&dSrmax,ifr);
 /* find global maximum relative change */
 #ifdef MPI_PARALLEL
-	  MPI_Allreduce(&dSrmax, &gdSrmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-	  dSrmax=gdSrmax;
-#endif	  
-	  if (myID_Comm_world == 0) printf("iter: %d %g\n",i,dSrmax);
-	  dSmaxa[ifr] = dSrmax;
+          MPI_Allreduce(&dSrmax,&gdSrmax,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+          dSrmax=gdSrmax;
+#endif
+          if (myID_Comm_world == 0) printf("iter: %d %g\n",i,dSrmax);
+          dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
-	  if(dSrmax <= dScnv) {
-	    i++;
-	    nfc++;
-	    iconv[ifr] = 1;
-	  }
-	}
+          if(dSrmax <= dScnv) {
+            i++;
+            nfc++;
+            iconv[ifr] = 1;
+          }
+        }
       }
 /* User work (defined in problem()) */
       Userwork_in_formal_solution(pD);
@@ -191,7 +191,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
       if(dSmax < dSmaxa[ifr]) dSmax=dSmaxa[ifr];
     if (outflag == 0)
       printf("integration grid: ");
-    else 
+    else
       printf("output grid: ");
     printf("iterations=%d, dSmax=%g\n",i,dSmax);
   }

@@ -2,7 +2,7 @@
 /*==============================================================================
  * FILE: bvals_Matrix_shear.c
  *
- * PURPOSE: Shearing sheet boundary conditions at ix1 and ox1 
+ * PURPOSE: Shearing sheet boundary conditions at ix1 and ox1
  *
  * Configure code with
  *   --enable-shearing-box to use.
@@ -43,11 +43,11 @@ typedef struct Remap_s{
   Real U[NREMAP];
 }Remap;
 
-/* 
- Remap.U[0] = Er;
- Remap.U[1] = Fr1;
- Remap.U[2] = Fr2;
- Remap.U[3] = Fr3; 
+/*
+  Remap.U[0] = Er;
+  Remap.U[1] = Fr1;
+  Remap.U[2] = Fr2;
+  Remap.U[3] = Fr3;
 */
 
 
@@ -99,17 +99,17 @@ void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat)
 /*--- Step 1. ------------------------------------------------------------------
  * Compute the distance the computational domain has sheared in y */
 
-   Lx = pMat->Lx;
+  Lx = pMat->Lx;
 
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-	/* When solve the implicit matrix, need to add dt in */
-	/* Add a factor of 4.0/3.0 */
+/* When solve the implicit matrix, need to add dt in */
+/* Add a factor of 4.0/3.0 */
 /*
   yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);
 */
-	yshear = qomL*pMat->time;
+  yshear = qomL*pMat->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -120,102 +120,102 @@ void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat)
  * a grid cell.  Note 0.0 <= epsi < 1.0.  If Domain has MPI decomposition in Y,
  * then it is possible that:  pMat->Nx2 > joffset > pMat->Nx2   */
 /* For radiation quantities, we only need the integer part */
-	
+
   joffset = (int)(deltay/pMat->dx2);
-	
-	if((deltay - joffset * pMat->dx2) > 0.5 * pMat->dx2)
-		joffset += 1;
+
+  if((deltay - joffset * pMat->dx2) > 0.5 * pMat->dx2)
+    joffset += 1;
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array.  Note i and j indices are switched.
- * switch i and j just to speed up the code in the cyclic step 
+ * switch i and j just to speed up the code in the cyclic step
  * Steps 2-10 are for 3D or 2d xy runs.  Step 11 handles 2D xz separately */
 
   if (pMat->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
 
-  if (pMat->Nx[2] > 1) ku=ke+1; else ku=ke;
-  for(k=ks; k<=ku; k++) {
-    for(j=js-Matghost; j<=je+Matghost; j++){
-      for(i=0; i<Matghost; i++){
-        ii = is-Matghost+i;
+    if (pMat->Nx[2] > 1) ku=ke+1; else ku=ke;
+    for(k=ks; k<=ku; k++) {
+      for(j=js-Matghost; j<=je+Matghost; j++){
+        for(i=0; i<Matghost; i++){
+          ii = is-Matghost+i;
 
-	GhstZns[k][i][j].U[0] = pMat->Ugas[k][j][ii].rho;
-	GhstZns[k][i][j].U[1] = pMat->Ugas[k][j][ii].V1;
-	GhstZns[k][i][j].U[2] = pMat->Ugas[k][j][ii].V2;
+          GhstZns[k][i][j].U[0] = pMat->Ugas[k][j][ii].rho;
+          GhstZns[k][i][j].U[1] = pMat->Ugas[k][j][ii].V1;
+          GhstZns[k][i][j].U[2] = pMat->Ugas[k][j][ii].V2;
 
-	/* No matter Fargo or not, background shearing is always in */
-	GhstZns[k][i][j].U[2] += qomL;
+/* No matter Fargo or not, background shearing is always in */
+          GhstZns[k][i][j].U[2] += qomL;
 
-	GhstZns[k][i][j].U[3] = pMat->Ugas[k][j][ii].V3;
-	GhstZns[k][i][j].U[4] = pMat->Ugas[k][j][ii].T4;
-	GhstZns[k][i][j].U[5] = pMat->Ugas[k][j][ii].Edd_11;
-	GhstZns[k][i][j].U[6] = pMat->Ugas[k][j][ii].Edd_21;
-	GhstZns[k][i][j].U[7] = pMat->Ugas[k][j][ii].Edd_22;
-	GhstZns[k][i][j].U[8] = pMat->Ugas[k][j][ii].Edd_31;
-	GhstZns[k][i][j].U[9] = pMat->Ugas[k][j][ii].Edd_32;
-	GhstZns[k][i][j].U[10] = pMat->Ugas[k][j][ii].Edd_33;
-	for(m=0;m<NOPACITY;m++){
-		GhstZns[k][i][j].U[11+m] = pMat->Ugas[k][j][ii].Sigma[m];
-	}
+          GhstZns[k][i][j].U[3] = pMat->Ugas[k][j][ii].V3;
+          GhstZns[k][i][j].U[4] = pMat->Ugas[k][j][ii].T4;
+          GhstZns[k][i][j].U[5] = pMat->Ugas[k][j][ii].Edd_11;
+          GhstZns[k][i][j].U[6] = pMat->Ugas[k][j][ii].Edd_21;
+          GhstZns[k][i][j].U[7] = pMat->Ugas[k][j][ii].Edd_22;
+          GhstZns[k][i][j].U[8] = pMat->Ugas[k][j][ii].Edd_31;
+          GhstZns[k][i][j].U[9] = pMat->Ugas[k][j][ii].Edd_32;
+          GhstZns[k][i][j].U[10] = pMat->Ugas[k][j][ii].Edd_33;
+          for(m=0;m<NOPACITY;m++){
+            GhstZns[k][i][j].U[11+m] = pMat->Ugas[k][j][ii].Sigma[m];
+          }
 
+        }
       }
     }
-  }
 
 /*--- Step 3. ------------------------------------------------------------------
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
 
-  for(k=ks; k<=ku; k++) {
-    for(i=0; i<Matghost; i++){
+    for(k=ks; k<=ku; k++) {
+      for(i=0; i<Matghost; i++){
 
-      for (n=0; n<(NREMAP); n++) {
+        for (n=0; n<(NREMAP); n++) {
 
-        for(j=js-Matghost; j<=je+Matghost; j++){
-          GhstZnsBuf[k][i][j].U[n] = GhstZns[k][i][j].U[n];
+          for(j=js-Matghost; j<=je+Matghost; j++){
+            GhstZnsBuf[k][i][j].U[n] = GhstZns[k][i][j].U[n];
+          }
         }
-      }
 
+      }
     }
-  }
 
 /*--- Step 4. ------------------------------------------------------------------
  * If no MPI decomposition in Y, apply shift over integer number of
  * grid cells during copy from buffer back into GhstZns.  */
 
-  if (pMat->NGrid[1] == 1) {
+    if (pMat->NGrid[1] == 1) {
 
-    for(k=ks; k<=ku; k++) {
-      for(j=js; j<=je; j++){
-        jremap = j - joffset;
-        if (jremap < (int)js) jremap += pMat->Nx[1];
+      for(k=ks; k<=ku; k++) {
+        for(j=js; j<=je; j++){
+          jremap = j - joffset;
+          if (jremap < (int)js) jremap += pMat->Nx[1];
 
-        for(i=0; i<Matghost; i++){
-          for (n=0; n<(NREMAP); n++) {
-            GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+          for(i=0; i<Matghost; i++){
+            for (n=0; n<(NREMAP); n++) {
+              GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+            }
+
           }
 
         }
-
       }
-    }
 
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-    my_iproc = pMat->my_iproc;
-    my_jproc = pMat->my_jproc;
-    my_kproc = pMat->my_kproc;
+      my_iproc = pMat->my_iproc;
+      my_jproc = pMat->my_jproc;
+      my_kproc = pMat->my_kproc;
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
-    Ngrids = (int)(joffset/pMat->Nx[1]);
-    joverlap = joffset - Ngrids*pMat->Nx[1];
+      Ngrids = (int)(joffset/pMat->Nx[1]);
+      joverlap = joffset - Ngrids*pMat->Nx[1];
 
 /*--- Step 5a. -----------------------------------------------------------------
  * Find ids of processors that data in [je-(joverlap-1):je] is sent to, and
@@ -223,190 +223,190 @@ void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat)
 /* This can result in send/receive to self -- we rely on MPI to handle this
  * properly */
 
-    if (joverlap != 0) {
+      if (joverlap != 0) {
 
-      jproc = my_jproc + (Ngrids + 1);
-      if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1]; 
+        jproc = my_jproc + (Ngrids + 1);
+        if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
 
-      /*pMat->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain; */
-      /* ID of my_k, j, my_i is */
-      sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
+/*pMat->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain; */
+/* ID of my_k, j, my_i is */
+        sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
-	
-      jproc = my_jproc - (Ngrids + 1);
-      if (jproc < 0) jproc += pMat->NGrid[1]; 
-     /*       getfrom_id = pMat->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain; */
-     getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;	
+
+        jproc = my_jproc - (Ngrids + 1);
+        if (jproc < 0) jproc += pMat->NGrid[1];
+/*       getfrom_id = pMat->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain; */
+        getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
 
-      cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
+        cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data */
-      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
+        ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                         shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
-      pSnd = send_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=je-(joverlap-1); j<=je; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZnsBuf[k][i][j]);
+        pSnd = send_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=je-(joverlap-1); j<=je; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZnsBuf[k][i][j]);
 
-            for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
+              for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
+            }
           }
         }
-      }
-      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ix1_tag, pMat->Comm_Domain);
+        ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                        shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /*--- Step 5c. -----------------------------------------------------------------
  * unpack data sent from [je-(joverlap-1):je], and remap into cells in
  * [js:js+(joverlap-1)] in GhstZns */
 
-      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+        ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-      pRcv = recv_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js; j<=js+(joverlap-1); j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZns[k][i][j]);
-  
-            for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+        pRcv = recv_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js; j<=js+(joverlap-1); j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZns[k][i][j]);
 
+              for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+
+            }
           }
         }
-      }
 
-    }
+      }
 
 /*--- Step 5d. -----------------------------------------------------------------
  * If shear is less one full Grid, remap cells which remain on same processor
  * from GhstZnsBuf into GhstZns.  Cells in [js:je-joverlap] are shifted by
  * joverlap into [js+joverlap:je] */
 
-    if (Ngrids == 0) {
+      if (Ngrids == 0) {
 
-      for(k=ks; k<=ku; k++) {
-        for(j=js+joverlap; j<=je; j++){
-          jremap = j-joverlap;
-          for(i=0; i<Matghost; i++){
-            for (n=0; n<(NREMAP); n++) {
-              GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+        for(k=ks; k<=ku; k++) {
+          for(j=js+joverlap; j<=je; j++){
+            jremap = j-joverlap;
+            for(i=0; i<Matghost; i++){
+              for (n=0; n<(NREMAP); n++) {
+                GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+              }
+
             }
-
           }
         }
-      }
 
 /*--- Step 5e. -----------------------------------------------------------------
  * If shear is more than one Grid, pack and send data from [js:je-joverlap]
  * from GhstZnsBuf (this step replaces 5d) */
 
-    } else {
+      } else {
 
 /* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
-      jproc = my_jproc + Ngrids;
-      if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
+        jproc = my_jproc + Ngrids;
+        if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
 
-      sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
+        sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
-      jproc = my_jproc - Ngrids;
-      if (jproc < 0) jproc += pMat->NGrid[1];
-      getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
+        jproc = my_jproc - Ngrids;
+        if (jproc < 0) jproc += pMat->NGrid[1];
+        getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
-      cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
+        cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data from the left grid */
-      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
+        ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                         shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
-      pSnd = send_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js; j<=je-joverlap; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZnsBuf[k][i][j]);
-            for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
+        pSnd = send_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js; j<=je-joverlap; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZnsBuf[k][i][j]);
+              for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
 
+            }
           }
         }
-      }
-      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ix1_tag, pMat->Comm_Domain);
+        ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                        shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* unpack data sent from [js:je-overlap], and remap into cells in
  * [js+joverlap:je] in GhstZns */
 
-      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+        ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-      pRcv = recv_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js+joverlap; j<=je; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZns[k][i][j]);
-            for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+        pRcv = recv_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js+joverlap; j<=je; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZns[k][i][j]);
+              for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
 
+            }
           }
         }
-      }
-    } /* end of step 5e - shear is more than one Grid */
+      } /* end of step 5e - shear is more than one Grid */
 
 #endif /* MPI_PARALLEL */
-  } /* end of step 5 - MPI decomposition in Y */
+    } /* end of step 5 - MPI decomposition in Y */
 
 /*--- Step 6. ------------------------------------------------------------------
  * Now copy remapped variables back into ghost cells */
 
-  for(k=ks; k<=ke; k++) {
-    for(j=js; j<=je; j++){
-      for(i=0; i<Matghost; i++){
-       
-	pMat->Ugas[k][j][is-Matghost+i].rho  =  GhstZns[k][i][j].U[0];
-	pMat->Ugas[k][j][is-Matghost+i].V1  = GhstZns[k][i][j].U[1];
-        pMat->Ugas[k][j][is-Matghost+i].V2  = GhstZns[k][i][j].U[2];
-        pMat->Ugas[k][j][is-Matghost+i].V3  = GhstZns[k][i][j].U[3];
-        pMat->Ugas[k][j][is-Matghost+i].T4  = GhstZns[k][i][j].U[4];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_11 = GhstZns[k][i][j].U[5];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_21 = GhstZns[k][i][j].U[6];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_22 = GhstZns[k][i][j].U[7];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[8];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_32 = GhstZns[k][i][j].U[9];
-	pMat->Ugas[k][j][is-Matghost+i].Edd_33 = GhstZns[k][i][j].U[10];
+    for(k=ks; k<=ke; k++) {
+      for(j=js; j<=je; j++){
+        for(i=0; i<Matghost; i++){
 
-	for(m=0;m<NOPACITY;m++){
-		pMat->Ugas[k][j][is-Matghost+i].Sigma[m] = GhstZns[k][i][j].U[11+m];
-	}
+          pMat->Ugas[k][j][is-Matghost+i].rho  =  GhstZns[k][i][j].U[0];
+          pMat->Ugas[k][j][is-Matghost+i].V1  = GhstZns[k][i][j].U[1];
+          pMat->Ugas[k][j][is-Matghost+i].V2  = GhstZns[k][i][j].U[2];
+          pMat->Ugas[k][j][is-Matghost+i].V3  = GhstZns[k][i][j].U[3];
+          pMat->Ugas[k][j][is-Matghost+i].T4  = GhstZns[k][i][j].U[4];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_11 = GhstZns[k][i][j].U[5];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_21 = GhstZns[k][i][j].U[6];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_22 = GhstZns[k][i][j].U[7];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_31 = GhstZns[k][i][j].U[8];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_32 = GhstZns[k][i][j].U[9];
+          pMat->Ugas[k][j][is-Matghost+i].Edd_33 = GhstZns[k][i][j].U[10];
 
-	  }
+          for(m=0;m<NOPACITY;m++){
+            pMat->Ugas[k][j][is-Matghost+i].Sigma[m] = GhstZns[k][i][j].U[11+m];
+          }
+
+        }
+      }
     }
-  }
 
 
 
 /*--- Step 8. ------------------------------------------------------------------
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
  * periodic_ix2() and periodic_ox2() in bvals_mhd.c) */
-	  
-	  /* Here we handle the corners */
 
-  if (pMat->NGrid[1] == 1) {
+/* Here we handle the corners */
 
-    for(k=ks; k<=ke; k++) {
-      for(j=1; j<=Matghost; j++){
-        for(i=is-Matghost; i<is; i++){
-          pMat->Ugas[k][js-j][i] = pMat->Ugas[k][je-(j-1)][i];
-          pMat->Ugas[k][je+j][i] = pMat->Ugas[k][js+(j-1)][i];
+    if (pMat->NGrid[1] == 1) {
 
+      for(k=ks; k<=ke; k++) {
+        for(j=1; j<=Matghost; j++){
+          for(i=is-Matghost; i<is; i++){
+            pMat->Ugas[k][js-j][i] = pMat->Ugas[k][je-(j-1)][i];
+            pMat->Ugas[k][je+j][i] = pMat->Ugas[k][js+(j-1)][i];
+
+          }
         }
       }
-    }
 
 
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
@@ -414,139 +414,139 @@ void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
-    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                    shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
+      cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
+                       shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
-    pSnd = send_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=je-Matghost+1; j<=je; j++){
-        for (i=is-Matghost; i<is; i++){
-          /* Get a pointer to the ConsS cell */
-			pCons = &(pMat->Ugas[k][j][i]);
-			
-			*(pSnd++) = pCons->rho;
-			*(pSnd++) = pCons->V1;
-			*(pSnd++) = pCons->V2;
-			*(pSnd++) = pCons->V3;
-			*(pSnd++) = pCons->T4;
-			*(pSnd++) = pCons->Edd_11;
-			*(pSnd++) = pCons->Edd_21;
-			*(pSnd++) = pCons->Edd_22;
-			*(pSnd++) = pCons->Edd_31;
-			*(pSnd++) = pCons->Edd_32;
-			*(pSnd++) = pCons->Edd_33;
-			for(m=0;m<NOPACITY;m++){
-				*(pSnd++) = pCons->Sigma[m];
-			}
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=je-Matghost+1; j<=je; j++){
+          for (i=is-Matghost; i<is; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
+            *(pSnd++) = pCons->rho;
+            *(pSnd++) = pCons->V1;
+            *(pSnd++) = pCons->V2;
+            *(pSnd++) = pCons->V3;
+            *(pSnd++) = pCons->T4;
+            *(pSnd++) = pCons->Edd_11;
+            *(pSnd++) = pCons->Edd_21;
+            *(pSnd++) = pCons->Edd_22;
+            *(pSnd++) = pCons->Edd_31;
+            *(pSnd++) = pCons->Edd_32;
+            *(pSnd++) = pCons->Edd_33;
+            for(m=0;m<NOPACITY;m++){
+              *(pSnd++) = pCons->Sigma[m];
+            }
+
+          }
         }
       }
-    }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                   shearing_sheet_ix1_tag, pMat->Comm_Domain);
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
+                      shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
-    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-    pRcv = recv_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=js-Matghost; j<=js-1; j++){
-        for (i=is-Matghost; i<is; i++){
-          /* Get a pointer to the ConsS cell */
-			pCons = &(pMat->Ugas[k][j][i]);
-			
-			pCons->rho = *(pRcv++);
-			pCons->V1  = *(pRcv++);
-			pCons->V2 = *(pRcv++);
-			pCons->V3 = *(pRcv++);
-			pCons->T4 = *(pRcv++);
-			pCons->Edd_11  = *(pRcv++);
-			pCons->Edd_21 = *(pRcv++);
-			pCons->Edd_22 = *(pRcv++);
-			pCons->Edd_31 = *(pRcv++);
-			pCons->Edd_32  = *(pRcv++);
-			pCons->Edd_33 = *(pRcv++);
-			for(m=0;m<NOPACITY;m++){
-				pCons->Sigma[m] = *(pRcv++);
-			}
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=js-Matghost; j<=js-1; j++){
+          for (i=is-Matghost; i<is; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
-			
+            pCons->rho = *(pRcv++);
+            pCons->V1  = *(pRcv++);
+            pCons->V2 = *(pRcv++);
+            pCons->V3 = *(pRcv++);
+            pCons->T4 = *(pRcv++);
+            pCons->Edd_11  = *(pRcv++);
+            pCons->Edd_21 = *(pRcv++);
+            pCons->Edd_22 = *(pRcv++);
+            pCons->Edd_31 = *(pRcv++);
+            pCons->Edd_32  = *(pRcv++);
+            pCons->Edd_33 = *(pRcv++);
+            for(m=0;m<NOPACITY;m++){
+              pCons->Sigma[m] = *(pRcv++);
+            }
+
+
+          }
         }
       }
-    }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                    shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
+                       shearing_sheet_ix1_tag, pMat->Comm_Domain, &rq);
 
-    pSnd = send_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=js; j<=js+Matghost-1; j++){
-        for (i=is-Matghost; i<is; i++){
-          /* Get a pointer to the ConsS cell */
-          pCons = &(pMat->Ugas[k][j][i]);
-	
-	*(pSnd++) = pCons->rho;
-	*(pSnd++) = pCons->V1;
-	*(pSnd++) = pCons->V2;
-	*(pSnd++) = pCons->V3;
-	*(pSnd++) = pCons->T4;
-	*(pSnd++) = pCons->Edd_11;
-	*(pSnd++) = pCons->Edd_21;
-	*(pSnd++) = pCons->Edd_22;
-	*(pSnd++) = pCons->Edd_31;
-	*(pSnd++) = pCons->Edd_32;
-	*(pSnd++) = pCons->Edd_33;
-	for(m=0;m<NOPACITY;m++){
-		*(pSnd++) = pCons->Sigma[m];
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=js; j<=js+Matghost-1; j++){
+          for (i=is-Matghost; i<is; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
-	}
+            *(pSnd++) = pCons->rho;
+            *(pSnd++) = pCons->V1;
+            *(pSnd++) = pCons->V2;
+            *(pSnd++) = pCons->V3;
+            *(pSnd++) = pCons->T4;
+            *(pSnd++) = pCons->Edd_11;
+            *(pSnd++) = pCons->Edd_21;
+            *(pSnd++) = pCons->Edd_22;
+            *(pSnd++) = pCons->Edd_31;
+            *(pSnd++) = pCons->Edd_32;
+            *(pSnd++) = pCons->Edd_33;
+            for(m=0;m<NOPACITY;m++){
+              *(pSnd++) = pCons->Sigma[m];
 
+            }
+
+          }
         }
       }
-    }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                   shearing_sheet_ix1_tag, pMat->Comm_Domain);
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
+                      shearing_sheet_ix1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
-    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-    pRcv = recv_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=je+1; j<=je+Matghost; j++){
-        for (i=is-Matghost; i<is; i++){
-          /* Get a pointer to the ConsS cell */
-			pCons = &(pMat->Ugas[k][j][i]);
-			
-			pCons->rho   = *(pRcv++);
-			pCons->V1  = *(pRcv++);
-			pCons->V2 = *(pRcv++);
-			pCons->V3 = *(pRcv++);
-			pCons->T4 = *(pRcv++);
-			pCons->Edd_11  = *(pRcv++);
-			pCons->Edd_21 = *(pRcv++);
-			pCons->Edd_22 = *(pRcv++);
-			pCons->Edd_31 = *(pRcv++);
-			pCons->Edd_32  = *(pRcv++);
-			pCons->Edd_33 = *(pRcv++);
-			for(m=0;m<NOPACITY;m++){
-				pCons->Sigma[m] = *(pRcv++);
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=je+1; j<=je+Matghost; j++){
+          for (i=is-Matghost; i<is; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
-			}
+            pCons->rho   = *(pRcv++);
+            pCons->V1  = *(pRcv++);
+            pCons->V2 = *(pRcv++);
+            pCons->V3 = *(pRcv++);
+            pCons->T4 = *(pRcv++);
+            pCons->Edd_11  = *(pRcv++);
+            pCons->Edd_21 = *(pRcv++);
+            pCons->Edd_22 = *(pRcv++);
+            pCons->Edd_31 = *(pRcv++);
+            pCons->Edd_32  = *(pRcv++);
+            pCons->Edd_33 = *(pRcv++);
+            for(m=0;m<NOPACITY;m++){
+              pCons->Sigma[m] = *(pRcv++);
+
+            }
 
 
-			
+
+          }
         }
       }
-    }
 #endif /* MPI_PARALLEL */
 
-  } /* end of step 9 - periodic BC in Y with MPI */
+    } /* end of step 9 - periodic BC in Y with MPI */
 
 /*--- Step 10 ------------------------------------------------------------------
  * Fix B2c at j=je,js-1, now that B2i[je+1] has been set properly  */
@@ -575,7 +575,7 @@ void ShearingSheet_Matrix_gas_ix1(MatrixS *pMat)
 
 void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 {
- int is = pMat->is, ie = pMat->ie;
+  int is = pMat->is, ie = pMat->ie;
   int js = pMat->js, je = pMat->je;
   int ks = pMat->ks, ke = pMat->ke;
   int i,ii,j,k,ku,n,joffset,jremap,m;
@@ -592,16 +592,16 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 /*--- Step 1. ------------------------------------------------------------------
  * Compute the distance the computational domain has sheared in y */
 
-   Lx = pMat->Lx;
+  Lx = pMat->Lx;
 
   Ly = pMat->Ly;
 
   qomL = qshear*Omega_0*Lx;
-	/* add a factor of dt and 4/3 */
-/* 
-  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);  
+/* add a factor of dt and 4/3 */
+/*
+  yshear = qomL*(pMat->time+pMat->dt) * (1.0 + 1.0/3.0);
 */
-	yshear = qomL*pMat->time;	
+  yshear = qomL*pMat->time;
 
 /* Split this into integer and fractional peices of the Domain in y.  Ignore
  * the integer piece because the Grid is periodic in y */
@@ -613,9 +613,9 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
  * then it is possible that:  pMat->Nx2 > joffset > pMat->Nx2   */
 
   joffset = (int)(deltay/pMat->dx2);
-	
-	if((deltay - joffset * pMat->dx2) > 0.5 * pMat->dx2)
-		joffset += 1;
+
+  if((deltay - joffset * pMat->dx2) > 0.5 * pMat->dx2)
+    joffset += 1;
 
 /*--- Step 2. ------------------------------------------------------------------
  * Copy data into GhstZns array.  Note i and j indices are switched.
@@ -623,91 +623,91 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 
   if (pMat->Nx[2] > 1 || ShBoxCoord==xy) {  /* this if ends at end of step 10 */
 
-  if (pMat->Nx[2] > 1) ku=ke+1; else ku=ke;
-  for(k=ks; k<=ku; k++) {
-    for(j=js-Matghost; j<=je+Matghost; j++){
-      for(i=0; i<Matghost; i++){
-		  ii = ie+1+i;
-		 
-		  GhstZns[k][i][j].U[0] = pMat->Ugas[k][j][ii].rho;
-		  GhstZns[k][i][j].U[1] = pMat->Ugas[k][j][ii].V1;
-		  GhstZns[k][i][j].U[2] = pMat->Ugas[k][j][ii].V2;
+    if (pMat->Nx[2] > 1) ku=ke+1; else ku=ke;
+    for(k=ks; k<=ku; k++) {
+      for(j=js-Matghost; j<=je+Matghost; j++){
+        for(i=0; i<Matghost; i++){
+          ii = ie+1+i;
 
-         	  GhstZns[k][i][j].U[2] -= qomL;
+          GhstZns[k][i][j].U[0] = pMat->Ugas[k][j][ii].rho;
+          GhstZns[k][i][j].U[1] = pMat->Ugas[k][j][ii].V1;
+          GhstZns[k][i][j].U[2] = pMat->Ugas[k][j][ii].V2;
 
-		  GhstZns[k][i][j].U[3] = pMat->Ugas[k][j][ii].V3;
-		  GhstZns[k][i][j].U[4] = pMat->Ugas[k][j][ii].T4;
+          GhstZns[k][i][j].U[2] -= qomL;
 
-		  GhstZns[k][i][j].U[5] = pMat->Ugas[k][j][ii].Edd_11;
-		  GhstZns[k][i][j].U[6] = pMat->Ugas[k][j][ii].Edd_21;
-		  GhstZns[k][i][j].U[7] = pMat->Ugas[k][j][ii].Edd_22;
-		  GhstZns[k][i][j].U[8] = pMat->Ugas[k][j][ii].Edd_31;
-		  GhstZns[k][i][j].U[9] = pMat->Ugas[k][j][ii].Edd_32;
-		  GhstZns[k][i][j].U[10] = pMat->Ugas[k][j][ii].Edd_33;
-		  for(m=0;m<NOPACITY;m++){
+          GhstZns[k][i][j].U[3] = pMat->Ugas[k][j][ii].V3;
+          GhstZns[k][i][j].U[4] = pMat->Ugas[k][j][ii].T4;
 
-			GhstZns[k][i][j].U[11+m] = pMat->Ugas[k][j][ii].Sigma[m];
-		  }
+          GhstZns[k][i][j].U[5] = pMat->Ugas[k][j][ii].Edd_11;
+          GhstZns[k][i][j].U[6] = pMat->Ugas[k][j][ii].Edd_21;
+          GhstZns[k][i][j].U[7] = pMat->Ugas[k][j][ii].Edd_22;
+          GhstZns[k][i][j].U[8] = pMat->Ugas[k][j][ii].Edd_31;
+          GhstZns[k][i][j].U[9] = pMat->Ugas[k][j][ii].Edd_32;
+          GhstZns[k][i][j].U[10] = pMat->Ugas[k][j][ii].Edd_33;
+          for(m=0;m<NOPACITY;m++){
 
-		  
+            GhstZns[k][i][j].U[11+m] = pMat->Ugas[k][j][ii].Sigma[m];
+          }
+
+
+        }
       }
     }
-  }
 
 /*--- Step 3. ------------------------------------------------------------------
  * Copy GhstZns into buffer, at the same time apply a conservative remap of
  * solution over the fractional part of grid cell */
 
-  for(k=ks; k<=ku; k++) {
-    for(i=0; i<Matghost; i++){
-
-		for (n=0; n<(NREMAP); n++) {
-
-        for(j=js; j<=je; j++){
-          GhstZnsBuf[k][i][j].U[n] = GhstZns[k][i][j].U[n];
-        }
-		}
-
-    }
-  }
-
-/*--- Step 4. ------------------------------------------------------------------
- * If no MPI decomposition in Y, apply shift over integer number of
- * grid cells during copy from buffer back into GhstZns.  */
-
-  if (pMat->NGrid[1] == 1) {
-
     for(k=ks; k<=ku; k++) {
-      for(j=js; j<=je; j++){
-        jremap = j + joffset;
-        if (jremap > (int)je) jremap -= pMat->Nx[1];
+      for(i=0; i<Matghost; i++){
 
-        for(i=0; i<Matghost; i++){
-          for (n=0; n<(NREMAP); n++) {
-            GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+        for (n=0; n<(NREMAP); n++) {
+
+          for(j=js; j<=je; j++){
+            GhstZnsBuf[k][i][j].U[n] = GhstZns[k][i][j].U[n];
           }
-
         }
 
       }
     }
 
+/*--- Step 4. ------------------------------------------------------------------
+ * If no MPI decomposition in Y, apply shift over integer number of
+ * grid cells during copy from buffer back into GhstZns.  */
+
+    if (pMat->NGrid[1] == 1) {
+
+      for(k=ks; k<=ku; k++) {
+        for(j=js; j<=je; j++){
+          jremap = j + joffset;
+          if (jremap > (int)je) jremap -= pMat->Nx[1];
+
+          for(i=0; i<Matghost; i++){
+            for (n=0; n<(NREMAP); n++) {
+              GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+            }
+
+          }
+
+        }
+      }
+
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /*--- Step 5. ------------------------------------------------------------------
  * If Domain contains MPI decomposition in Y, then MPI calls are required for
  * the cyclic shift needed to apply shift over integer number of grid cells
  * during copy from buffer back into GhstZns.  */
 
-    my_iproc = pMat->my_iproc;
-    my_jproc = pMat->my_jproc;
-    my_kproc = pMat->my_kproc;
+      my_iproc = pMat->my_iproc;
+      my_jproc = pMat->my_jproc;
+      my_kproc = pMat->my_kproc;
 
 /* Find integer and fractional number of grids over which offset extends.
  * This assumes every grid has same number of cells in x2-direction! */
-    Ngrids = (int)(joffset/pMat->Nx[1]);
-    joverlap = joffset - Ngrids*pMat->Nx[1];
+      Ngrids = (int)(joffset/pMat->Nx[1]);
+      joverlap = joffset - Ngrids*pMat->Nx[1];
 
 /*--- Step 5a. -----------------------------------------------------------------
  * Find ids of processors that data in [js:js+(joverlap-1)] is sent to, and
@@ -715,38 +715,38 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 /* This can result in send/receive to self -- we rely on MPI to handle this
  * properly */
 
-    if (joverlap != 0) {
+      if (joverlap != 0) {
 
-      jproc = my_jproc - (Ngrids + 1);
-      if (jproc < 0) jproc += pMat->NGrid[1]; 
-      sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;;
+        jproc = my_jproc - (Ngrids + 1);
+        if (jproc < 0) jproc += pMat->NGrid[1];
+        sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;;
 
-      jproc = my_jproc + (Ngrids + 1);
-      if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1]; 
-      getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
+        jproc = my_jproc + (Ngrids + 1);
+        if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
+        getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
 /*--- Step 5b. -----------------------------------------------------------------
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
 
-      cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
+        cnt = Matghost*joverlap*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data */
-      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
+        ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                         shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
-      pSnd = send_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js; j<=js+(joverlap-1); j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZnsBuf[k][i][j]);
+        pSnd = send_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js; j<=js+(joverlap-1); j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZnsBuf[k][i][j]);
 
-            for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
+              for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
 
+            }
           }
         }
-      }
-      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ox1_tag, pMat->Comm_Domain);
+        ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                        shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 
 /*--- Step 5c. -----------------------------------------------------------------
@@ -754,123 +754,123 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
  * [je-(joverlap-1):je] in GhstZns
  */
 
-      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+        ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-      pRcv = recv_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=je-(joverlap-1); j<=je; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZns[k][i][j]);
-  
-            for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+        pRcv = recv_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=je-(joverlap-1); j<=je; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZns[k][i][j]);
 
+              for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+
+            }
           }
         }
-      }
 
-    }
+      }
 
 /*--- Step 5d. -----------------------------------------------------------------
  * If shear is less one full Grid, remap cells which remain on same processor
  * from GhstZnsBuf into GhstZns.  Cells in [js+joverlap:je] are shifted by
  * joverlap into [js:je-joverlap] */
 
-    if (Ngrids == 0) {
+      if (Ngrids == 0) {
 
-      for(k=ks; k<=ku; k++) {
-        for(j=js; j<=je-joverlap; j++){
-          jremap = j+joverlap;
-          for(i=0; i<Matghost; i++){
-            for (n=0; n<(NREMAP); n++) {
-              GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+        for(k=ks; k<=ku; k++) {
+          for(j=js; j<=je-joverlap; j++){
+            jremap = j+joverlap;
+            for(i=0; i<Matghost; i++){
+              for (n=0; n<(NREMAP); n++) {
+                GhstZns[k][i][j].U[n]  = GhstZnsBuf[k][i][jremap].U[n];
+              }
+
             }
-
           }
         }
-      }
 
 /*--- Step 5e. -----------------------------------------------------------------
  * If shear is more than one Grid, pack and send data from [js+joverlap:je]
  * from GhstZnsBuf (this step replaces 5d) */
 
-    } else {
+      } else {
 
 /* index of sendto and getfrom processors in GData are -/+1 from Step 5a */
 
-      jproc = my_jproc - Ngrids;
-      if (jproc < 0) jproc += pMat->NGrid[1];
-      sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;;
+        jproc = my_jproc - Ngrids;
+        if (jproc < 0) jproc += pMat->NGrid[1];
+        sendto_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;;
 
-      jproc = my_jproc + Ngrids;
-      if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
-      getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
+        jproc = my_jproc + Ngrids;
+        if (jproc > (pMat->NGrid[1]-1)) jproc -= pMat->NGrid[1];
+        getfrom_id = my_kproc * pMat->NGrid[0] * pMat->NGrid[1] + jproc * pMat->NGrid[0] + my_iproc;
 
-      cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
+        cnt = Matghost*(pMat->Nx[1]-joverlap)*(ku-ks+1)*(NREMAP);
 /* Post a non-blocking receive for the input data from the left grid */
-      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
-                      shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
+        ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
+                         shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
-      pSnd = send_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js+joverlap; j<=je; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZnsBuf[k][i][j]);
-            for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
+        pSnd = send_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js+joverlap; j<=je; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZnsBuf[k][i][j]);
+              for (n=0; n<NREMAP; n++) *(pSnd++) = pRemap->U[n];
 
+            }
           }
         }
-      }
-      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
-                     shearing_sheet_ox1_tag, pMat->Comm_Domain);
+        ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, sendto_id,
+                        shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* unpack data sent from [js+joverlap:je], and remap into cells in
  * [js:je-joverlap] in GhstZns */
 
-      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+        ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-      pRcv = recv_buf;
-      for (k=ks; k<=ku; k++) {
-        for (j=js; j<=je-joverlap; j++) {
-          for(i=0; i<Matghost; i++){
-            /* Get a pointer to the Remap structure */
-            pRemap = &(GhstZns[k][i][j]);
-            for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
+        pRcv = recv_buf;
+        for (k=ks; k<=ku; k++) {
+          for (j=js; j<=je-joverlap; j++) {
+            for(i=0; i<Matghost; i++){
+/* Get a pointer to the Remap structure */
+              pRemap = &(GhstZns[k][i][j]);
+              for (n=0; n<NREMAP; n++) pRemap->U[n] = *(pRcv++);
 
+            }
           }
         }
-      }
-    } /* end of step 5e - shear is more than one Grid */
+      } /* end of step 5e - shear is more than one Grid */
 
 #endif /* MPI_PARALLEL */
-  } /* end of step 5 - MPI decomposition in Y */
+    } /* end of step 5 - MPI decomposition in Y */
 
 /*--- Step 6. ------------------------------------------------------------------
  * Now copy remapped variables back into ghost cells, except B1i[ie+1] */
 
-  for(k=ks; k<=ke; k++) {
-    for(j=js; j<=je; j++){
-      for(i=0; i<Matghost; i++){
-		  pMat->Ugas[k][j][ie+1+i].rho   = GhstZns[k][i][j].U[0];
-		  pMat->Ugas[k][j][ie+1+i].V1 =  GhstZns[k][i][j].U[1];
-		  pMat->Ugas[k][j][ie+1+i].V2 =  GhstZns[k][i][j].U[2];
-		  pMat->Ugas[k][j][ie+1+i].V3 =  GhstZns[k][i][j].U[3];
-		  pMat->Ugas[k][j][ie+1+i].T4 =  GhstZns[k][i][j].U[4];
-		  pMat->Ugas[k][j][ie+1+i].Edd_11 = GhstZns[k][i][j].U[5];
-		  pMat->Ugas[k][j][ie+1+i].Edd_21 = GhstZns[k][i][j].U[6];
-		  pMat->Ugas[k][j][ie+1+i].Edd_22 = GhstZns[k][i][j].U[7];
-		  pMat->Ugas[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[8];
-		  pMat->Ugas[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[9];
-		  pMat->Ugas[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[10];
-		  for(m=0;m<NOPACITY;m++){
-			pMat->Ugas[k][j][ie+1+i].Sigma[m] = GhstZns[k][i][j].U[11+m];
+    for(k=ks; k<=ke; k++) {
+      for(j=js; j<=je; j++){
+        for(i=0; i<Matghost; i++){
+          pMat->Ugas[k][j][ie+1+i].rho   = GhstZns[k][i][j].U[0];
+          pMat->Ugas[k][j][ie+1+i].V1 =  GhstZns[k][i][j].U[1];
+          pMat->Ugas[k][j][ie+1+i].V2 =  GhstZns[k][i][j].U[2];
+          pMat->Ugas[k][j][ie+1+i].V3 =  GhstZns[k][i][j].U[3];
+          pMat->Ugas[k][j][ie+1+i].T4 =  GhstZns[k][i][j].U[4];
+          pMat->Ugas[k][j][ie+1+i].Edd_11 = GhstZns[k][i][j].U[5];
+          pMat->Ugas[k][j][ie+1+i].Edd_21 = GhstZns[k][i][j].U[6];
+          pMat->Ugas[k][j][ie+1+i].Edd_22 = GhstZns[k][i][j].U[7];
+          pMat->Ugas[k][j][ie+1+i].Edd_31 = GhstZns[k][i][j].U[8];
+          pMat->Ugas[k][j][ie+1+i].Edd_32 = GhstZns[k][i][j].U[9];
+          pMat->Ugas[k][j][ie+1+i].Edd_33 = GhstZns[k][i][j].U[10];
+          for(m=0;m<NOPACITY;m++){
+            pMat->Ugas[k][j][ie+1+i].Sigma[m] = GhstZns[k][i][j].U[11+m];
 
-		 }	
+          }
 
+        }
       }
     }
-  }
 
 
 
@@ -884,21 +884,21 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
  * With no MPI decomposition in Y, apply periodic BCs in Y (similar to
  * periodic_ix2() and periodic_ox2() in bvals_mhd.c) */
 
-  if (pMat->NGrid[1] == 1) {
+    if (pMat->NGrid[1] == 1) {
 
-    for(k=ks; k<=ke; k++) {
-      for(j=1; j<=Matghost; j++){
-        for(i=ie+1; i<=ie+Matghost; i++){
-          pMat->Ugas[k][js-j][i] = pMat->Ugas[k][je-(j-1)][i];
-          pMat->Ugas[k][je+j][i] = pMat->Ugas[k][js+(j-1)][i];
+      for(k=ks; k<=ke; k++) {
+        for(j=1; j<=Matghost; j++){
+          for(i=ie+1; i<=ie+Matghost; i++){
+            pMat->Ugas[k][js-j][i] = pMat->Ugas[k][je-(j-1)][i];
+            pMat->Ugas[k][je+j][i] = pMat->Ugas[k][js+(j-1)][i];
 
+          }
         }
       }
-    }
 
 
 #ifdef MPI_PARALLEL
-  } else {
+    } else {
 
 /*--- Step 9. ------------------------------------------------------------------
  * With MPI decomposition in Y, use MPI calls to handle periodic BCs in Y (like
@@ -906,135 +906,135 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 
 
 /* Post a non-blocking receive for the input data from the left grid */
-    cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
-    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                    shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
+      cnt = Matghost*Matghost*(ku-ks+1)*(NREMAP);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
+                       shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
-    pSnd = send_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=je-Matghost+1; j<=je; j++){
-        for (i=ie+1; i<=ie+Matghost; i++){
-          /* Get a pointer to the ConsS cell */
-			pCons = &(pMat->Ugas[k][j][i]);
-			
-			*(pSnd++) = pCons->rho;
-			*(pSnd++) = pCons->V1;
-			*(pSnd++) = pCons->V2;
-			*(pSnd++) = pCons->V3;
-			*(pSnd++) = pCons->T4;
-			*(pSnd++) = pCons->Edd_11;
-			*(pSnd++) = pCons->Edd_21;
-			*(pSnd++) = pCons->Edd_22;
-			*(pSnd++) = pCons->Edd_31;
-			*(pSnd++) = pCons->Edd_32;
-			*(pSnd++) = pCons->Edd_33;
-			for(m=0;m<NOPACITY;m++){
-				*(pSnd++) = pCons->Sigma[m];
-			}
-			
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=je-Matghost+1; j<=je; j++){
+          for (i=ie+1; i<=ie+Matghost; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
+
+            *(pSnd++) = pCons->rho;
+            *(pSnd++) = pCons->V1;
+            *(pSnd++) = pCons->V2;
+            *(pSnd++) = pCons->V3;
+            *(pSnd++) = pCons->T4;
+            *(pSnd++) = pCons->Edd_11;
+            *(pSnd++) = pCons->Edd_21;
+            *(pSnd++) = pCons->Edd_22;
+            *(pSnd++) = pCons->Edd_31;
+            *(pSnd++) = pCons->Edd_32;
+            *(pSnd++) = pCons->Edd_33;
+            for(m=0;m<NOPACITY;m++){
+              *(pSnd++) = pCons->Sigma[m];
+            }
+
+          }
         }
       }
-    }
 
 /* send contents of buffer to the neighboring grid on R-x2 */
-    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                   shearing_sheet_ox1_tag, pMat->Comm_Domain);
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
+                      shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
-    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-    pRcv = recv_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=js-Matghost; j<=js-1; j++){
-        for (i=ie+1; i<=ie+Matghost; i++){
-          /* Get a pointer to the ConsS cell */
-          pCons = &(pMat->Ugas[k][j][i]);
-			
-			pCons->rho   = *(pRcv++);
-			pCons->V1  = *(pRcv++);
-			pCons->V2 = *(pRcv++);
-			pCons->V3 = *(pRcv++);
-			pCons->T4 = *(pRcv++);
-			pCons->Edd_11  = *(pRcv++);
-			pCons->Edd_21 = *(pRcv++);
-			pCons->Edd_22 = *(pRcv++);
-			pCons->Edd_31 = *(pRcv++);
-			pCons->Edd_32  = *(pRcv++);
-			pCons->Edd_33 = *(pRcv++);
-			for(m=0;m<NOPACITY;m++){
-				pCons->Sigma[m] = *(pRcv++);
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=js-Matghost; j<=js-1; j++){
+          for (i=ie+1; i<=ie+Matghost; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
-			}
-			
+            pCons->rho   = *(pRcv++);
+            pCons->V1  = *(pRcv++);
+            pCons->V2 = *(pRcv++);
+            pCons->V3 = *(pRcv++);
+            pCons->T4 = *(pRcv++);
+            pCons->Edd_11  = *(pRcv++);
+            pCons->Edd_21 = *(pRcv++);
+            pCons->Edd_22 = *(pRcv++);
+            pCons->Edd_31 = *(pRcv++);
+            pCons->Edd_32  = *(pRcv++);
+            pCons->Edd_33 = *(pRcv++);
+            for(m=0;m<NOPACITY;m++){
+              pCons->Sigma[m] = *(pRcv++);
+
+            }
+
+          }
         }
       }
-    }
 
 /* Post a non-blocking receive for the input data from the right grid */
-    ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
-                    shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
+      ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pMat->rx2_id,
+                       shearing_sheet_ox1_tag, pMat->Comm_Domain, &rq);
 
-    pSnd = send_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=js; j<=js+Matghost-1; j++){
-        for (i=ie+1; i<=ie+Matghost; i++){
-          /* Get a pointer to the ConsS cell */
-          pCons = &(pMat->Ugas[k][j][i]);
-						
-			*(pSnd++) = pCons->rho;
-			*(pSnd++) = pCons->V1;
-			*(pSnd++) = pCons->V2;
-			*(pSnd++) = pCons->V3;
-			*(pSnd++) = pCons->T4;
-			*(pSnd++) = pCons->Edd_11;
-			*(pSnd++) = pCons->Edd_21;
-			*(pSnd++) = pCons->Edd_22;
-			*(pSnd++) = pCons->Edd_31;
-			*(pSnd++) = pCons->Edd_32;
-			*(pSnd++) = pCons->Edd_33;
-			for(m=0;m<NOPACITY;m++){
-				*(pSnd++) = pCons->Sigma[m];
-			}
+      pSnd = send_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=js; j<=js+Matghost-1; j++){
+          for (i=ie+1; i<=ie+Matghost; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
 
+            *(pSnd++) = pCons->rho;
+            *(pSnd++) = pCons->V1;
+            *(pSnd++) = pCons->V2;
+            *(pSnd++) = pCons->V3;
+            *(pSnd++) = pCons->T4;
+            *(pSnd++) = pCons->Edd_11;
+            *(pSnd++) = pCons->Edd_21;
+            *(pSnd++) = pCons->Edd_22;
+            *(pSnd++) = pCons->Edd_31;
+            *(pSnd++) = pCons->Edd_32;
+            *(pSnd++) = pCons->Edd_33;
+            for(m=0;m<NOPACITY;m++){
+              *(pSnd++) = pCons->Sigma[m];
+            }
+
+          }
         }
       }
-    }
 
 /* send contents of buffer to the neighboring grid on L-x2 */
-    ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
-                   shearing_sheet_ox1_tag, pMat->Comm_Domain);
+      ierr = MPI_Send(send_buf, cnt, MPI_DOUBLE, pMat->lx2_id,
+                      shearing_sheet_ox1_tag, pMat->Comm_Domain);
 
 /* Wait to receive the input data from the left grid */
-    ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
+      ierr = MPI_Wait(&rq, MPI_STATUS_IGNORE);
 
-    pRcv = recv_buf;
-    for (k=ks; k<=ku; k++){
-      for (j=je+1; j<=je+Matghost; j++){
-        for (i=ie+1; i<=ie+Matghost; i++){
-          /* Get a pointer to the ConsS cell */
-          pCons = &(pMat->Ugas[k][j][i]);
-			pCons->rho   = *(pRcv++);
-			pCons->V1  = *(pRcv++);
-			pCons->V2  = *(pRcv++);
-			pCons->V3  = *(pRcv++);
-			pCons->T4  = *(pRcv++);
-			pCons->Edd_11  = *(pRcv++);
-			pCons->Edd_21 = *(pRcv++);
-			pCons->Edd_22 = *(pRcv++);
-			pCons->Edd_31 = *(pRcv++);
-			pCons->Edd_32  = *(pRcv++);
-			pCons->Edd_33 = *(pRcv++);
-			for(m=0;m<NOPACITY;m++){
-				pCons->Sigma[m] = *(pRcv++);
-			}
+      pRcv = recv_buf;
+      for (k=ks; k<=ku; k++){
+        for (j=je+1; j<=je+Matghost; j++){
+          for (i=ie+1; i<=ie+Matghost; i++){
+/* Get a pointer to the ConsS cell */
+            pCons = &(pMat->Ugas[k][j][i]);
+            pCons->rho   = *(pRcv++);
+            pCons->V1  = *(pRcv++);
+            pCons->V2  = *(pRcv++);
+            pCons->V3  = *(pRcv++);
+            pCons->T4  = *(pRcv++);
+            pCons->Edd_11  = *(pRcv++);
+            pCons->Edd_21 = *(pRcv++);
+            pCons->Edd_22 = *(pRcv++);
+            pCons->Edd_31 = *(pRcv++);
+            pCons->Edd_32  = *(pRcv++);
+            pCons->Edd_33 = *(pRcv++);
+            for(m=0;m<NOPACITY;m++){
+              pCons->Sigma[m] = *(pRcv++);
+            }
 
-		
+
+          }
         }
       }
-    }
 #endif /* MPI_PARALLEL */
 
-  } /* end of step 9 - periodic BC in Y with MPI */
+    } /* end of step 9 - periodic BC in Y with MPI */
 
 /*--- Step 10 ------------------------------------------------------------------
  * Fix B2c at j=je,js-1, now that B2i[je+1] has been set properly  */
@@ -1059,7 +1059,7 @@ void ShearingSheet_Matrix_gas_ox1(MatrixS *pMat)
 
 void bvals_Matrix_shear_gas_init(MatrixS *pMat)
 {
-  
+
   int nl,nd,nx1,nx2,nx3,max1=0,max2=0,max3=0;
 #ifdef MPI_PARALLEL
   int size1=0,size2=0,size;
@@ -1067,15 +1067,15 @@ void bvals_Matrix_shear_gas_init(MatrixS *pMat)
 
 /* Loop over all Grids on this processor to find maximum size of arrays */
 
-      /* set pointer to Grid */
+/* set pointer to Grid */
 
-        nx1 = pMat->Nx[0] + 2*Matghost;
-        nx2 = pMat->Nx[1] + 2*Matghost;
-        nx3 = pMat->Nx[2] + 2*Matghost;
-        max1 = nx1;
-        max2 = nx2;
-        max3 = nx3;
-  
+  nx1 = pMat->Nx[0] + 2*Matghost;
+  nx2 = pMat->Nx[1] + 2*Matghost;
+  nx3 = pMat->Nx[2] + 2*Matghost;
+  max1 = nx1;
+  max2 = nx2;
+  max3 = nx3;
+
 
 /* Allocate memory for temporary arrays and vectors */
 
@@ -1083,7 +1083,7 @@ void bvals_Matrix_shear_gas_init(MatrixS *pMat)
     ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
   if((GhstZnsBuf=(Remap***)calloc_3d_array(max3,Matghost,max2,sizeof(Remap))) ==
-    NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
+     NULL) ath_error("[bvals_shear_init]: malloc returned a NULL pointer\n");
 
 
 
@@ -1096,7 +1096,7 @@ void bvals_Matrix_shear_gas_init(MatrixS *pMat)
 #ifdef MPI_PARALLEL
   size1 = Matghost*pMat->Nx[1]*(pMat->Nx[2]+1)*(NREMAP);
 
-	size = size1;
+  size = size1;
 
   if((send_buf = (double*)malloc(size*sizeof(double))) == NULL)
     ath_error("[bvals_shear_init]: Failed to allocate send buffer\n");

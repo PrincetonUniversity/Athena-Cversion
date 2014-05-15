@@ -9,17 +9,17 @@
  * - G. Toth and P.L. Roe, "Divergence and Curl-preserving prolongation and
  *   restriction formulas", JCP 180, 736 (2002)
  *
- * CONTAINS PUBLIC FUNCTIONS: 
- * - RestrictCorrect(): restricts (averages) fine Grid solution to coarse, and 
+ * CONTAINS PUBLIC FUNCTIONS:
+ * - RestrictCorrect(): restricts (averages) fine Grid solution to coarse, and
  *    corrects cells at fine/coarse boundaries using restricted fine Grid fluxes
  * - Prolongate(): sets BC on fine Grid by prolongation (interpolation) of
  *     coarse Grid solution into fine grid ghost zones
  * - SMR_init(): allocates memory for send/receive buffers
  *
- * PRIVATE FUNCTION PROTOTYPES: 
+ * PRIVATE FUNCTION PROTOTYPES:
  * - ProCon() - prolongates conserved variables
  * - ProFld() - prolongates face-centered B field using TR formulas
- * - mcd_slope() - returns monotonized central-difference slope		      */
+ * - mcd_slope() - returns monotonized central-difference slope               */
 /*============================================================================*/
 
 #include <stdio.h>
@@ -33,8 +33,8 @@
 
 #ifdef STATIC_MESH_REFINEMENT
 
-static double **send_bufP= NULL; 
-static double **send_bufRC=NULL; 
+static double **send_bufP= NULL;
+static double **send_bufRC=NULL;
 static double ***recv_bufP= NULL;
 #ifdef MPI_PARALLEL
 static double ***recv_bufRC=NULL;
@@ -52,7 +52,7 @@ Real3Vect ***BFld[3];
 /*----------------------------------------------*/
 #ifdef RSTSMR
 /* temporary variables for restarted SMR */
-/* These temporary space will only be used once, and destroyed at the end of 
+/* These temporary space will only be used once, and destroyed at the end of
  * INI_prolongate */
 
 /* Initial prolongation does not need flux correction */
@@ -69,7 +69,7 @@ Real3Vect ***RstBFld;
 /*------------------------------------------*/
 
 /*==============================================================================
- * PRIVATE FUNCTION PROTOTYPES: 
+ * PRIVATE FUNCTION PROTOTYPES:
  *   ProCon - prolongates conserved variables
  *   ProFld - prolongates face-centered B field using TR formulas
  *   mcd_slope - returns monotonized central-difference slope
@@ -79,8 +79,8 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
             const ConsS Ujm1,const ConsS Ujp1,
             const ConsS Ukm1,const ConsS Ukp1, ConsS PCon[][2][2]);
 #if defined(MHD) || defined(RADIATION_MHD)
-void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
-  const Real dx1c, const Real dx2c, const Real dx3c);
+void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
+            const Real dx1c, const Real dx2c, const Real dx3c);
 #endif /* MHD */
 #ifndef FIRST_ORDER
 static Real mcd_slope(const Real vl, const Real vc, const Real vr);
@@ -89,9 +89,9 @@ static Real mcd_slope(const Real vl, const Real vc, const Real vr);
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
 /*! \fn void RestrictCorrect(MeshS *pM)
- *  \brief Restricts (averages) fine Grid solution to coarse, and 
+ *  \brief Restricts (averages) fine Grid solution to coarse, and
  *    corrects cells at fine/coarse boundaries using restricted fine Grid fluxes
- * We do not need to restrict the radiation quantities in this restriction step 
+ * We do not need to restrict the radiation quantities in this restriction step
  * because they are handled in the Multigrid matrix solver
  */
 
@@ -126,127 +126,127 @@ void RestrictCorrect(MeshS *pM)
 #ifdef MPI_PARALLEL
 /* Post non-blocking receives at level nl-1 for data from child Grids at this
  * level (nl).  This data is sent in Step 3 below, and will be read in Step 1
- * at the next iteration of the loop. */ 
+ * at the next iteration of the loop. */
 
-  if (nl>0) {
-    for (nd=0; nd<(pM->DomainsPerLevel[nl-1]); nd++){
-      if (pM->Domain[nl-1][nd].Grid != NULL) {
-        pG=pM->Domain[nl-1][nd].Grid;
-	nZeroRC = 0;
+    if (nl>0) {
+      for (nd=0; nd<(pM->DomainsPerLevel[nl-1]); nd++){
+        if (pM->Domain[nl-1][nd].Grid != NULL) {
+          pG=pM->Domain[nl-1][nd].Grid;
+          nZeroRC = 0;
 
 /* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0.
  * First index alternates between 0 and 1 for even/odd values of nl, since if
  * there are Grids on multiple levels there may be 2 receives posted at once */
-        mAddress = 0;
-        rbufN = ((nl-1) % 2);
-        for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
-		if(pG->CGrid[ncg].nWordsRC == 0){
-			nZeroRC += 1;
-		}
-		else{
-          		mIndex = ncg - pG->NmyCGrid - nZeroRC;
-          		ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
-            		pG->CGrid[ncg].nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
-            		pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
-            		&(recv_rq[nl-1][nd][mIndex]));
-          		mAddress += pG->CGrid[ncg].nWordsRC;
-		}
-        }
+          mAddress = 0;
+          rbufN = ((nl-1) % 2);
+          for (ncg=(pG->NmyCGrid); ncg<(pG->NCGrid); ncg++){
+            if(pG->CGrid[ncg].nWordsRC == 0){
+              nZeroRC += 1;
+            }
+            else{
+              mIndex = ncg - pG->NmyCGrid - nZeroRC;
+              ierr = MPI_Irecv(&(recv_bufRC[rbufN][nd][mAddress]),
+                               pG->CGrid[ncg].nWordsRC, MPI_DOUBLE, pG->CGrid[ncg].ID,
+                               pG->CGrid[ncg].DomN, pM->Domain[nl-1][nd].Comm_Children,
+                               &(recv_rq[nl-1][nd][mIndex]));
+              mAddress += pG->CGrid[ncg].nWordsRC;
+            }
+          }
 
+        }
       }
     }
-  }
 #endif /* MPI_PARALLEL */
 
 /*=== Step 1. Get child solution, inject into parent Grid ====================*/
 /* Loop over Domains and child Grids.  Maxlevel domains skip this step because
  * they have NCGrids=0 */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 
-  if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
-    pG=pM->Domain[nl][nd].Grid;
-    rbufN = (nl % 2);
-    nZeroRC = 0;
+      if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
+        pG=pM->Domain[nl][nd].Grid;
+        rbufN = (nl % 2);
+        nZeroRC = 0;
 
-    for(i=pG->NmyCGrid; i<pG->NCGrid; i++)
-	if(pG->CGrid[i].nWordsRC == 0)
-		nZeroRC++;
+        for(i=pG->NmyCGrid; i<pG->NCGrid; i++)
+          if(pG->CGrid[i].nWordsRC == 0)
+            nZeroRC++;
 
-    for (ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
+        for (ncg=0; ncg<(pG->NCGrid-nZeroRC); ncg++){
 
 /*--- Step 1a. Get restricted solution and fluxes. ---------------------------*/
 
 /* If child Grid is on this processor, set pointer to start of send buffer
  * loaded by this child Grid in Step 3 below during last iteration of loop. */
 
-      if (ncg < pG->NmyCGrid) {
-        pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);
-        pRcv = (double*)&(send_bufRC[pCO->DomN][0]);
-      } else {
+          if (ncg < pG->NmyCGrid) {
+            pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);
+            pRcv = (double*)&(send_bufRC[pCO->DomN][0]);
+          } else {
 
 #ifdef MPI_PARALLEL
 /* Check non-blocking receives posted above for restricted solution from child
  * Grids, sent in Step 3 during last iteration of loop over nl.  Accept messages
  * in any order. */
 
-        mCount = pG->NCGrid - pG->NmyCGrid - nZeroRC;
-        ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
-        if(mIndex == MPI_UNDEFINED){
-          ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
-        }
-      
+            mCount = pG->NCGrid - pG->NmyCGrid - nZeroRC;
+            ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
+            if(mIndex == MPI_UNDEFINED){
+              ath_error("[RestCorr]: Invalid request index nl=%i nd=%i\n",nl,nd);
+            }
+
 /* Recv buffer is addressed from 0 for first MPI message, even if NmyCGrid>0 */
-        
-        mIndex += pG->NmyCGrid;
 
-	for(i=pG->NmyCGrid; i<=mIndex; i++)
-		if(pG->CGrid[i].nWordsRC == 0)	mIndex++;
+            mIndex += pG->NmyCGrid;
 
-	mAddress = 0;
-        for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsRC;
-        pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
-        pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);
+            for(i=pG->NmyCGrid; i<=mIndex; i++)
+              if(pG->CGrid[i].nWordsRC == 0)    mIndex++;
+
+            mAddress = 0;
+            for (i=pG->NmyCGrid; i<mIndex; i++) mAddress += pG->CGrid[i].nWordsRC;
+            pCO=(GridOvrlpS*)&(pG->CGrid[mIndex]);
+            pRcv = (double*)&(recv_bufRC[rbufN][nd][mAddress]);
 #else
 /* If not MPI_PARALLEL, and child Grid not on this processor, then error */
 
-        ath_error("[RestCorr]: no Child grid on Domain[%d][%d]\n",nl,nd);
+            ath_error("[RestCorr]: no Child grid on Domain[%d][%d]\n",nl,nd);
 #endif /* MPI_PARALLEL */
-      }
+          }
 
 /* Get coordinates ON THIS GRID of overlap region of child Grid */
 
-      ics = pCO->ijks[0];
-      ice = pCO->ijke[0];
-      jcs = pCO->ijks[1];
-      jce = pCO->ijke[1];
-      kcs = pCO->ijks[2];
-      kce = pCO->ijke[2];
+          ics = pCO->ijks[0];
+          ice = pCO->ijke[0];
+          jcs = pCO->ijks[1];
+          jce = pCO->ijke[1];
+          kcs = pCO->ijks[2];
+          kce = pCO->ijke[2];
 
 /*--- Step 1b. Restrict conserved variables on parent Grid -------------------*/
 
-	/* If no restriction is required, kce < kcs, the loop will not be calculated */	
-      for (k=kcs; k<=kce; k++) {
-        for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            pG->U[k][j][i].d  = *(pRcv++);
-            pG->U[k][j][i].M1 = *(pRcv++);
-            pG->U[k][j][i].M2 = *(pRcv++);
-            pG->U[k][j][i].M3 = *(pRcv++);
+/* If no restriction is required, kce < kcs, the loop will not be calculated */
+          for (k=kcs; k<=kce; k++) {
+            for (j=jcs; j<=jce; j++) {
+              for (i=ics; i<=ice; i++) {
+                pG->U[k][j][i].d  = *(pRcv++);
+                pG->U[k][j][i].M1 = *(pRcv++);
+                pG->U[k][j][i].M2 = *(pRcv++);
+                pG->U[k][j][i].M3 = *(pRcv++);
 #ifndef BAROTROPIC
-            pG->U[k][j][i].E  = *(pRcv++);
+                pG->U[k][j][i].E  = *(pRcv++);
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->U[k][j][i].B1c = *(pRcv++);
-            pG->U[k][j][i].B2c = *(pRcv++);
-            pG->U[k][j][i].B3c = *(pRcv++);
+                pG->U[k][j][i].B1c = *(pRcv++);
+                pG->U[k][j][i].B2c = *(pRcv++);
+                pG->U[k][j][i].B3c = *(pRcv++);
 #endif /* MHD */
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
+                for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
+              }
+            }
           }
-        }
-      }
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /*--- Step 1c. Restrict face-centered fields. --------------------------------*/
@@ -254,148 +254,148 @@ void RestrictCorrect(MeshS *pM)
  * Do not set face-centered fields on fine/coarse boundaries (e.g. ics and ice+1
  * for B1i), but use the flux-correction step below to do that */
 
-      if (nDim == 1){ /* 1D problem - set face-centered to cell-centered */
-        for (i=ics; i<=ice; i++) {
-          pG->B1i[kcs][jcs][i] = pG->U[kcs][jcs][i].B1c;
-          pG->B2i[kcs][jcs][i] = pG->U[kcs][jcs][i].B2c;
-          pG->B3i[kcs][jcs][i] = pG->U[kcs][jcs][i].B3c;
-        }
-      } else {
+          if (nDim == 1){ /* 1D problem - set face-centered to cell-centered */
+            for (i=ics; i<=ice; i++) {
+              pG->B1i[kcs][jcs][i] = pG->U[kcs][jcs][i].B1c;
+              pG->B2i[kcs][jcs][i] = pG->U[kcs][jcs][i].B2c;
+              pG->B3i[kcs][jcs][i] = pG->U[kcs][jcs][i].B3c;
+            }
+          } else {
 
-        if (nDim == 2){  /* 2D problem */
+            if (nDim == 2){  /* 2D problem */
 /* Restrict B1i */
-          for (j=jcs  ; j<=jce; j++) {
-          for (i=ics+1; i<=ice; i++) {
-            /* Set B1i at ics if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            if (i==ics+1){
-              if (pCO->myFlx[0] == NULL) {pG->B1i[kcs][j][ics] = *(pRcv++);}
-              else {pRcv++;}
-            }
+              for (j=jcs  ; j<=jce; j++) {
+                for (i=ics+1; i<=ice; i++) {
+/* Set B1i at ics if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                  if (i==ics+1){
+                    if (pCO->myFlx[0] == NULL) {pG->B1i[kcs][j][ics] = *(pRcv++);}
+                    else {pRcv++;}
+                  }
 
-            pG->B1i[kcs][j][i] = *(pRcv++);
+                  pG->B1i[kcs][j][i] = *(pRcv++);
 
-            /* Set B1i at ice+1 if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            if (i==ice){
-              if (pCO->myFlx[1] == NULL) {pG->B1i[kcs][j][ice+1] = *(pRcv++);}
-              else {pRcv++;}
-            }
-          }}
+/* Set B1i at ice+1 if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                  if (i==ice){
+                    if (pCO->myFlx[1] == NULL) {pG->B1i[kcs][j][ice+1] = *(pRcv++);}
+                    else {pRcv++;}
+                  }
+                }}
 
 /* Restrict B2i */
-          /* Set B2i at jcs if no flux correction will be made.  Increment
-           * pointer even if value in Rcv pointer is ignored. */
-	if(jcs < jce){
-          for (i=ics; i<=ice; i++) {
-            if (pCO->myFlx[2] == NULL) {pG->B2i[kcs][jcs][i] = *(pRcv++);}
-            else {pRcv++;}
-          }
-	}
-          for (j=jcs+1; j<=jce; j++) {
-          for (i=ics  ; i<=ice; i++) {
-            pG->B2i[kcs][j][i] = *(pRcv++);
-          }}
+/* Set B2i at jcs if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+              if(jcs < jce){
+                for (i=ics; i<=ice; i++) {
+                  if (pCO->myFlx[2] == NULL) {pG->B2i[kcs][jcs][i] = *(pRcv++);}
+                  else {pRcv++;}
+                }
+              }
+              for (j=jcs+1; j<=jce; j++) {
+                for (i=ics  ; i<=ice; i++) {
+                  pG->B2i[kcs][j][i] = *(pRcv++);
+                }}
 
-          /* Set B2i at jce+1 if no flux correction will be made.  Increment
-           * pointer even if value in Rcv pointer is ignored. */
-	if(jcs < jce){
-          for (i=ics; i<=ice; i++) {
-            if (pCO->myFlx[3] == NULL) {pG->B2i[kcs][jce+1][i] = *(pRcv++);}
-            else {pRcv++;}
-          }
-	}
+/* Set B2i at jce+1 if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+              if(jcs < jce){
+                for (i=ics; i<=ice; i++) {
+                  if (pCO->myFlx[3] == NULL) {pG->B2i[kcs][jce+1][i] = *(pRcv++);}
+                  else {pRcv++;}
+                }
+              }
 /* Set cell-centered fields */
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            pG->U[kcs][j][i].B1c=0.5*(pG->B1i[kcs][j][i] +pG->B1i[kcs][j][i+1]);
-            pG->U[kcs][j][i].B2c=0.5*(pG->B2i[kcs][j][i] +pG->B2i[kcs][j+1][i]);
-            pG->B3i[kcs][j][i] = pG->U[kcs][j][i].B3c;
-          }}
+              for (j=jcs; j<=jce; j++) {
+                for (i=ics; i<=ice; i++) {
+                  pG->U[kcs][j][i].B1c=0.5*(pG->B1i[kcs][j][i] +pG->B1i[kcs][j][i+1]);
+                  pG->U[kcs][j][i].B2c=0.5*(pG->B2i[kcs][j][i] +pG->B2i[kcs][j+1][i]);
+                  pG->B3i[kcs][j][i] = pG->U[kcs][j][i].B3c;
+                }}
 
-        } else { /* 3D problem */
+            } else { /* 3D problem */
 /* Restrict B1i */
-          for (k=kcs  ; k<=kce; k++) {
-          for (j=jcs  ; j<=jce; j++) {
-          for (i=ics+1; i<=ice; i++) {
-            /* Set B1i at ics if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            if (i==ics+1){
-              if (pCO->myFlx[0] == NULL) {pG->B1i[k][j][ics] = *(pRcv++);}
-              else {pRcv++;}
-            }
+              for (k=kcs  ; k<=kce; k++) {
+                for (j=jcs  ; j<=jce; j++) {
+                  for (i=ics+1; i<=ice; i++) {
+/* Set B1i at ics if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                    if (i==ics+1){
+                      if (pCO->myFlx[0] == NULL) {pG->B1i[k][j][ics] = *(pRcv++);}
+                      else {pRcv++;}
+                    }
 
-            pG->B1i[k][j][i] = *(pRcv++);
+                    pG->B1i[k][j][i] = *(pRcv++);
 
-            /* Set B1i at ice+1 if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            if (i==ice){
-              if (pCO->myFlx[1] == NULL) {pG->B1i[k][j][ice+1] = *(pRcv++);}
-              else {pRcv++;}
-            }
+/* Set B1i at ice+1 if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                    if (i==ice){
+                      if (pCO->myFlx[1] == NULL) {pG->B1i[k][j][ice+1] = *(pRcv++);}
+                      else {pRcv++;}
+                    }
 
-          }}}
+                  }}}
 
 /* Restrict B2i */
-	if(jcs < jce){
-          for (k=kcs  ; k<=kce; k++) {
-            /* Set B2i at jcs if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            for (i=ics; i<=ice; i++) {
-              if (pCO->myFlx[2] == NULL) {pG->B2i[k][jcs][i] = *(pRcv++);}
-              else {pRcv++;}
-            }
+              if(jcs < jce){
+                for (k=kcs  ; k<=kce; k++) {
+/* Set B2i at jcs if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                  for (i=ics; i<=ice; i++) {
+                    if (pCO->myFlx[2] == NULL) {pG->B2i[k][jcs][i] = *(pRcv++);}
+                    else {pRcv++;}
+                  }
 
-            for (j=jcs+1; j<=jce; j++) {
-            for (i=ics  ; i<=ice; i++) {
-              pG->B2i[k][j][i] = *(pRcv++);
-            }}
+                  for (j=jcs+1; j<=jce; j++) {
+                    for (i=ics  ; i<=ice; i++) {
+                      pG->B2i[k][j][i] = *(pRcv++);
+                    }}
 
-            /* Set B2i at jce+1 if no flux correction will be made.  Increment
-             * pointer even if value in Rcv pointer is ignored. */
-            for (i=ics; i<=ice; i++) {
-              if (pCO->myFlx[3] == NULL) {pG->B2i[k][jce+1][i] = *(pRcv++);}
-              else {pRcv++;}
-            }
-          }
-	}
+/* Set B2i at jce+1 if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+                  for (i=ics; i<=ice; i++) {
+                    if (pCO->myFlx[3] == NULL) {pG->B2i[k][jce+1][i] = *(pRcv++);}
+                    else {pRcv++;}
+                  }
+                }
+              }
 /* Restrict B3i */
-          /* Set B3i at kcs if no flux correction will be made.  Increment
-           * pointer even if value in Rcv pointer is ignored. */
-	if(kcs < kce){
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            if (pCO->myFlx[4] == NULL) {pG->B3i[kcs][j][i] = *(pRcv++);}
-            else {pRcv++;}
-          }}
-	}
-          for (k=kcs+1; k<=kce; k++) {
-          for (j=jcs  ; j<=jce; j++) {
-          for (i=ics  ; i<=ice; i++) {
-            pG->B3i[k][j][i] = *(pRcv++);
-          }}}
+/* Set B3i at kcs if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+              if(kcs < kce){
+                for (j=jcs; j<=jce; j++) {
+                  for (i=ics; i<=ice; i++) {
+                    if (pCO->myFlx[4] == NULL) {pG->B3i[kcs][j][i] = *(pRcv++);}
+                    else {pRcv++;}
+                  }}
+              }
+              for (k=kcs+1; k<=kce; k++) {
+                for (j=jcs  ; j<=jce; j++) {
+                  for (i=ics  ; i<=ice; i++) {
+                    pG->B3i[k][j][i] = *(pRcv++);
+                  }}}
 
-          /* Set B3i at kce+1 if no flux correction will be made.  Increment
-           * pointer even if value in Rcv pointer is ignored. */
-	if(kcs < kce){
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            if (pCO->myFlx[5] == NULL) {pG->B3i[kce+1][j][i] = *(pRcv++);}
-            else {pRcv++;}
-          }}
-	}
+/* Set B3i at kce+1 if no flux correction will be made.  Increment
+ * pointer even if value in Rcv pointer is ignored. */
+              if(kcs < kce){
+                for (j=jcs; j<=jce; j++) {
+                  for (i=ics; i<=ice; i++) {
+                    if (pCO->myFlx[5] == NULL) {pG->B3i[kce+1][j][i] = *(pRcv++);}
+                    else {pRcv++;}
+                  }}
+              }
 /* Set cell-centered fields */
-          for (k=kcs; k<=kce; k++) {
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
-            pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
-            pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
-          }}}
+              for (k=kcs; k<=kce; k++) {
+                for (j=jcs; j<=jce; j++) {
+                  for (i=ics; i<=ice; i++) {
+                    pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
+                    pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
+                    pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+                  }}}
 
-        }
+            }
 
-      }
+          }
 #endif /* MHD */
 
 /*=== Step 2. Flux correction ================================================*/
@@ -406,87 +406,87 @@ void RestrictCorrect(MeshS *pM)
 
 /* Correct solution at x1-faces */
 
-      for (dim=0; dim<2; dim++){
-        if (pCO->myFlx[dim] != NULL) {
-          if (dim == 0) {i=ics-1; q1=-(pG->dt/pG->dx1);}
-          if (dim == 1) {i=ice+1; q1= (pG->dt/pG->dx1);}
-          for (k=kcs, kk=0; k<=kce; k++, kk++) {
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-            pG->U[k][j][i].d  -= q1*(pCO->myFlx[dim][kk][jj].d  - *(pRcv++));
-            pG->U[k][j][i].M1 -= q1*(pCO->myFlx[dim][kk][jj].M1 - *(pRcv++));
-            pG->U[k][j][i].M2 -= q1*(pCO->myFlx[dim][kk][jj].M2 - *(pRcv++));
-            pG->U[k][j][i].M3 -= q1*(pCO->myFlx[dim][kk][jj].M3 - *(pRcv++));
+          for (dim=0; dim<2; dim++){
+            if (pCO->myFlx[dim] != NULL) {
+              if (dim == 0) {i=ics-1; q1=-(pG->dt/pG->dx1);}
+              if (dim == 1) {i=ice+1; q1= (pG->dt/pG->dx1);}
+              for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                  pG->U[k][j][i].d  -= q1*(pCO->myFlx[dim][kk][jj].d  - *(pRcv++));
+                  pG->U[k][j][i].M1 -= q1*(pCO->myFlx[dim][kk][jj].M1 - *(pRcv++));
+                  pG->U[k][j][i].M2 -= q1*(pCO->myFlx[dim][kk][jj].M2 - *(pRcv++));
+                  pG->U[k][j][i].M3 -= q1*(pCO->myFlx[dim][kk][jj].M3 - *(pRcv++));
 #ifndef BAROTROPIC
-            pG->U[k][j][i].E  -= q1*(pCO->myFlx[dim][kk][jj].E  - *(pRcv++));
+                  pG->U[k][j][i].E  -= q1*(pCO->myFlx[dim][kk][jj].E  - *(pRcv++));
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->U[k][j][i].B1c -= q1*(pCO->myFlx[dim][kk][jj].B1c - *(pRcv++));
-            pG->U[k][j][i].B2c -= q1*(pCO->myFlx[dim][kk][jj].B2c - *(pRcv++));
-            pG->U[k][j][i].B3c -= q1*(pCO->myFlx[dim][kk][jj].B3c - *(pRcv++));
+                  pG->U[k][j][i].B1c -= q1*(pCO->myFlx[dim][kk][jj].B1c - *(pRcv++));
+                  pG->U[k][j][i].B2c -= q1*(pCO->myFlx[dim][kk][jj].B2c - *(pRcv++));
+                  pG->U[k][j][i].B3c -= q1*(pCO->myFlx[dim][kk][jj].B3c - *(pRcv++));
 #endif /* MHD */
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -= 
-              q1*(pCO->myFlx[dim][kk][jj].s[n] - *(pRcv++));
+                  for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -=
+                                               q1*(pCO->myFlx[dim][kk][jj].s[n] - *(pRcv++));
 #endif
-          }}
-        }
-      }
+                }}
+            }
+          }
 
 /* Correct solution at x2-faces */
 
-      for (dim=2; dim<4; dim++){
-        if (pCO->myFlx[dim] != NULL) {
-          if (dim == 2) {j=jcs-1; q2=-(pG->dt/pG->dx2);}
-          if (dim == 3) {j=jce+1; q2= (pG->dt/pG->dx2);}
-          for (k=kcs, kk=0; k<=kce; k++, kk++) {
-          for (i=ics, ii=0; i<=ice; i++, ii++) {
-            pG->U[k][j][i].d  -= q2*(pCO->myFlx[dim][kk][ii].d  - *(pRcv++));
-            pG->U[k][j][i].M1 -= q2*(pCO->myFlx[dim][kk][ii].M1 - *(pRcv++));
-            pG->U[k][j][i].M2 -= q2*(pCO->myFlx[dim][kk][ii].M2 - *(pRcv++));
-            pG->U[k][j][i].M3 -= q2*(pCO->myFlx[dim][kk][ii].M3 - *(pRcv++));
+          for (dim=2; dim<4; dim++){
+            if (pCO->myFlx[dim] != NULL) {
+              if (dim == 2) {j=jcs-1; q2=-(pG->dt/pG->dx2);}
+              if (dim == 3) {j=jce+1; q2= (pG->dt/pG->dx2);}
+              for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                for (i=ics, ii=0; i<=ice; i++, ii++) {
+                  pG->U[k][j][i].d  -= q2*(pCO->myFlx[dim][kk][ii].d  - *(pRcv++));
+                  pG->U[k][j][i].M1 -= q2*(pCO->myFlx[dim][kk][ii].M1 - *(pRcv++));
+                  pG->U[k][j][i].M2 -= q2*(pCO->myFlx[dim][kk][ii].M2 - *(pRcv++));
+                  pG->U[k][j][i].M3 -= q2*(pCO->myFlx[dim][kk][ii].M3 - *(pRcv++));
 #ifndef BAROTROPIC
-            pG->U[k][j][i].E  -= q2*(pCO->myFlx[dim][kk][ii].E  - *(pRcv++));
+                  pG->U[k][j][i].E  -= q2*(pCO->myFlx[dim][kk][ii].E  - *(pRcv++));
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->U[k][j][i].B1c -= q2*(pCO->myFlx[dim][kk][ii].B1c - *(pRcv++));
-            pG->U[k][j][i].B2c -= q2*(pCO->myFlx[dim][kk][ii].B2c - *(pRcv++));
-            pG->U[k][j][i].B3c -= q2*(pCO->myFlx[dim][kk][ii].B3c - *(pRcv++));
+                  pG->U[k][j][i].B1c -= q2*(pCO->myFlx[dim][kk][ii].B1c - *(pRcv++));
+                  pG->U[k][j][i].B2c -= q2*(pCO->myFlx[dim][kk][ii].B2c - *(pRcv++));
+                  pG->U[k][j][i].B3c -= q2*(pCO->myFlx[dim][kk][ii].B3c - *(pRcv++));
 #endif /* MHD */
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -= 
-              q2*(pCO->myFlx[dim][kk][ii].s[n] - *(pRcv++));
+                  for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -=
+                                               q2*(pCO->myFlx[dim][kk][ii].s[n] - *(pRcv++));
 #endif
-          }}
-        }
-      }
+                }}
+            }
+          }
 
 /* Correct solution at x3-faces */
 
-      for (dim=4; dim<6; dim++){
-        if (pCO->myFlx[dim] != NULL) {
-          if (dim == 4) {k=kcs-1; q3=-(pG->dt/pG->dx3);}
-          if (dim == 5) {k=kce+1; q3= (pG->dt/pG->dx3);}
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-          for (i=ics, ii=0; i<=ice; i++, ii++) {
-            pG->U[k][j][i].d  -= q3*(pCO->myFlx[dim][jj][ii].d  - *(pRcv++));
-            pG->U[k][j][i].M1 -= q3*(pCO->myFlx[dim][jj][ii].M1 - *(pRcv++));
-            pG->U[k][j][i].M2 -= q3*(pCO->myFlx[dim][jj][ii].M2 - *(pRcv++));
-            pG->U[k][j][i].M3 -= q3*(pCO->myFlx[dim][jj][ii].M3 - *(pRcv++));
+          for (dim=4; dim<6; dim++){
+            if (pCO->myFlx[dim] != NULL) {
+              if (dim == 4) {k=kcs-1; q3=-(pG->dt/pG->dx3);}
+              if (dim == 5) {k=kce+1; q3= (pG->dt/pG->dx3);}
+              for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                for (i=ics, ii=0; i<=ice; i++, ii++) {
+                  pG->U[k][j][i].d  -= q3*(pCO->myFlx[dim][jj][ii].d  - *(pRcv++));
+                  pG->U[k][j][i].M1 -= q3*(pCO->myFlx[dim][jj][ii].M1 - *(pRcv++));
+                  pG->U[k][j][i].M2 -= q3*(pCO->myFlx[dim][jj][ii].M2 - *(pRcv++));
+                  pG->U[k][j][i].M3 -= q3*(pCO->myFlx[dim][jj][ii].M3 - *(pRcv++));
 #ifndef BAROTROPIC
-            pG->U[k][j][i].E  -= q3*(pCO->myFlx[dim][jj][ii].E  - *(pRcv++));
+                  pG->U[k][j][i].E  -= q3*(pCO->myFlx[dim][jj][ii].E  - *(pRcv++));
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-            pG->U[k][j][i].B1c -= q3*(pCO->myFlx[dim][jj][ii].B1c - *(pRcv++));
-            pG->U[k][j][i].B2c -= q3*(pCO->myFlx[dim][jj][ii].B2c - *(pRcv++));
-            pG->U[k][j][i].B3c -= q3*(pCO->myFlx[dim][jj][ii].B3c - *(pRcv++));
+                  pG->U[k][j][i].B1c -= q3*(pCO->myFlx[dim][jj][ii].B1c - *(pRcv++));
+                  pG->U[k][j][i].B2c -= q3*(pCO->myFlx[dim][jj][ii].B2c - *(pRcv++));
+                  pG->U[k][j][i].B3c -= q3*(pCO->myFlx[dim][jj][ii].B3c - *(pRcv++));
 #endif /* MHD */
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -= 
-              q3*(pCO->myFlx[dim][jj][ii].s[n] - *(pRcv++));
+                  for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] -=
+                                               q3*(pCO->myFlx[dim][jj][ii].s[n] - *(pRcv++));
 #endif
-          }}
-        }
-      }
+                }}
+            }
+          }
 
 /*--- Step 2b. Flux correction to face-centered fields. ----------------------*/
 /* Only needed in 2D/3D.  Add EMF on this Grid back in, then subtract new, both
@@ -494,24 +494,24 @@ void RestrictCorrect(MeshS *pM)
  * cell center. */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-      if (nDim > 1) {
+          if (nDim > 1) {
 
 /* On x1-faces; correct B1i, B2i, B3i */
 
-      for (dim=0; dim<2; dim++){
-        if (pCO->myEMF3[dim] != NULL) {
-          if (dim == 0) {
-            i=ics-1; ib = ics;
-            q1 = -(pG->dt/pG->dx1);
-            q2 = -(pG->dt/pG->dx2); 
-            q3 = -(pG->dt/pG->dx3);
-          } 
-          if (dim == 1) {
-            i=ice+1; ib = ice+1;
-            q1 =  (pG->dt/pG->dx1);
-            q2 = -(pG->dt/pG->dx2);
-            q3 = -(pG->dt/pG->dx3);
-          }
+            for (dim=0; dim<2; dim++){
+              if (pCO->myEMF3[dim] != NULL) {
+                if (dim == 0) {
+                  i=ics-1; ib = ics;
+                  q1 = -(pG->dt/pG->dx1);
+                  q2 = -(pG->dt/pG->dx2);
+                  q3 = -(pG->dt/pG->dx3);
+                }
+                if (dim == 1) {
+                  i=ice+1; ib = ice+1;
+                  q1 =  (pG->dt/pG->dx1);
+                  q2 = -(pG->dt/pG->dx2);
+                  q3 = -(pG->dt/pG->dx3);
+                }
 
 /**************
 printf("ID= %i ics,ice = %i %i i = %i ib = %i\n",myID_Comm_world,ics,ice,i,ib);
@@ -519,314 +519,314 @@ printf("ks,ke = %i %i kcs/kce = %i %i\n",pG->ks,pG->ke,kcs,kce);
 printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
 ***************/
 
-          for (k=kcs, kk=0; k<=kce  ; k++, kk++) {
-            for (j=jcs, jj=0; j<=jce; j++, jj++) {
-              SMRemf3[kk][jj] = *(pRcv++);
-              pG->B2i[k][j][i]+= q1*(pCO->myEMF3[dim][kk][jj] -SMRemf3[kk][jj]);
-            }
-           /* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
-            * Grids, OR at outer-x2 edge of this Grid, OR if x1-boundary only
-            * involves flux-corrections.  Otherwise ox2 boundary is between MPI
-            * Grids on child Domain, and it will be corrected as B2i[jcs] by
-            * other child Grid */
-            jj = jce-jcs+1;
-            SMRemf3[kk][jj] = *(pRcv++);
-            if((pCO->myEMF3[3] != NULL) || (jce==pG->je) || (ice<ics)){
-              pG->B2i[k][jce+1][i] +=
-                q1*(pCO->myEMF3[dim][kk][jj] - SMRemf3[kk][jj]);
-            }
-          }
+                for (k=kcs, kk=0; k<=kce  ; k++, kk++) {
+                  for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                    SMRemf3[kk][jj] = *(pRcv++);
+                    pG->B2i[k][j][i]+= q1*(pCO->myEMF3[dim][kk][jj] -SMRemf3[kk][jj]);
+                  }
+/* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
+ * Grids, OR at outer-x2 edge of this Grid, OR if x1-boundary only
+ * involves flux-corrections.  Otherwise ox2 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B2i[jcs] by
+ * other child Grid */
+                  jj = jce-jcs+1;
+                  SMRemf3[kk][jj] = *(pRcv++);
+                  if((pCO->myEMF3[3] != NULL) || (jce==pG->je) || (ice<ics)){
+                    pG->B2i[k][jce+1][i] +=
+                      q1*(pCO->myEMF3[dim][kk][jj] - SMRemf3[kk][jj]);
+                  }
+                }
 
-          for (k=kcs, kk=0; k<=kce; k++, kk++) {
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-            pG->B1i[k][j][ib] -=
-              q2*(pCO->myEMF3[dim][kk][jj+1] - SMRemf3[kk][jj+1]) -
-              q2*(pCO->myEMF3[dim][kk][jj  ] - SMRemf3[kk][jj  ]);
-          }}
+                for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                  for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                    pG->B1i[k][j][ib] -=
+                      q2*(pCO->myEMF3[dim][kk][jj+1] - SMRemf3[kk][jj+1]) -
+                      q2*(pCO->myEMF3[dim][kk][jj  ] - SMRemf3[kk][jj  ]);
+                  }}
 
 /* If x1-boundary involves only flux corrections, correct B1i[jcs-1] and
  * B1i[jce+1].  Normally this is done as correction at x2-boundary */
-          if (ice < ics) {
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-              pG->B1i[k][jcs-1][ib] -=
-                q2*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
-              pG->B1i[k][jce+1][ib] +=
-                q2*(pCO->myEMF3[dim][kk][jce-jcs+1] - SMRemf3[kk][jce-jcs+1]);
-            }
-          }
+                if (ice < ics) {
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    pG->B1i[k][jcs-1][ib] -=
+                      q2*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
+                    pG->B1i[k][jce+1][ib] +=
+                      q2*(pCO->myEMF3[dim][kk][jce-jcs+1] - SMRemf3[kk][jce-jcs+1]);
+                  }
+                }
 
-          if (nDim == 3){ /* 3D problem */
+                if (nDim == 3){ /* 3D problem */
 
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-            for (j=jcs, jj=0; j<=jce; j++, jj++) {
-              SMRemf2[kk][jj] = *(pRcv++);
-              pG->B3i[k][j][i] -= q1*(pCO->myEMF2[dim][kk][jj]-SMRemf2[kk][jj]);
-            }}
-           /* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
-            * Grids, OR at outer-x3 edge of this Grid, OR if x1-boundary only
-            * involves flux-corrections.  Otherwise ox3 boundary is between MPI
-            * Grids on child Domain, and it will be corrected as B3i[kcs] by
-            * other child Grid */
-            kk = kce-kcs+1;
-            for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
-              SMRemf2[kk][jj] = *(pRcv++); 
-              if((pCO->myEMF2[5] != NULL) || (kce==pG->ke) || (ice<ics)){
-                pG->B3i[kce+1][j][i] -= 
-                  q1*(pCO->myEMF2[dim][kk][jj] - SMRemf2[kk][jj]);
-              }
-            }
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                      SMRemf2[kk][jj] = *(pRcv++);
+                      pG->B3i[k][j][i] -= q1*(pCO->myEMF2[dim][kk][jj]-SMRemf2[kk][jj]);
+                    }}
+/* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
+ * Grids, OR at outer-x3 edge of this Grid, OR if x1-boundary only
+ * involves flux-corrections.  Otherwise ox3 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B3i[kcs] by
+ * other child Grid */
+                  kk = kce-kcs+1;
+                  for (j=jcs, jj=0; j<=jce  ; j++, jj++) {
+                    SMRemf2[kk][jj] = *(pRcv++);
+                    if((pCO->myEMF2[5] != NULL) || (kce==pG->ke) || (ice<ics)){
+                      pG->B3i[kce+1][j][i] -=
+                        q1*(pCO->myEMF2[dim][kk][jj] - SMRemf2[kk][jj]);
+                    }
+                  }
 
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-            for (j=jcs, jj=0; j<=jce; j++, jj++) {
-              pG->B1i[k][j][ib] +=
-                q3*(pCO->myEMF2[dim][kk+1][jj] - SMRemf2[kk+1][jj]) -
-                q3*(pCO->myEMF2[dim][kk  ][jj] - SMRemf2[kk  ][jj]);
-            }}
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                      pG->B1i[k][j][ib] +=
+                        q3*(pCO->myEMF2[dim][kk+1][jj] - SMRemf2[kk+1][jj]) -
+                        q3*(pCO->myEMF2[dim][kk  ][jj] - SMRemf2[kk  ][jj]);
+                    }}
 
 /* If x1-boundary involves only flux corrections, correct B1i[kcs-1] and
  * B1i[kce+1].  Normally this is done as correction at x3-boundary */
-            if (ice < ics) {
-              for (j=jcs, jj=0; j<=jce; j++, jj++) {
-                pG->B1i[kcs-1][j][ib] +=
-                  q3*(pCO->myEMF2[dim][0][jj] - SMRemf2[0][jj]);
-                pG->B1i[kce+1][j][ib] -=
-                  q3*(pCO->myEMF2[dim][kce-kcs+1][jj] - SMRemf2[kce-kcs+1][jj]);
+                  if (ice < ics) {
+                    for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                      pG->B1i[kcs-1][j][ib] +=
+                        q3*(pCO->myEMF2[dim][0][jj] - SMRemf2[0][jj]);
+                      pG->B1i[kce+1][j][ib] -=
+                        q3*(pCO->myEMF2[dim][kce-kcs+1][jj] - SMRemf2[kce-kcs+1][jj]);
+                    }
+                  }
+
+                  for (k=kcs-1; k<=kce+1; k++) {
+                    for (j=jcs; j<=jce; j++) {
+                      pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+                    }}
+
+                }
+
+                for (k=kcs; k<=kce; k++) {
+                  for (j=jcs; j<=jce; j++) {
+                    pG->U[k][j][ib  ].B1c=0.5*(pG->B1i[k][j][ib]+pG->B1i[k][j][ib+1]);
+                    pG->U[k][j][ib-1].B1c=0.5*(pG->B1i[k][j][ib-1]+pG->B1i[k][j][ib]);
+                  }
+                  for (j=jcs-1; j<=jce+1; j++) {
+                    pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
+                  }
+                }
               }
             }
-
-            for (k=kcs-1; k<=kce+1; k++) {
-            for (j=jcs; j<=jce; j++) {
-              pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
-            }}
-
-          }
-
-          for (k=kcs; k<=kce; k++) {
-            for (j=jcs; j<=jce; j++) {
-              pG->U[k][j][ib  ].B1c=0.5*(pG->B1i[k][j][ib]+pG->B1i[k][j][ib+1]);
-              pG->U[k][j][ib-1].B1c=0.5*(pG->B1i[k][j][ib-1]+pG->B1i[k][j][ib]);
-            }
-            for (j=jcs-1; j<=jce+1; j++) {
-              pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
-            }
-          }
-        }
-      }
 
 /* On x2-faces; correct B1i, B2i, B3i */
 
-      for (dim=2; dim<4; dim++){
-        if (pCO->myEMF3[dim] != NULL) {
-          if (dim == 2) {
-            j=jcs-1; jb=jcs; 
-            q1 = -(pG->dt/pG->dx1);
-            q2 = -(pG->dt/pG->dx2);
-            q3 = -(pG->dt/pG->dx3);
-          }
-          if (dim == 3) {
-            j=jce+1; jb=jce+1; 
-            q1 = -(pG->dt/pG->dx1);
-            q2 =  (pG->dt/pG->dx2);
-            q3 = -(pG->dt/pG->dx3);
-          }
+            for (dim=2; dim<4; dim++){
+              if (pCO->myEMF3[dim] != NULL) {
+                if (dim == 2) {
+                  j=jcs-1; jb=jcs;
+                  q1 = -(pG->dt/pG->dx1);
+                  q2 = -(pG->dt/pG->dx2);
+                  q3 = -(pG->dt/pG->dx3);
+                }
+                if (dim == 3) {
+                  j=jce+1; jb=jce+1;
+                  q1 = -(pG->dt/pG->dx1);
+                  q2 =  (pG->dt/pG->dx2);
+                  q3 = -(pG->dt/pG->dx3);
+                }
 
-          for (k=kcs, kk=0; k<=kce; k++, kk++) {
-            for (i=ics, ii=0; i<=ice; i++, ii++) {
-              SMRemf3[kk][ii] = *(pRcv++);
-              pG->B1i[k][j][i]-= q2*(pCO->myEMF3[dim][kk][ii] -SMRemf3[kk][ii]);
-            }
-           /* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
-            * Grids, OR at outer-x1 edge of this Grid, OR if x2-boundary only
-            * involves flux-corrections.  Otherwise ox1 boundary is between MPI
-            * Grids on child Domain, and it will be corrected as B1i[ics] by
-            * other child Grid */
-            ii = ice-ics+1;
-            SMRemf3[kk][ii] = *(pRcv++);
-            if ((pCO->myEMF3[1] != NULL) || (ice==pG->ie) || (jce<jcs)){
-              pG->B1i[k][j][ice+1] -=
-                q2*(pCO->myEMF3[dim][kk][ii] - SMRemf3[kk][ii]);
-            }
-          }
-          for (k=kcs, kk=0; k<=kce; k++, kk++) {
-          for (i=ics, ii=0; i<=ice; i++, ii++) {
-            pG->B2i[k][jb][i] += 
-              q1*(pCO->myEMF3[dim][kk][ii+1] - SMRemf3[kk][ii+1]) -
-              q1*(pCO->myEMF3[dim][kk][ii  ] - SMRemf3[kk][ii  ]);
-          }}
+                for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    SMRemf3[kk][ii] = *(pRcv++);
+                    pG->B1i[k][j][i]-= q2*(pCO->myEMF3[dim][kk][ii] -SMRemf3[kk][ii]);
+                  }
+/* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
+ * Grids, OR at outer-x1 edge of this Grid, OR if x2-boundary only
+ * involves flux-corrections.  Otherwise ox1 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B1i[ics] by
+ * other child Grid */
+                  ii = ice-ics+1;
+                  SMRemf3[kk][ii] = *(pRcv++);
+                  if ((pCO->myEMF3[1] != NULL) || (ice==pG->ie) || (jce<jcs)){
+                    pG->B1i[k][j][ice+1] -=
+                      q2*(pCO->myEMF3[dim][kk][ii] - SMRemf3[kk][ii]);
+                  }
+                }
+                for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    pG->B2i[k][jb][i] +=
+                      q1*(pCO->myEMF3[dim][kk][ii+1] - SMRemf3[kk][ii+1]) -
+                      q1*(pCO->myEMF3[dim][kk][ii  ] - SMRemf3[kk][ii  ]);
+                  }}
 
 /* If x2-boundary involves only flux corrections, correct B2i[ics-1] and
  * B2i[ice+1].  Normally this is done as correction at x1-boundary */
-          if (jce < jcs) {
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-              pG->B2i[k][jb][ics-1] += 
-                q1*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
-              pG->B2i[k][jb][ice+1] -= 
-                q1*(pCO->myEMF3[dim][kk][ice-ics+1] - SMRemf3[kk][ice-ics+1]);
-            }
-          }
+                if (jce < jcs) {
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    pG->B2i[k][jb][ics-1] +=
+                      q1*(pCO->myEMF3[dim][kk][0] - SMRemf3[kk][0]);
+                    pG->B2i[k][jb][ice+1] -=
+                      q1*(pCO->myEMF3[dim][kk][ice-ics+1] - SMRemf3[kk][ice-ics+1]);
+                  }
+                }
 
-          if (nDim == 3){ /* 3D problem */
+                if (nDim == 3){ /* 3D problem */
 
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-            for (i=ics, ii=0; i<=ice; i++, ii++) {
-              SMRemf1[kk][ii] = *(pRcv++);
-              pG->B3i[k][j][i] += q2*(pCO->myEMF1[dim][kk][ii]-SMRemf1[kk][ii]);
-            }}
-           /* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
-            * Grids, OR at outer-x3 edge of this Grid, OR if x2-boundary only
-            * involves flux-corrections.  Otherwise ox3 boundary is between MPI
-            * Grids on child Domain, and it will be corrected as B3i[kcs] by
-            * other child Grid */
-            kk = kce-kcs+1;
-            for (i=ics, ii=0; i<=ice  ; i++, ii++) {
-              SMRemf1[kk][ii] = *(pRcv++);
-              if((pCO->myEMF1[5] != NULL) || (kce==pG->ke) || (jce<jcs)){
-                pG->B3i[kce+1][j][i] +=
-                  q2*(pCO->myEMF1[dim][kk][ii] - SMRemf1[kk][ii]);
-              }
-            }
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    for (i=ics, ii=0; i<=ice; i++, ii++) {
+                      SMRemf1[kk][ii] = *(pRcv++);
+                      pG->B3i[k][j][i] += q2*(pCO->myEMF1[dim][kk][ii]-SMRemf1[kk][ii]);
+                    }}
+/* Correct B3i[kce+1] if ox3 [dim=5] boundary is between fine/coarse
+ * Grids, OR at outer-x3 edge of this Grid, OR if x2-boundary only
+ * involves flux-corrections.  Otherwise ox3 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B3i[kcs] by
+ * other child Grid */
+                  kk = kce-kcs+1;
+                  for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+                    SMRemf1[kk][ii] = *(pRcv++);
+                    if((pCO->myEMF1[5] != NULL) || (kce==pG->ke) || (jce<jcs)){
+                      pG->B3i[kce+1][j][i] +=
+                        q2*(pCO->myEMF1[dim][kk][ii] - SMRemf1[kk][ii]);
+                    }
+                  }
 
-            for (k=kcs, kk=0; k<=kce; k++, kk++) {
-            for (i=ics, ii=0; i<=ice; i++, ii++) {
-              pG->B2i[k][jb][i] -= 
-                q3*(pCO->myEMF1[dim][kk+1][ii] - SMRemf1[kk+1][ii]) -
-                q3*(pCO->myEMF1[dim][kk  ][ii] - SMRemf1[kk  ][ii]);
-            }}
+                  for (k=kcs, kk=0; k<=kce; k++, kk++) {
+                    for (i=ics, ii=0; i<=ice; i++, ii++) {
+                      pG->B2i[k][jb][i] -=
+                        q3*(pCO->myEMF1[dim][kk+1][ii] - SMRemf1[kk+1][ii]) -
+                        q3*(pCO->myEMF1[dim][kk  ][ii] - SMRemf1[kk  ][ii]);
+                    }}
 
 /* If x2-boundary involves only flux corrections, correct B2i[kcs-1] and
  * B2i[kce+1].  Normally this is done as correction at x3-boundary */
-            if (jce < jcs) {
-              for (i=ics, ii=0; i<=ice; i++, ii++) {
-                pG->B2i[kcs-1][jb][i] -= 
-                  q3*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
-                pG->B2i[kce+1][jb][i] += 
-                  q3*(pCO->myEMF1[dim][kce-kcs+1][ii] - SMRemf1[kce-kcs+1][ii]);
+                  if (jce < jcs) {
+                    for (i=ics, ii=0; i<=ice; i++, ii++) {
+                      pG->B2i[kcs-1][jb][i] -=
+                        q3*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
+                      pG->B2i[kce+1][jb][i] +=
+                        q3*(pCO->myEMF1[dim][kce-kcs+1][ii] - SMRemf1[kce-kcs+1][ii]);
+                    }
+                  }
+
+                  for (k=kcs-1; k<=kce+1; k++) {
+                    for (i=ics; i<=ice; i++) {
+                      pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
+                    }}
+
+                }
+
+                for (k=kcs; k<=kce; k++) {
+                  for (i=ics-1; i<=ice+1; i++) {
+                    pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
+                  }
+                  for (i=ics; i<=ice; i++) {
+                    pG->U[k][jb  ][i].B2c=0.5*(pG->B2i[k][jb][i]+pG->B2i[k][jb+1][i]);
+                    pG->U[k][jb-1][i].B2c=0.5*(pG->B2i[k][jb-1][i]+pG->B2i[k][jb][i]);
+                  }
+                }
               }
             }
 
-            for (k=kcs-1; k<=kce+1; k++) {
-            for (i=ics; i<=ice; i++) {
-              pG->U[k][j][i].B3c = 0.5*(pG->B3i[k][j][i] + pG->B3i[k+1][j][i]);
-            }}
-
-          }
-
-          for (k=kcs; k<=kce; k++) {
-            for (i=ics-1; i<=ice+1; i++) {
-              pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
-            }
-            for (i=ics; i<=ice; i++) {
-              pG->U[k][jb  ][i].B2c=0.5*(pG->B2i[k][jb][i]+pG->B2i[k][jb+1][i]);
-              pG->U[k][jb-1][i].B2c=0.5*(pG->B2i[k][jb-1][i]+pG->B2i[k][jb][i]);
-            }
-          }
-        }
-      }
-
 /* On x3-faces; correct B1i, B2i, B3i.  Must be a 3D problem. */
 
-      for (dim=4; dim<6; dim++){
-        if (pCO->myEMF1[dim] != NULL) {
-          if (dim == 4) {
-            k=kcs-1; kb=kcs; 
-            q1 = -(pG->dt/pG->dx1);
-            q2 = -(pG->dt/pG->dx2);
-            q3 = -(pG->dt/pG->dx3);
-          }
-          if (dim == 5) {
-            k=kce+1; kb=kce+1; 
-            q1 = -(pG->dt/pG->dx1);
-            q2 = -(pG->dt/pG->dx2);
-            q3 =  (pG->dt/pG->dx3);
-          }
+            for (dim=4; dim<6; dim++){
+              if (pCO->myEMF1[dim] != NULL) {
+                if (dim == 4) {
+                  k=kcs-1; kb=kcs;
+                  q1 = -(pG->dt/pG->dx1);
+                  q2 = -(pG->dt/pG->dx2);
+                  q3 = -(pG->dt/pG->dx3);
+                }
+                if (dim == 5) {
+                  k=kce+1; kb=kce+1;
+                  q1 = -(pG->dt/pG->dx1);
+                  q2 = -(pG->dt/pG->dx2);
+                  q3 =  (pG->dt/pG->dx3);
+                }
 
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-          for (i=ics, ii=0; i<=ice; i++, ii++) {
-            SMRemf1[jj][ii] = *(pRcv++);
-            pG->B2i[k][j][i] -= q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
-          }}
-         /* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
-          * Grids, OR at outer-x2 edge of this Grid, OR if x3-boundary only
-          * involves flux-corrections.  Otherwise ox2 boundary is between MPI
-          * Grids on child Domain, and it will be corrected as B2i[jcs] by
-          * other child Grid */
-          jj = jce-jcs+1;
-          for (i=ics, ii=0; i<=ice  ; i++, ii++) {
-            SMRemf1[jj][ii] = *(pRcv++);
-            if((pCO->myEMF1[3] != NULL) || (jce==pG->je) || (kce<kcs)){
-              pG->B2i[k][jce+1][i] -=
-                q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
-            }
-          }
+                for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    SMRemf1[jj][ii] = *(pRcv++);
+                    pG->B2i[k][j][i] -= q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
+                  }}
+/* Correct B2i[jce+1] if ox2 [dim=3] boundary is between fine/coarse
+ * Grids, OR at outer-x2 edge of this Grid, OR if x3-boundary only
+ * involves flux-corrections.  Otherwise ox2 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B2i[jcs] by
+ * other child Grid */
+                jj = jce-jcs+1;
+                for (i=ics, ii=0; i<=ice  ; i++, ii++) {
+                  SMRemf1[jj][ii] = *(pRcv++);
+                  if((pCO->myEMF1[3] != NULL) || (jce==pG->je) || (kce<kcs)){
+                    pG->B2i[k][jce+1][i] -=
+                      q3*(pCO->myEMF1[dim][jj][ii] - SMRemf1[jj][ii]);
+                  }
+                }
 
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-            for (i=ics, ii=0; i<=ice; i++, ii++) {
-              SMRemf2[jj][ii] = *(pRcv++);
-              pG->B1i[k][j][i]+= q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
-            }
-           /* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
-            * Grids, OR at outer-x1 edge of this Grid, OR if x3-boundary only
-            * involves flux-corrections.  Otherwise ox1 boundary is between MPI
-            * Grids on child Domain, and it will be corrected as B1i[ics] by
-            * other child Grid */
-            ii = ice-ics+1;
-            SMRemf2[jj][ii] = *(pRcv++);
-            if ((pCO->myEMF2[1] != NULL) || (ice==pG->ie) || (kce<kcs)){
-              pG->B1i[k][j][ice+1] +=
-                q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
-            }
-          }
+                for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    SMRemf2[jj][ii] = *(pRcv++);
+                    pG->B1i[k][j][i]+= q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
+                  }
+/* Correct B1i[ice+1] if ox1 [dim=1] boundary is between fine/coarse
+ * Grids, OR at outer-x1 edge of this Grid, OR if x3-boundary only
+ * involves flux-corrections.  Otherwise ox1 boundary is between MPI
+ * Grids on child Domain, and it will be corrected as B1i[ics] by
+ * other child Grid */
+                  ii = ice-ics+1;
+                  SMRemf2[jj][ii] = *(pRcv++);
+                  if ((pCO->myEMF2[1] != NULL) || (ice==pG->ie) || (kce<kcs)){
+                    pG->B1i[k][j][ice+1] +=
+                      q3*(pCO->myEMF2[dim][jj][ii] -SMRemf2[jj][ii]);
+                  }
+                }
 
-          for (j=jcs, jj=0; j<=jce; j++, jj++) {
-          for (i=ics, ii=0; i<=ice; i++, ii++) {
-            pG->B3i[kb][j][i] +=
-              q2*(pCO->myEMF1[dim][jj+1][ii  ] - SMRemf1[jj+1][ii  ]) -
-              q2*(pCO->myEMF1[dim][jj  ][ii  ] - SMRemf1[jj  ][ii  ]) -
-              q1*(pCO->myEMF2[dim][jj  ][ii+1] - SMRemf2[jj  ][ii+1]) +
-              q1*(pCO->myEMF2[dim][jj  ][ii  ] - SMRemf2[jj  ][ii  ]);
-          }}
+                for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    pG->B3i[kb][j][i] +=
+                      q2*(pCO->myEMF1[dim][jj+1][ii  ] - SMRemf1[jj+1][ii  ]) -
+                      q2*(pCO->myEMF1[dim][jj  ][ii  ] - SMRemf1[jj  ][ii  ]) -
+                      q1*(pCO->myEMF2[dim][jj  ][ii+1] - SMRemf2[jj  ][ii+1]) +
+                      q1*(pCO->myEMF2[dim][jj  ][ii  ] - SMRemf2[jj  ][ii  ]);
+                  }}
 
 /* If x3-boundary involves only flux corrections, correct B3i[ics-1],B3i[ice+1]
  * and B3i[jcs-1],B3i[jce+1].  Normally these are done as corrections at
  * x1- and x2-boundaries */
-          if (kce < kcs) {
-            for (j=jcs, jj=0; j<=jce; j++, jj++) {
-              pG->B3i[kb][j][ics-1] -=
-                q1*(pCO->myEMF2[dim][jj][0] - SMRemf2[jj][0]);
-              pG->B3i[kb][j][ice+1] +=
-                q1*(pCO->myEMF2[dim][jj][ice-ics+1] - SMRemf2[jj][ice-ics+1]);
+                if (kce < kcs) {
+                  for (j=jcs, jj=0; j<=jce; j++, jj++) {
+                    pG->B3i[kb][j][ics-1] -=
+                      q1*(pCO->myEMF2[dim][jj][0] - SMRemf2[jj][0]);
+                    pG->B3i[kb][j][ice+1] +=
+                      q1*(pCO->myEMF2[dim][jj][ice-ics+1] - SMRemf2[jj][ice-ics+1]);
+                  }
+                  for (i=ics, ii=0; i<=ice; i++, ii++) {
+                    pG->B3i[kb][jcs-1][i] +=
+                      q2*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
+                    pG->B3i[kb][jce+1][i] -=
+                      q2*(pCO->myEMF1[dim][jce-jcs+1][ii] - SMRemf1[jce-jcs+1][ii]);
+                  }
+                }
+
+                for (j=jcs; j<=jce; j++) {
+                  for (i=ics-1; i<=ice+1; i++) {
+                    pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
+                  }}
+
+                for (j=jcs-1; j<=jce+1; j++) {
+                  for (i=ics; i<=ice; i++) {
+                    pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
+                  }}
+
+                for (j=jcs; j<=jce; j++) {
+                  for (i=ics; i<=ice; i++) {
+                    pG->U[kb  ][j][i].B3c=0.5*(pG->B3i[kb][j][i] + pG->B3i[kb+1][j][i]);
+                    pG->U[kb-1][j][i].B3c=0.5*(pG->B3i[kb-1][j][i] + pG->B3i[kb][j][i]);
+                  }}
+              }
             }
-            for (i=ics, ii=0; i<=ice; i++, ii++) {
-              pG->B3i[kb][jcs-1][i] +=
-                q2*(pCO->myEMF1[dim][0][ii] - SMRemf1[0][ii]);
-              pG->B3i[kb][jce+1][i] -=
-                q2*(pCO->myEMF1[dim][jce-jcs+1][ii] - SMRemf1[jce-jcs+1][ii]);
-            }
-          }
 
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics-1; i<=ice+1; i++) {
-            pG->U[k][j][i].B1c = 0.5*(pG->B1i[k][j][i] + pG->B1i[k][j][i+1]);
-          }}
-
-          for (j=jcs-1; j<=jce+1; j++) {
-          for (i=ics; i<=ice; i++) {
-            pG->U[k][j][i].B2c = 0.5*(pG->B2i[k][j][i] + pG->B2i[k][j+1][i]);
-          }}
-
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            pG->U[kb  ][j][i].B3c=0.5*(pG->B3i[kb][j][i] + pG->B3i[kb+1][j][i]);
-            pG->U[kb-1][j][i].B3c=0.5*(pG->B3i[kb-1][j][i] + pG->B3i[kb][j][i]);
-          }}
-        }
-      }
-
-      } /* end test for 2D/3D */
+          } /* end test for 2D/3D */
 #endif /* MHD */
 
-    }  /* end loop over child grids */
-  }} /* end loop over Domains */
+        }  /* end loop over child grids */
+      }} /* end loop over Domains */
 
 /*=== Step 3. Restrict child solution and fluxes and send ====================*/
 /* Loop over all Domains and parent Grids.  Maxlevel grids skip straight to this
@@ -834,132 +834,132 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
  * since it has NPGrid=0.  If there is a parent Grid on this processor, it will
  * be first in the PGrid array, so it will be at start of send_bufRC */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 
-  if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
-    pG=pM->Domain[nl][nd].Grid;          /* set pointer to this Grid */
-    start_addr=0;
-    nZeroRC = 0;
+      if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
+        pG=pM->Domain[nl][nd].Grid;          /* set pointer to this Grid */
+        start_addr=0;
+        nZeroRC = 0;
 
-    for (npg=0; npg<(pG->NPGrid); npg++){
-     if(pG->PGrid[npg].nWordsRC == 0){
-	if(npg >= pG->NmyPGrid)
-		nZeroRC += 1;
-     }
-     else{
+        for (npg=0; npg<(pG->NPGrid); npg++){
+          if(pG->PGrid[npg].nWordsRC == 0){
+            if(npg >= pG->NmyPGrid)
+              nZeroRC += 1;
+          }
+          else{
 
 
-      pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
-      cnt = 0;
+            pPO=(GridOvrlpS*)&(pG->PGrid[npg]);    /* ptr to Grid overlap */
+            cnt = 0;
 #if defined(MHD) || defined(RADIATION_MHD)
-      nFld = 0;
+            nFld = 0;
 #endif
 
 /* Get coordinates ON THIS GRID of overlap region of parent Grid */
 
-      ips = pPO->ijks[0];
-      ipe = pPO->ijke[0];
-      jps = pPO->ijks[1];
-      jpe = pPO->ijke[1];
-      kps = pPO->ijks[2];
-      kpe = pPO->ijke[2];
+            ips = pPO->ijks[0];
+            ipe = pPO->ijke[0];
+            jps = pPO->ijks[1];
+            jpe = pPO->ijke[1];
+            kps = pPO->ijks[2];
+            kpe = pPO->ijke[2];
 
 /*--- Step 3a. Restrict conserved variables  ---------------------------------*/
 /* 1D/2D/3D problem: Conservative average of conserved variables in x1. */
 
-      pSnd = (double*)&(send_bufRC[nd][start_addr]);
-      for (k=kps; k<=kpe; k+=2) {
-      for (j=jps; j<=jpe; j+=2) {
-      for (i=ips; i<=ipe; i+=2) {
-        *(pSnd++) = pG->U[k][j][i].d  + pG->U[k][j][i+1].d;
-        *(pSnd++) = pG->U[k][j][i].M1 + pG->U[k][j][i+1].M1;
-        *(pSnd++) = pG->U[k][j][i].M2 + pG->U[k][j][i+1].M2;
-        *(pSnd++) = pG->U[k][j][i].M3 + pG->U[k][j][i+1].M3;
+            pSnd = (double*)&(send_bufRC[nd][start_addr]);
+            for (k=kps; k<=kpe; k+=2) {
+              for (j=jps; j<=jpe; j+=2) {
+                for (i=ips; i<=ipe; i+=2) {
+                  *(pSnd++) = pG->U[k][j][i].d  + pG->U[k][j][i+1].d;
+                  *(pSnd++) = pG->U[k][j][i].M1 + pG->U[k][j][i+1].M1;
+                  *(pSnd++) = pG->U[k][j][i].M2 + pG->U[k][j][i+1].M2;
+                  *(pSnd++) = pG->U[k][j][i].M3 + pG->U[k][j][i+1].M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pG->U[k][j][i].E  + pG->U[k][j][i+1].E;
+                  *(pSnd++) = pG->U[k][j][i].E  + pG->U[k][j][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-        *(pSnd++) = pG->U[k][j][i].B1c + pG->U[k][j][i+1].B1c;
-        *(pSnd++) = pG->U[k][j][i].B2c + pG->U[k][j][i+1].B2c;
-        *(pSnd++) = pG->U[k][j][i].B3c + pG->U[k][j][i+1].B3c;
+                  *(pSnd++) = pG->U[k][j][i].B1c + pG->U[k][j][i+1].B1c;
+                  *(pSnd++) = pG->U[k][j][i].B2c + pG->U[k][j][i+1].B2c;
+                  *(pSnd++) = pG->U[k][j][i].B3c + pG->U[k][j][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) 
-          *(pSnd++) = pG->U[k][j][i].s[n] + pG->U[k][j][i+1].s[n];
+                  for (n=0; n<NSCALARS; n++)
+                    *(pSnd++) = pG->U[k][j][i].s[n] + pG->U[k][j][i+1].s[n];
 #endif
-      }}}
-      fact = 0.5;
-      nCons = (ipe-ips+1)*(NVAR)/2;
+                }}}
+            fact = 0.5;
+            nCons = (ipe-ips+1)*(NVAR)/2;
 
 /* 2D/3D problem: Add conservative average in x2 */
 
-      if (pG->Nx[1] > 1) {
-        pSnd = (double*)&(send_bufRC[nd][start_addr]); /* restart pointer */
-        for (k=kps; k<=kpe; k+=2) {
-        for (j=jps; j<=jpe; j+=2) {
-        for (i=ips; i<=ipe; i+=2) {
-          *(pSnd++) += pG->U[k][j+1][i].d  + pG->U[k][j+1][i+1].d;
-          *(pSnd++) += pG->U[k][j+1][i].M1 + pG->U[k][j+1][i+1].M1;
-          *(pSnd++) += pG->U[k][j+1][i].M2 + pG->U[k][j+1][i+1].M2;
-          *(pSnd++) += pG->U[k][j+1][i].M3 + pG->U[k][j+1][i+1].M3;
+            if (pG->Nx[1] > 1) {
+              pSnd = (double*)&(send_bufRC[nd][start_addr]); /* restart pointer */
+              for (k=kps; k<=kpe; k+=2) {
+                for (j=jps; j<=jpe; j+=2) {
+                  for (i=ips; i<=ipe; i+=2) {
+                    *(pSnd++) += pG->U[k][j+1][i].d  + pG->U[k][j+1][i+1].d;
+                    *(pSnd++) += pG->U[k][j+1][i].M1 + pG->U[k][j+1][i+1].M1;
+                    *(pSnd++) += pG->U[k][j+1][i].M2 + pG->U[k][j+1][i+1].M2;
+                    *(pSnd++) += pG->U[k][j+1][i].M3 + pG->U[k][j+1][i+1].M3;
 #ifndef BAROTROPIC
-          *(pSnd++) += pG->U[k][j+1][i].E  + pG->U[k][j+1][i+1].E;
+                    *(pSnd++) += pG->U[k][j+1][i].E  + pG->U[k][j+1][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-          *(pSnd++) += pG->U[k][j+1][i].B1c + pG->U[k][j+1][i+1].B1c;
-          *(pSnd++) += pG->U[k][j+1][i].B2c + pG->U[k][j+1][i+1].B2c;
-          *(pSnd++) += pG->U[k][j+1][i].B3c + pG->U[k][j+1][i+1].B3c;
+                    *(pSnd++) += pG->U[k][j+1][i].B1c + pG->U[k][j+1][i+1].B1c;
+                    *(pSnd++) += pG->U[k][j+1][i].B2c + pG->U[k][j+1][i+1].B2c;
+                    *(pSnd++) += pG->U[k][j+1][i].B3c + pG->U[k][j+1][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) 
-            *(pSnd++) += pG->U[k][j+1][i].s[n] + pG->U[k][j+1][i+1].s[n];
+                    for (n=0; n<NSCALARS; n++)
+                      *(pSnd++) += pG->U[k][j+1][i].s[n] + pG->U[k][j+1][i+1].s[n];
 #endif
-        }}}
-        fact = 0.25;
-        nCons = (jpe-jps+1)*(ipe-ips+1)*(NVAR)/4;
-      }
+                  }}}
+              fact = 0.25;
+              nCons = (jpe-jps+1)*(ipe-ips+1)*(NVAR)/4;
+            }
 
 /* 3D problem: Add conservative average in x3 */
 
-      if (pG->Nx[2] > 1) {
-        pSnd = (double*)&(send_bufRC[nd][start_addr]);  /* restart pointer */
-        for (k=kps; k<=kpe; k+=2) {
-        for (j=jps; j<=jpe; j+=2) {
-        for (i=ips; i<=ipe; i+=2) {
-          *(pSnd++) += pG->U[k+1][j  ][i].d  + pG->U[k+1][j  ][i+1].d +
-                       pG->U[k+1][j+1][i].d  + pG->U[k+1][j+1][i+1].d;
-          *(pSnd++) += pG->U[k+1][j  ][i].M1 + pG->U[k+1][j  ][i+1].M1 +
-                       pG->U[k+1][j+1][i].M1 + pG->U[k+1][j+1][i+1].M1;
-          *(pSnd++) += pG->U[k+1][j  ][i].M2 + pG->U[k+1][j  ][i+1].M2 +
-                       pG->U[k+1][j+1][i].M2 + pG->U[k+1][j+1][i+1].M2;
-          *(pSnd++) += pG->U[k+1][j  ][i].M3 + pG->U[k+1][j  ][i+1].M3 +
-                       pG->U[k+1][j+1][i].M3 + pG->U[k+1][j+1][i+1].M3;
+            if (pG->Nx[2] > 1) {
+              pSnd = (double*)&(send_bufRC[nd][start_addr]);  /* restart pointer */
+              for (k=kps; k<=kpe; k+=2) {
+                for (j=jps; j<=jpe; j+=2) {
+                  for (i=ips; i<=ipe; i+=2) {
+                    *(pSnd++) += pG->U[k+1][j  ][i].d  + pG->U[k+1][j  ][i+1].d +
+                      pG->U[k+1][j+1][i].d  + pG->U[k+1][j+1][i+1].d;
+                    *(pSnd++) += pG->U[k+1][j  ][i].M1 + pG->U[k+1][j  ][i+1].M1 +
+                      pG->U[k+1][j+1][i].M1 + pG->U[k+1][j+1][i+1].M1;
+                    *(pSnd++) += pG->U[k+1][j  ][i].M2 + pG->U[k+1][j  ][i+1].M2 +
+                      pG->U[k+1][j+1][i].M2 + pG->U[k+1][j+1][i+1].M2;
+                    *(pSnd++) += pG->U[k+1][j  ][i].M3 + pG->U[k+1][j  ][i+1].M3 +
+                      pG->U[k+1][j+1][i].M3 + pG->U[k+1][j+1][i+1].M3;
 #ifndef BAROTROPIC
-          *(pSnd++) += pG->U[k+1][j  ][i].E  + pG->U[k+1][j  ][i+1].E +
-                       pG->U[k+1][j+1][i].E  + pG->U[k+1][j+1][i+1].E;
+                    *(pSnd++) += pG->U[k+1][j  ][i].E  + pG->U[k+1][j  ][i+1].E +
+                      pG->U[k+1][j+1][i].E  + pG->U[k+1][j+1][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-          *(pSnd++) += pG->U[k+1][j  ][i].B1c + pG->U[k+1][j  ][i+1].B1c +
-                       pG->U[k+1][j+1][i].B1c + pG->U[k+1][j+1][i+1].B1c;
-          *(pSnd++) += pG->U[k+1][j  ][i].B2c + pG->U[k+1][j  ][i+1].B2c +
-                       pG->U[k+1][j+1][i].B2c + pG->U[k+1][j+1][i+1].B2c;
-          *(pSnd++) += pG->U[k+1][j  ][i].B3c + pG->U[k+1][j  ][i+1].B3c +
-                       pG->U[k+1][j+1][i].B3c + pG->U[k+1][j+1][i+1].B3c;
+                    *(pSnd++) += pG->U[k+1][j  ][i].B1c + pG->U[k+1][j  ][i+1].B1c +
+                      pG->U[k+1][j+1][i].B1c + pG->U[k+1][j+1][i+1].B1c;
+                    *(pSnd++) += pG->U[k+1][j  ][i].B2c + pG->U[k+1][j  ][i+1].B2c +
+                      pG->U[k+1][j+1][i].B2c + pG->U[k+1][j+1][i+1].B2c;
+                    *(pSnd++) += pG->U[k+1][j  ][i].B3c + pG->U[k+1][j  ][i+1].B3c +
+                      pG->U[k+1][j+1][i].B3c + pG->U[k+1][j+1][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) 
-            *(pSnd++) += pG->U[k+1][j  ][i].s[n] + pG->U[k+1][j  ][i+1].s[n] +
-                         pG->U[k+1][j+1][i].s[n] + pG->U[k+1][j+1][i+1].s[n];
+                    for (n=0; n<NSCALARS; n++)
+                      *(pSnd++) += pG->U[k+1][j  ][i].s[n] + pG->U[k+1][j  ][i+1].s[n] +
+                        pG->U[k+1][j+1][i].s[n] + pG->U[k+1][j+1][i+1].s[n];
 #endif
-        }}}
-        fact = 0.125;
-        nCons = (kpe-kps+1)*(jpe-jps+1)*(ipe-ips+1)*(NVAR)/8;
-      }
+                  }}}
+              fact = 0.125;
+              nCons = (kpe-kps+1)*(jpe-jps+1)*(ipe-ips+1)*(NVAR)/8;
+            }
 
 /* reset pointer to beginning and normalize averages */
-      pSnd = (double*)&(send_bufRC[nd][start_addr]);  
-      for (i=start_addr; i<(start_addr+nCons); i++) *(pSnd++) *= fact;
-      cnt = nCons;
+            pSnd = (double*)&(send_bufRC[nd][start_addr]);
+            for (i=start_addr; i<(start_addr+nCons); i++) *(pSnd++) *= fact;
+            cnt = nCons;
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /*--- Step 3b. Restrict face-centered fields  --------------------------------*/
@@ -967,271 +967,271 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
  * (e.g. ips/ipe+1 for B1i) in case they are needed at edges of MPI blocks on
  * same level.  Step 1c decides whether to use or ignore them. */
 
-      if (nDim == 3) { /* 3D problem, restrict B1i,B2i,B3i */
+            if (nDim == 3) { /* 3D problem, restrict B1i,B2i,B3i */
 
-        if (ips < ipe) { /* No restriction, only flux correction */
-          for (k=kps; k<=kpe  ; k+=2) {
-          for (j=jps; j<=jpe  ; j+=2) {
-          for (i=ips; i<=ipe+1; i+=2) {
-            *(pSnd++) = 0.25*(pG->B1i[k  ][j][i] + pG->B1i[k  ][j+1][i]
-                           +  pG->B1i[k+1][j][i] + pG->B1i[k+1][j+1][i]);
-          }}}
-          nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
-        }
-        if (jps < jpe) { /* No restriction, only flux correction */
-          for (k=kps; k<=kpe  ; k+=2) {
-          for (j=jps; j<=jpe+1; j+=2) {
-          for (i=ips; i<=ipe  ; i+=2) {
-            *(pSnd++) = 0.25*(pG->B2i[k  ][j][i] + pG->B2i[k  ][j][i+1]
-                            + pG->B2i[k+1][j][i] + pG->B2i[k+1][j][i+1]);
-          }}}
-          nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
-        }
-        if (kps < kpe) { /* No restriction, only flux correction */
-          for (k=kps; k<=kpe+1; k+=2) {
-          for (j=jps; j<=jpe  ; j+=2) {
-          for (i=ips; i<=ipe  ; i+=2) {
-            *(pSnd++) = 0.25*(pG->B3i[k][j  ][i] + pG->B3i[k][j  ][i+1]
-                            + pG->B3i[k][j+1][i] + pG->B3i[k][j+1][i+1]);
-          }}}
-          nFld += ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2)*((ipe-ips+1)/2);
-        }
+              if (ips < ipe) { /* No restriction, only flux correction */
+                for (k=kps; k<=kpe  ; k+=2) {
+                  for (j=jps; j<=jpe  ; j+=2) {
+                    for (i=ips; i<=ipe+1; i+=2) {
+                      *(pSnd++) = 0.25*(pG->B1i[k  ][j][i] + pG->B1i[k  ][j+1][i]
+                                        +  pG->B1i[k+1][j][i] + pG->B1i[k+1][j+1][i]);
+                    }}}
+                nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
+              }
+              if (jps < jpe) { /* No restriction, only flux correction */
+                for (k=kps; k<=kpe  ; k+=2) {
+                  for (j=jps; j<=jpe+1; j+=2) {
+                    for (i=ips; i<=ipe  ; i+=2) {
+                      *(pSnd++) = 0.25*(pG->B2i[k  ][j][i] + pG->B2i[k  ][j][i+1]
+                                        + pG->B2i[k+1][j][i] + pG->B2i[k+1][j][i+1]);
+                    }}}
+                nFld += ((kpe-kps+1)/2)*((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
+              }
+              if (kps < kpe) { /* No restriction, only flux correction */
+                for (k=kps; k<=kpe+1; k+=2) {
+                  for (j=jps; j<=jpe  ; j+=2) {
+                    for (i=ips; i<=ipe  ; i+=2) {
+                      *(pSnd++) = 0.25*(pG->B3i[k][j  ][i] + pG->B3i[k][j  ][i+1]
+                                        + pG->B3i[k][j+1][i] + pG->B3i[k][j+1][i+1]);
+                    }}}
+                nFld += ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2)*((ipe-ips+1)/2);
+              }
 
-      } else {
+            } else {
 
-        if (nDim == 2) { /* 2D problem, restrict B1i,B2i */
-          if (ips < ipe) { /* No restriction, only flux correction */
-            for (j=jps; j<=jpe  ; j+=2) {
-            for (i=ips; i<=ipe+1; i+=2) {
-              *(pSnd++) = 0.5*(pG->B1i[kps][j][i] + pG->B1i[kps][j+1][i]);
-            }}
-            nFld += ((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
-          }
-          if (jps < jpe) { /* No restriction, only flux correction */
-            for (j=jps; j<=jpe+1; j+=2) {
-            for (i=ips; i<=ipe  ; i+=2) {
-              *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
-            }}
-            nFld += ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
-          }
-        }
+              if (nDim == 2) { /* 2D problem, restrict B1i,B2i */
+                if (ips < ipe) { /* No restriction, only flux correction */
+                  for (j=jps; j<=jpe  ; j+=2) {
+                    for (i=ips; i<=ipe+1; i+=2) {
+                      *(pSnd++) = 0.5*(pG->B1i[kps][j][i] + pG->B1i[kps][j+1][i]);
+                    }}
+                  nFld += ((jpe-jps+1)/2)*((ipe-ips+1)/2 + 1);
+                }
+                if (jps < jpe) { /* No restriction, only flux correction */
+                  for (j=jps; j<=jpe+1; j+=2) {
+                    for (i=ips; i<=ipe  ; i+=2) {
+                      *(pSnd++) = 0.5*(pG->B2i[kps][j][i] + pG->B2i[kps][j][i+1]);
+                    }}
+                  nFld += ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2);
+                }
+              }
 
-      }
-      cnt += nFld;
+            }
+            cnt += nFld;
 #endif /* MHD */
 
 /*--- Step 3c. Restrict fluxes of conserved variables ------------------------*/
 /*---------------- Restrict fluxes at x1-faces -------------------------------*/
 
-      for (dim=0; dim<2; dim++){
-      if (pPO->myFlx[dim] != NULL) {
+            for (dim=0; dim<2; dim++){
+              if (pPO->myFlx[dim] != NULL) {
 
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);  
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
 
-      if (nDim == 1) {  /*----- 1D problem -----*/
+                if (nDim == 1) {  /*----- 1D problem -----*/
 
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].d ;
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].M1;
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].M2;
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].M3;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].d ;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].M1;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].M2;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].E ;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].E ;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].B1c;
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].B2c;
-        *(pSnd++) = pPO->myFlx[dim][kps][jps].B3c;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].B1c;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].B2c;
+                  *(pSnd++) = pPO->myFlx[dim][kps][jps].B3c;
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) = pPO->myFlx[dim][kps][jps].s[n];
+                  for (n=0; n<NSCALARS; n++) *(pSnd++) = pPO->myFlx[dim][kps][jps].s[n];
 #endif
-        nFlx = NVAR;
-      } else {  /*----- 2D or 3D problem -----*/
+                  nFlx = NVAR;
+                } else {  /*----- 2D or 3D problem -----*/
 
 /* Conservative average in x2 of x1-fluxes */
 
-        for (k=0; k<=(kpe-kps); k+=2) {
-        for (j=0; j<=(jpe-jps); j+=2) {
-          *(pSnd++) = pPO->myFlx[dim][k][j].d  + pPO->myFlx[dim][k][j+1].d;
-          *(pSnd++) = pPO->myFlx[dim][k][j].M1 + pPO->myFlx[dim][k][j+1].M1;
-          *(pSnd++) = pPO->myFlx[dim][k][j].M2 + pPO->myFlx[dim][k][j+1].M2;
-          *(pSnd++) = pPO->myFlx[dim][k][j].M3 + pPO->myFlx[dim][k][j+1].M3;
+                  for (k=0; k<=(kpe-kps); k+=2) {
+                    for (j=0; j<=(jpe-jps); j+=2) {
+                      *(pSnd++) = pPO->myFlx[dim][k][j].d  + pPO->myFlx[dim][k][j+1].d;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].M1 + pPO->myFlx[dim][k][j+1].M1;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].M2 + pPO->myFlx[dim][k][j+1].M2;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].M3 + pPO->myFlx[dim][k][j+1].M3;
 #ifndef BAROTROPIC
-          *(pSnd++) = pPO->myFlx[dim][k][j].E  + pPO->myFlx[dim][k][j+1].E;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].E  + pPO->myFlx[dim][k][j+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-          *(pSnd++) = pPO->myFlx[dim][k][j].B1c + pPO->myFlx[dim][k][j+1].B1c;
-          *(pSnd++) = pPO->myFlx[dim][k][j].B2c + pPO->myFlx[dim][k][j+1].B2c;
-          *(pSnd++) = pPO->myFlx[dim][k][j].B3c + pPO->myFlx[dim][k][j+1].B3c;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].B1c + pPO->myFlx[dim][k][j+1].B1c;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].B2c + pPO->myFlx[dim][k][j+1].B2c;
+                      *(pSnd++) = pPO->myFlx[dim][k][j].B3c + pPO->myFlx[dim][k][j+1].B3c;
 #endif
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) =
-            pPO->myFlx[dim][k][j].s[n] + pPO->myFlx[dim][k][j+1].s[n];
+                      for (n=0; n<NSCALARS; n++) *(pSnd++) =
+                                                   pPO->myFlx[dim][k][j].s[n] + pPO->myFlx[dim][k][j+1].s[n];
 #endif
-        }}
-        fact = 0.5;
-        nFlx = ((jpe-jps+1)/2)*(NVAR);
+                    }}
+                  fact = 0.5;
+                  nFlx = ((jpe-jps+1)/2)*(NVAR);
 
 /* Add conservative average in x3 of x1-fluxes */
 
-        if (nDim == 3) {  /*----- 3D problem -----*/
-          pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]); /* restart ptr */
-          for (k=0; k<=(kpe-kps); k+=2) {
-          for (j=0; j<=(jpe-jps); j+=2) {
-            *(pSnd++)+=pPO->myFlx[dim][k+1][j].d  +pPO->myFlx[dim][k+1][j+1].d;
-            *(pSnd++)+=pPO->myFlx[dim][k+1][j].M1 +pPO->myFlx[dim][k+1][j+1].M1;
-            *(pSnd++)+=pPO->myFlx[dim][k+1][j].M2 +pPO->myFlx[dim][k+1][j+1].M2;
-            *(pSnd++)+=pPO->myFlx[dim][k+1][j].M3 +pPO->myFlx[dim][k+1][j+1].M3;
+                  if (nDim == 3) {  /*----- 3D problem -----*/
+                    pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]); /* restart ptr */
+                    for (k=0; k<=(kpe-kps); k+=2) {
+                      for (j=0; j<=(jpe-jps); j+=2) {
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].d  +pPO->myFlx[dim][k+1][j+1].d;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].M1 +pPO->myFlx[dim][k+1][j+1].M1;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].M2 +pPO->myFlx[dim][k+1][j+1].M2;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].M3 +pPO->myFlx[dim][k+1][j+1].M3;
 #ifndef BAROTROPIC
-            *(pSnd++)+=pPO->myFlx[dim][k+1][j].E  +pPO->myFlx[dim][k+1][j+1].E;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].E  +pPO->myFlx[dim][k+1][j+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-          *(pSnd++)+=pPO->myFlx[dim][k+1][j].B1c +pPO->myFlx[dim][k+1][j+1].B1c;
-          *(pSnd++)+=pPO->myFlx[dim][k+1][j].B2c +pPO->myFlx[dim][k+1][j+1].B2c;
-          *(pSnd++)+=pPO->myFlx[dim][k+1][j].B3c +pPO->myFlx[dim][k+1][j+1].B3c;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].B1c +pPO->myFlx[dim][k+1][j+1].B1c;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].B2c +pPO->myFlx[dim][k+1][j+1].B2c;
+                        *(pSnd++)+=pPO->myFlx[dim][k+1][j].B3c +pPO->myFlx[dim][k+1][j+1].B3c;
 #endif
 #if (NSCALARS > 0)
-            for (n=0; n<NSCALARS; n++) *(pSnd++) +=
-              pPO->myFlx[dim][k+1][j].s[n] + pPO->myFlx[dim][k+1][j+1].s[n];
+                        for (n=0; n<NSCALARS; n++) *(pSnd++) +=
+                                                     pPO->myFlx[dim][k+1][j].s[n] + pPO->myFlx[dim][k+1][j+1].s[n];
 #endif
-          }}
-          fact = 0.25;
-          nFlx = ((kpe-kps+1)*(jpe-jps+1)/4)*(NVAR);
-        }
+                      }}
+                    fact = 0.25;
+                    nFlx = ((kpe-kps+1)*(jpe-jps+1)/4)*(NVAR);
+                  }
 
 /* reset pointer to beginning of x1-fluxes and normalize averages */
-        pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);  
-        for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *=fact;
-      }
-      cnt += nFlx;
+                  pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                  for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *=fact;
+                }
+                cnt += nFlx;
 
-      }}
+              }}
 
 /*---------------- Restrict fluxes at x2-faces -------------------------------*/
 
-      for (dim=2; dim<4; dim++){
-      if (pPO->myFlx[dim] != NULL) {
+            for (dim=2; dim<4; dim++){
+              if (pPO->myFlx[dim] != NULL) {
 
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
 
 /* Conservative average in x1 of x2-fluxes */
 
-      for (k=0; k<=(kpe-kps); k+=2) {
-      for (i=0; i<=(ipe-ips); i+=2) {
-        *(pSnd++) = pPO->myFlx[dim][k][i].d  + pPO->myFlx[dim][k][i+1].d;
-        *(pSnd++) = pPO->myFlx[dim][k][i].M1 + pPO->myFlx[dim][k][i+1].M1;
-        *(pSnd++) = pPO->myFlx[dim][k][i].M2 + pPO->myFlx[dim][k][i+1].M2;
-        *(pSnd++) = pPO->myFlx[dim][k][i].M3 + pPO->myFlx[dim][k][i+1].M3;
+                for (k=0; k<=(kpe-kps); k+=2) {
+                  for (i=0; i<=(ipe-ips); i+=2) {
+                    *(pSnd++) = pPO->myFlx[dim][k][i].d  + pPO->myFlx[dim][k][i+1].d;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].M1 + pPO->myFlx[dim][k][i+1].M1;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].M2 + pPO->myFlx[dim][k][i+1].M2;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].M3 + pPO->myFlx[dim][k][i+1].M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pPO->myFlx[dim][k][i].E  + pPO->myFlx[dim][k][i+1].E;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].E  + pPO->myFlx[dim][k][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-        *(pSnd++) = pPO->myFlx[dim][k][i].B1c + pPO->myFlx[dim][k][i+1].B1c;
-        *(pSnd++) = pPO->myFlx[dim][k][i].B2c + pPO->myFlx[dim][k][i+1].B2c;
-        *(pSnd++) = pPO->myFlx[dim][k][i].B3c + pPO->myFlx[dim][k][i+1].B3c;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].B1c + pPO->myFlx[dim][k][i+1].B1c;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].B2c + pPO->myFlx[dim][k][i+1].B2c;
+                    *(pSnd++) = pPO->myFlx[dim][k][i].B3c + pPO->myFlx[dim][k][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) =
-          pPO->myFlx[dim][k][i].s[n] + pPO->myFlx[dim][k][i+1].s[n];
+                    for (n=0; n<NSCALARS; n++) *(pSnd++) =
+                                                 pPO->myFlx[dim][k][i].s[n] + pPO->myFlx[dim][k][i+1].s[n];
 #endif
-      }}
-      fact = 0.5;
-      nFlx = ((ipe-ips+1)/2)*(NVAR);
+                  }}
+                fact = 0.5;
+                nFlx = ((ipe-ips+1)/2)*(NVAR);
 
 /* Add conservative average in x3 of x2-fluxes */
 
-      if (nDim == 3) {  /*----- 3D problem -----*/
-        pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]); /* restart ptr */
-        for (k=0; k<=(kpe-kps); k+=2) {
-        for (i=0; i<=(ipe-ips); i+=2) {
-          *(pSnd++) +=pPO->myFlx[dim][k+1][i].d  + pPO->myFlx[dim][k+1][i+1].d;
-          *(pSnd++) +=pPO->myFlx[dim][k+1][i].M1 + pPO->myFlx[dim][k+1][i+1].M1;
-          *(pSnd++) +=pPO->myFlx[dim][k+1][i].M2 + pPO->myFlx[dim][k+1][i+1].M2;
-          *(pSnd++) +=pPO->myFlx[dim][k+1][i].M3 + pPO->myFlx[dim][k+1][i+1].M3;
+                if (nDim == 3) {  /*----- 3D problem -----*/
+                  pSnd = (double*)&(send_bufRC[nd][start_addr+cnt]); /* restart ptr */
+                  for (k=0; k<=(kpe-kps); k+=2) {
+                    for (i=0; i<=(ipe-ips); i+=2) {
+                      *(pSnd++) +=pPO->myFlx[dim][k+1][i].d  + pPO->myFlx[dim][k+1][i+1].d;
+                      *(pSnd++) +=pPO->myFlx[dim][k+1][i].M1 + pPO->myFlx[dim][k+1][i+1].M1;
+                      *(pSnd++) +=pPO->myFlx[dim][k+1][i].M2 + pPO->myFlx[dim][k+1][i+1].M2;
+                      *(pSnd++) +=pPO->myFlx[dim][k+1][i].M3 + pPO->myFlx[dim][k+1][i+1].M3;
 #ifndef BAROTROPIC
-          *(pSnd++) +=pPO->myFlx[dim][k+1][i].E  + pPO->myFlx[dim][k+1][i+1].E;
+                      *(pSnd++) +=pPO->myFlx[dim][k+1][i].E  + pPO->myFlx[dim][k+1][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-          *(pSnd++)+= pPO->myFlx[dim][k+1][i].B1c+pPO->myFlx[dim][k+1][i+1].B1c;
-          *(pSnd++)+= pPO->myFlx[dim][k+1][i].B2c+pPO->myFlx[dim][k+1][i+1].B2c;
-          *(pSnd++)+= pPO->myFlx[dim][k+1][i].B3c+pPO->myFlx[dim][k+1][i+1].B3c;
+                      *(pSnd++)+= pPO->myFlx[dim][k+1][i].B1c+pPO->myFlx[dim][k+1][i+1].B1c;
+                      *(pSnd++)+= pPO->myFlx[dim][k+1][i].B2c+pPO->myFlx[dim][k+1][i+1].B2c;
+                      *(pSnd++)+= pPO->myFlx[dim][k+1][i].B3c+pPO->myFlx[dim][k+1][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-          for (n=0; n<NSCALARS; n++) *(pSnd++) +=
-            pPO->myFlx[dim][k+1][i].s[n] + pPO->myFlx[dim][k+1][i+1].s[n];
+                      for (n=0; n<NSCALARS; n++) *(pSnd++) +=
+                                                   pPO->myFlx[dim][k+1][i].s[n] + pPO->myFlx[dim][k+1][i+1].s[n];
 #endif
-        }}
-        fact = 0.25;
-        nFlx = ((kpe-kps+1)*(ipe-ips+1)/4)*(NVAR);
-      }
+                    }}
+                  fact = 0.25;
+                  nFlx = ((kpe-kps+1)*(ipe-ips+1)/4)*(NVAR);
+                }
 
 /* reset pointer to beginning of x2-fluxes and normalize averages */
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);  
-      for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *= fact;
-      cnt += nFlx;
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *= fact;
+                cnt += nFlx;
 
-      }}
+              }}
 
 /*---------------- Restrict fluxes at x3-faces -------------------------------*/
 
-      for (dim=4; dim<6; dim++){
-      if (pPO->myFlx[dim] != NULL) {
+            for (dim=4; dim<6; dim++){
+              if (pPO->myFlx[dim] != NULL) {
 
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
 
 /* Conservative average in x1 of x3-fluxes */
 
-      for (j=0; j<=(jpe-jps); j+=2) {
-      for (i=0; i<=(ipe-ips); i+=2) {
-        *(pSnd++) = pPO->myFlx[dim][j][i].d  + pPO->myFlx[dim][j][i+1].d;
-        *(pSnd++) = pPO->myFlx[dim][j][i].M1 + pPO->myFlx[dim][j][i+1].M1;
-        *(pSnd++) = pPO->myFlx[dim][j][i].M2 + pPO->myFlx[dim][j][i+1].M2;
-        *(pSnd++) = pPO->myFlx[dim][j][i].M3 + pPO->myFlx[dim][j][i+1].M3;
+                for (j=0; j<=(jpe-jps); j+=2) {
+                  for (i=0; i<=(ipe-ips); i+=2) {
+                    *(pSnd++) = pPO->myFlx[dim][j][i].d  + pPO->myFlx[dim][j][i+1].d;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].M1 + pPO->myFlx[dim][j][i+1].M1;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].M2 + pPO->myFlx[dim][j][i+1].M2;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].M3 + pPO->myFlx[dim][j][i+1].M3;
 #ifndef BAROTROPIC
-        *(pSnd++) = pPO->myFlx[dim][j][i].E  + pPO->myFlx[dim][j][i+1].E;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].E  + pPO->myFlx[dim][j][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-        *(pSnd++) = pPO->myFlx[dim][j][i].B1c + pPO->myFlx[dim][j][i+1].B1c;
-        *(pSnd++) = pPO->myFlx[dim][j][i].B2c + pPO->myFlx[dim][j][i+1].B2c;
-        *(pSnd++) = pPO->myFlx[dim][j][i].B3c + pPO->myFlx[dim][j][i+1].B3c;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].B1c + pPO->myFlx[dim][j][i+1].B1c;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].B2c + pPO->myFlx[dim][j][i+1].B2c;
+                    *(pSnd++) = pPO->myFlx[dim][j][i].B3c + pPO->myFlx[dim][j][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) =
-          pPO->myFlx[dim][j][i].s[n] + pPO->myFlx[dim][j][i+1].s[n];
+                    for (n=0; n<NSCALARS; n++) *(pSnd++) =
+                                                 pPO->myFlx[dim][j][i].s[n] + pPO->myFlx[dim][j][i+1].s[n];
 #endif
-      }}
+                  }}
 
 /* Add conservative average in x2 of x3-fluxes */
 
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
-      for (j=0; j<=(jpe-jps); j+=2) {
-      for (i=0; i<=(ipe-ips); i+=2) {
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].d  + pPO->myFlx[dim][j+1][i+1].d;
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].M1 + pPO->myFlx[dim][j+1][i+1].M1;
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].M2 + pPO->myFlx[dim][j+1][i+1].M2;
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].M3 + pPO->myFlx[dim][j+1][i+1].M3;
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                for (j=0; j<=(jpe-jps); j+=2) {
+                  for (i=0; i<=(ipe-ips); i+=2) {
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].d  + pPO->myFlx[dim][j+1][i+1].d;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].M1 + pPO->myFlx[dim][j+1][i+1].M1;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].M2 + pPO->myFlx[dim][j+1][i+1].M2;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].M3 + pPO->myFlx[dim][j+1][i+1].M3;
 #ifndef BAROTROPIC
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].E  + pPO->myFlx[dim][j+1][i+1].E;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].E  + pPO->myFlx[dim][j+1][i+1].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].B1c + pPO->myFlx[dim][j+1][i+1].B1c;
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].B2c + pPO->myFlx[dim][j+1][i+1].B2c;
-        *(pSnd++) +=pPO->myFlx[dim][j+1][i].B3c + pPO->myFlx[dim][j+1][i+1].B3c;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].B1c + pPO->myFlx[dim][j+1][i+1].B1c;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].B2c + pPO->myFlx[dim][j+1][i+1].B2c;
+                    *(pSnd++) +=pPO->myFlx[dim][j+1][i].B3c + pPO->myFlx[dim][j+1][i+1].B3c;
 #endif
 #if (NSCALARS > 0)
-        for (n=0; n<NSCALARS; n++) *(pSnd++) +=
-          pPO->myFlx[dim][j+1][i].s[n] + pPO->myFlx[dim][j+1][i+1].s[n];
+                    for (n=0; n<NSCALARS; n++) *(pSnd++) +=
+                                                 pPO->myFlx[dim][j+1][i].s[n] + pPO->myFlx[dim][j+1][i+1].s[n];
 #endif
-      }}
-      fact = 0.25;
-      nFlx = ((jpe-jps+1)*(ipe-ips+1)/4)*(NVAR);
+                  }}
+                fact = 0.25;
+                nFlx = ((jpe-jps+1)*(ipe-ips+1)/4)*(NVAR);
 
 /* reset pointer to beginning of x3-fluxes and normalize averages */
-      pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);  
-      for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *= fact;
-      cnt += nFlx;
+                pSnd = (double*)&(send_bufRC[nd][(start_addr+cnt)]);
+                for (i=(start_addr+cnt); i<(start_addr+cnt+nFlx); i++) *(pSnd++) *= fact;
+                cnt += nFlx;
 
-      }}
+              }}
 
 /*--- Step 3d. Restrict fluxes (EMFs) of face-centered fields ----------------*/
 
@@ -1240,91 +1240,91 @@ printf("js,je = %i %i jcs/jce = %i %i\n",pG->js,pG->je,jcs,jce);
  * averaging along direction of EMF is required.  */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-      for (dim=0; dim<2; dim++){
-        if (pPO->myEMF3[dim] != NULL) {
+            for (dim=0; dim<2; dim++){
+              if (pPO->myEMF3[dim] != NULL) {
 
 /* 2D problem -- Copy EMF3 */
 
-          if (pG->Nx[2] == 1) {  
-            for (k=0; k<=(kpe-kps)  ; k+=2) {
-            for (j=0; j<=(jpe-jps)+1; j+=2) {
-              *(pSnd++) = pPO->myEMF3[dim][k][j];
-            }}
-            cnt += ((jpe-jps+1)/2 + 1);
+                if (pG->Nx[2] == 1) {
+                  for (k=0; k<=(kpe-kps)  ; k+=2) {
+                    for (j=0; j<=(jpe-jps)+1; j+=2) {
+                      *(pSnd++) = pPO->myEMF3[dim][k][j];
+                    }}
+                  cnt += ((jpe-jps+1)/2 + 1);
 
-          } else {  
+                } else {
 
 /* 3D problem -- Conservative averages of EMF3 and EMF2 */
 
-            for (k=0; k<=(kpe-kps)  ; k+=2) {
-            for (j=0; j<=(jpe-jps)+1; j+=2) {
-              *(pSnd++) = 0.5*(pPO->myEMF3[dim][k][j]+pPO->myEMF3[dim][k+1][j]);
-            }}
+                  for (k=0; k<=(kpe-kps)  ; k+=2) {
+                    for (j=0; j<=(jpe-jps)+1; j+=2) {
+                      *(pSnd++) = 0.5*(pPO->myEMF3[dim][k][j]+pPO->myEMF3[dim][k+1][j]);
+                    }}
 
-            for (k=0; k<=(kpe-kps)+1; k+=2) {
-            for (j=0; j<=(jpe-jps)  ; j+=2) {
-              *(pSnd++) = 0.5*(pPO->myEMF2[dim][k][j]+pPO->myEMF2[dim][k][j+1]);
-            }}
-            cnt += ((kpe-kps+1)/2    )*((jpe-jps+1)/2 + 1) +
-                   ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2    );
-          }
-        }
-      }
+                  for (k=0; k<=(kpe-kps)+1; k+=2) {
+                    for (j=0; j<=(jpe-jps)  ; j+=2) {
+                      *(pSnd++) = 0.5*(pPO->myEMF2[dim][k][j]+pPO->myEMF2[dim][k][j+1]);
+                    }}
+                  cnt += ((kpe-kps+1)/2    )*((jpe-jps+1)/2 + 1) +
+                    ((kpe-kps+1)/2 + 1)*((jpe-jps+1)/2    );
+                }
+              }
+            }
 
 /*------------------- Restrict EMF at x2-faces -------------------------------*/
 
-      for (dim=2; dim<4; dim++){
-        if (pPO->myEMF3[dim] != NULL) {
+            for (dim=2; dim<4; dim++){
+              if (pPO->myEMF3[dim] != NULL) {
 
 /* 2D problem --  Copy EMF3 */
 
-          if (pG->Nx[2] == 1) {
-            for (k=0; k<=(kpe-kps)  ; k+=2) {
-            for (i=0; i<=(ipe-ips)+1; i+=2) {
-              *(pSnd++) = pPO->myEMF3[dim][k][i];
-            }}
-            cnt += ((ipe-ips+1)/2 + 1);
+                if (pG->Nx[2] == 1) {
+                  for (k=0; k<=(kpe-kps)  ; k+=2) {
+                    for (i=0; i<=(ipe-ips)+1; i+=2) {
+                      *(pSnd++) = pPO->myEMF3[dim][k][i];
+                    }}
+                  cnt += ((ipe-ips+1)/2 + 1);
 
-          } else {
+                } else {
 
 /* 3D problem -- Conservative averages of EMF3 and EMF1 */
 
-            for (k=0; k<=(kpe-kps)  ; k+=2) {
-            for (i=0; i<=(ipe-ips)+1; i+=2) {
-              *(pSnd++) = 0.5*(pPO->myEMF3[dim][k][i]+pPO->myEMF3[dim][k+1][i]);
-            }}
+                  for (k=0; k<=(kpe-kps)  ; k+=2) {
+                    for (i=0; i<=(ipe-ips)+1; i+=2) {
+                      *(pSnd++) = 0.5*(pPO->myEMF3[dim][k][i]+pPO->myEMF3[dim][k+1][i]);
+                    }}
 
-            for (k=0; k<=(kpe-kps)+1; k+=2) {
-            for (i=0; i<=(ipe-ips)  ; i+=2) {
-              *(pSnd++) = 0.5*(pPO->myEMF1[dim][k][i]+pPO->myEMF1[dim][k][i+1]);
-            }}
-            cnt += ((kpe-kps+1)/2    )*((ipe-ips+1)/2 + 1) +
-                   ((kpe-kps+1)/2 + 1)*((ipe-ips+1)/2    );
-          }
-        }
-      }
+                  for (k=0; k<=(kpe-kps)+1; k+=2) {
+                    for (i=0; i<=(ipe-ips)  ; i+=2) {
+                      *(pSnd++) = 0.5*(pPO->myEMF1[dim][k][i]+pPO->myEMF1[dim][k][i+1]);
+                    }}
+                  cnt += ((kpe-kps+1)/2    )*((ipe-ips+1)/2 + 1) +
+                    ((kpe-kps+1)/2 + 1)*((ipe-ips+1)/2    );
+                }
+              }
+            }
 
 /*------------------- Restrict EMF at x3-faces -------------------------------*/
 /* Must be a 3D problem */
 
-      for (dim=4; dim<6; dim++){
-        if (pPO->myEMF1[dim] != NULL) {
+            for (dim=4; dim<6; dim++){
+              if (pPO->myEMF1[dim] != NULL) {
 
 /*----- 3D problem ----- Conservative averages of EMF1 and EMF2 */
 
-          for (j=0; j<=(jpe-jps)+1; j+=2) {
-          for (i=0; i<=(ipe-ips)  ; i+=2) {
-            *(pSnd++) = 0.5*(pPO->myEMF1[dim][j][i] + pPO->myEMF1[dim][j][i+1]);
-          }}
+                for (j=0; j<=(jpe-jps)+1; j+=2) {
+                  for (i=0; i<=(ipe-ips)  ; i+=2) {
+                    *(pSnd++) = 0.5*(pPO->myEMF1[dim][j][i] + pPO->myEMF1[dim][j][i+1]);
+                  }}
 
-          for (j=0; j<=(jpe-jps)  ; j+=2) {
-          for (i=0; i<=(ipe-ips)+1; i+=2) {
-            *(pSnd++) = 0.5*(pPO->myEMF2[dim][j][i] + pPO->myEMF2[dim][j+1][i]);
-          }}
-          cnt += ((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
-                 ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    );
-        }
-      }
+                for (j=0; j<=(jpe-jps)  ; j+=2) {
+                  for (i=0; i<=(ipe-ips)+1; i+=2) {
+                    *(pSnd++) = 0.5*(pPO->myEMF2[dim][j][i] + pPO->myEMF2[dim][j+1][i]);
+                  }}
+                cnt += ((jpe-jps+1)/2    )*((ipe-ips+1)/2 + 1) +
+                  ((jpe-jps+1)/2 + 1)*((ipe-ips+1)/2    );
+              }
+            }
 #endif
 /*****************************
 printf("cnt = %i\n", cnt);
@@ -1335,40 +1335,40 @@ printf("cnt = %i\n", cnt);
 /*--- Step 3e. Send rectricted soln and fluxes -------------------------------*/
 /* non-blocking send with MPI, using Domain number as tag.  */
 
-      if (npg >= pG->NmyPGrid){
-        mIndex = npg - pG->NmyPGrid - nZeroRC;
-        ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsRC,
-          MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
-          &(send_rq[nd][mIndex]));
-      }
+            if (npg >= pG->NmyPGrid){
+              mIndex = npg - pG->NmyPGrid - nZeroRC;
+              ierr = MPI_Isend(&(send_bufRC[nd][start_addr]), pG->PGrid[npg].nWordsRC,
+                               MPI_DOUBLE, pG->PGrid[npg].ID, nd, pM->Domain[nl][nd].Comm_Parent,
+                               &(send_rq[nd][mIndex]));
+            }
 #endif /* MPI_PARALLEL */
 
-      start_addr += pG->PGrid[npg].nWordsRC;
+            start_addr += pG->PGrid[npg].nWordsRC;
 
-     }/* End if nWordsRC != 0 */
-    }  /* end loop over parent grids */
-  }} /* end loop over Domains per level */
+          }/* End if nWordsRC != 0 */
+        }  /* end loop over parent grids */
+      }} /* end loop over Domains per level */
 
 #ifdef MPI_PARALLEL
 /*--- Step 4. Check non-blocking sends completed. ----------------------------*/
 /* For MPI jobs, wait for all non-blocking sends in Step 3e to complete.  This
  * is more efficient if there are multiple messages per Grid. */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pG=pM->Domain[nl][nd].Grid;
-      nZeroRC = 0;
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG=pM->Domain[nl][nd].Grid;
+        nZeroRC = 0;
 
-	for(i=pG->NmyPGrid; i<pG->NPGrid; i++)
-		if(pG->PGrid[i].nWordsRC == 0)
-			nZeroRC++;
+        for(i=pG->NmyPGrid; i<pG->NPGrid; i++)
+          if(pG->PGrid[i].nWordsRC == 0)
+            nZeroRC++;
 
-      if (pG->NPGrid > pG->NmyPGrid) {
-        mCount = pG->NPGrid - pG->NmyPGrid - nZeroRC;
-        ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+        if (pG->NPGrid > pG->NmyPGrid) {
+          mCount = pG->NPGrid - pG->NmyPGrid - nZeroRC;
+          ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+        }
       }
     }
-  }
 #endif /* MPI_PARALLEL */
 
   } /* end loop over levels */
@@ -1378,7 +1378,7 @@ printf("cnt = %i\n", cnt);
 /*----------------------------------------------------------------------------*/
 /*! \fn void Prolongate(MeshS *pM)
  *  \brief Sets BC on fine Grid by prolongation (interpolation) of
- *     coarse Grid solution into fine grid ghost zones 
+ *     coarse Grid solution into fine grid ghost zones
  * For radiation part, we also need to prolongate 10+NOPACITY variables for radiation boundary condition */
 
 void Prolongate(MeshS *pM)
@@ -1419,447 +1419,447 @@ void Prolongate(MeshS *pM)
  * level (nl). This data is sent in Step 1 below,
  * and will be read in Step 2 during the next iteration of nl */
 
-  if (nl<(pM->NLevels)-1) {
-    for (nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
-      if (pM->Domain[nl+1][nd].Grid != NULL) {
-        pG=pM->Domain[nl+1][nd].Grid;
+    if (nl<(pM->NLevels)-1) {
+      for (nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
+        if (pM->Domain[nl+1][nd].Grid != NULL) {
+          pG=pM->Domain[nl+1][nd].Grid;
 
 /* Recv buffer is addressed from PGrid[0].nWordsP if NmyPGrid>0 since data
  * from parent Grid on same processor begins at 0 (see Step 4 below).  First
  * index alternates between 0 and 1 for even/odd values of nl, since if
  * there are Grids on multiple levels there may be 2 receives posted at once */
 
-        nZeroP = 0;
-        mAddress = 0;
-        rbufN = ((nl+1) % 2);
-        if (pG->NmyPGrid > 0) mAddress = pG->PGrid[0].nWordsP;
+          nZeroP = 0;
+          mAddress = 0;
+          rbufN = ((nl+1) % 2);
+          if (pG->NmyPGrid > 0) mAddress = pG->PGrid[0].nWordsP;
 
-        for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
+          for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
 
 /* Skip if no prolongation needed for this child (only flux correction) */
-          if (pG->PGrid[npg].nWordsP == 0) { 
-            nZeroP += 1;
-          } else {
+            if (pG->PGrid[npg].nWordsP == 0) {
+              nZeroP += 1;
+            } else {
 
-            mIndex = npg - pG->NmyPGrid - nZeroP;
-            ierr = MPI_Irecv(&(recv_bufP[rbufN][nd][mAddress]),
-              pG->PGrid[npg].nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
-              pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
-              &(recv_rq[nl+1][nd][mIndex]));
-            mAddress += pG->PGrid[npg].nWordsP;
+              mIndex = npg - pG->NmyPGrid - nZeroP;
+              ierr = MPI_Irecv(&(recv_bufP[rbufN][nd][mAddress]),
+                               pG->PGrid[npg].nWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
+                               pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
+                               &(recv_rq[nl+1][nd][mIndex]));
+              mAddress += pG->PGrid[npg].nWordsP;
+            }
+
           }
 
         }
-
       }
     }
-  }
 #endif /* MPI_PARALLEL */
 
 /*=== Step 1. Send step ======================================================*/
 /* Loop over all Domains, and send ghost zones to all child Grids. */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 
-  if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
-    pG=pM->Domain[nl][nd].Grid;
-    for(i=0; i<maxND; i++) start_addrP[i] = 0;
-    nZeroP = 0;
+      if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
+        pG=pM->Domain[nl][nd].Grid;
+        for(i=0; i<maxND; i++) start_addrP[i] = 0;
+        nZeroP = 0;
 
-    for (ncg=0; ncg<(pG->NCGrid); ncg++){
+        for (ncg=0; ncg<(pG->NCGrid); ncg++){
 
 /* Skip if no prolongation needed for this child (only flux correction) */
-    if (pG->CGrid[ncg].nWordsP == 0) { 
-	if(ncg >= pG->NmyCGrid)
-	      nZeroP += 1;
-    } else {
+          if (pG->CGrid[ncg].nWordsP == 0) {
+            if(ncg >= pG->NmyCGrid)
+              nZeroP += 1;
+          } else {
 
-      pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
+            pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
 
 /* index send_buf with DomN of child, since could be multiple child Domains on
  * same processor.  Start address must be different for each DomN */
-      pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]); 
+            pSnd = (double*)&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]);
 
-      for (dim=0; dim<(2*nDim); dim++){
-        if (pCO->myFlx[dim] != NULL) {
+            for (dim=0; dim<(2*nDim); dim++){
+              if (pCO->myFlx[dim] != NULL) {
 
 /* Get coordinates ON THIS GRID of zones that overlap child Grid ghost zones */
 
-          ics = pCO->ijks[0] - (nghost/2) - 1;
-          ice = pCO->ijke[0] + (nghost/2) + 1;
-          if (pG->Nx[1] > 1) {
-            jcs = pCO->ijks[1] - (nghost/2) - 1;
-            jce = pCO->ijke[1] + (nghost/2) + 1;
-          } else {
-            jcs = pCO->ijks[1];
-            jce = pCO->ijke[1];
-          }
-          if (pG->Nx[2] > 1) {
-            kcs = pCO->ijks[2] - (nghost/2) - 1;
-            kce = pCO->ijke[2] + (nghost/2) + 1;
-          } else {
-            kcs = pCO->ijks[2];
-            kce = pCO->ijke[2];
-          }
-          if (dim == 0) ice = pCO->ijks[0];
-          if (dim == 1) ics = pCO->ijke[0];
-          if (dim == 2) jce = pCO->ijks[1];
-          if (dim == 3) jcs = pCO->ijke[1];
-          if (dim == 4) kce = pCO->ijks[2];
-          if (dim == 5) kcs = pCO->ijke[2];
+                ics = pCO->ijks[0] - (nghost/2) - 1;
+                ice = pCO->ijke[0] + (nghost/2) + 1;
+                if (pG->Nx[1] > 1) {
+                  jcs = pCO->ijks[1] - (nghost/2) - 1;
+                  jce = pCO->ijke[1] + (nghost/2) + 1;
+                } else {
+                  jcs = pCO->ijks[1];
+                  jce = pCO->ijke[1];
+                }
+                if (pG->Nx[2] > 1) {
+                  kcs = pCO->ijks[2] - (nghost/2) - 1;
+                  kce = pCO->ijke[2] + (nghost/2) + 1;
+                } else {
+                  kcs = pCO->ijks[2];
+                  kce = pCO->ijke[2];
+                }
+                if (dim == 0) ice = pCO->ijks[0];
+                if (dim == 1) ics = pCO->ijke[0];
+                if (dim == 2) jce = pCO->ijks[1];
+                if (dim == 3) jcs = pCO->ijke[1];
+                if (dim == 4) kce = pCO->ijks[2];
+                if (dim == 5) kcs = pCO->ijke[2];
 
 /*--- Step 1a. ---------------------------------------------------------------*/
 /* Load send buffer with values in zones that overlap child ghost zones */
 
-          for (k=kcs; k<=kce; k++) {
-          for (j=jcs; j<=jce; j++) {
-          for (i=ics; i<=ice; i++) {
-            *(pSnd++) = pG->U[k][j][i].d;
-            *(pSnd++) = pG->U[k][j][i].M1;
-            *(pSnd++) = pG->U[k][j][i].M2;
-            *(pSnd++) = pG->U[k][j][i].M3;
+                for (k=kcs; k<=kce; k++) {
+                  for (j=jcs; j<=jce; j++) {
+                    for (i=ics; i<=ice; i++) {
+                      *(pSnd++) = pG->U[k][j][i].d;
+                      *(pSnd++) = pG->U[k][j][i].M1;
+                      *(pSnd++) = pG->U[k][j][i].M2;
+                      *(pSnd++) = pG->U[k][j][i].M3;
 #ifndef BAROTROPIC
-            *(pSnd++) = pG->U[k][j][i].E;
+                      *(pSnd++) = pG->U[k][j][i].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-            *(pSnd++) = pG->U[k][j][i].B1c;
-            *(pSnd++) = pG->U[k][j][i].B2c;
-            *(pSnd++) = pG->U[k][j][i].B3c;
-            *(pSnd++) = pG->B1i[k][j][i];
-            *(pSnd++) = pG->B2i[k][j][i];
-            *(pSnd++) = pG->B3i[k][j][i];
+                      *(pSnd++) = pG->U[k][j][i].B1c;
+                      *(pSnd++) = pG->U[k][j][i].B2c;
+                      *(pSnd++) = pG->U[k][j][i].B3c;
+                      *(pSnd++) = pG->B1i[k][j][i];
+                      *(pSnd++) = pG->B2i[k][j][i];
+                      *(pSnd++) = pG->B3i[k][j][i];
 #endif
 #if (NSCALARS > 0)
-            for (ns=0; ns<NSCALARS; ns++) {
-               *(pSnd++) = pG->U[k][j][i].s[ns];
-            }
+                      for (ns=0; ns<NSCALARS; ns++) {
+                        *(pSnd++) = pG->U[k][j][i].s[ns];
+                      }
 #endif
 
 /* Add radiation quantities at the end */
 /* There are Er, Fr1, Fr2, Fr3, Edd_??, and Sigma[Opacity] 10+NOPACITY variables */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	   *(pSnd++) = pG->U[k][j][i].Er;
-	   *(pSnd++) = pG->U[k][j][i].Fr1;
-	   *(pSnd++) = pG->U[k][j][i].Fr2;
-           *(pSnd++) = pG->U[k][j][i].Fr3;
-           *(pSnd++) = pG->U[k][j][i].Edd_11;
-	   *(pSnd++) = pG->U[k][j][i].Edd_21;
-	   *(pSnd++) = pG->U[k][j][i].Edd_22;
-	   *(pSnd++) = pG->U[k][j][i].Edd_31;
-	   *(pSnd++) = pG->U[k][j][i].Edd_32;
-	   *(pSnd++) = pG->U[k][j][i].Edd_33;
-	
-	   for(nr=0; nr<NOPACITY; nr++)
-		*(pSnd++) = pG->U[k][j][i].Sigma[nr];
+                      *(pSnd++) = pG->U[k][j][i].Er;
+                      *(pSnd++) = pG->U[k][j][i].Fr1;
+                      *(pSnd++) = pG->U[k][j][i].Fr2;
+                      *(pSnd++) = pG->U[k][j][i].Fr3;
+                      *(pSnd++) = pG->U[k][j][i].Edd_11;
+                      *(pSnd++) = pG->U[k][j][i].Edd_21;
+                      *(pSnd++) = pG->U[k][j][i].Edd_22;
+                      *(pSnd++) = pG->U[k][j][i].Edd_31;
+                      *(pSnd++) = pG->U[k][j][i].Edd_32;
+                      *(pSnd++) = pG->U[k][j][i].Edd_33;
+
+                      for(nr=0; nr<NOPACITY; nr++)
+                        *(pSnd++) = pG->U[k][j][i].Sigma[nr];
 #endif
 
 
-          }}}
-        }
-      }
+                    }}}
+              }
+            }
 
 /*--- Step 1b. ---------------------------------------------------------------*/
 /* non-blocking send of data to child, using Domain number as tag. */
 #ifdef MPI_PARALLEL
-      if (ncg >= pG->NmyCGrid) {
-        mIndex = ncg - pG->NmyCGrid - nZeroP;
-        ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
-          pG->CGrid[ncg].nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
-          pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
-      }
+            if (ncg >= pG->NmyCGrid) {
+              mIndex = ncg - pG->NmyCGrid - nZeroP;
+              ierr = MPI_Isend(&(send_bufP[pCO->DomN][start_addrP[pCO->DomN]]),
+                               pG->CGrid[ncg].nWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
+                               pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
+            }
 #endif /* MPI_PARALLEL */
 
-      start_addrP[pCO->DomN] += pG->CGrid[ncg].nWordsP;
+            start_addrP[pCO->DomN] += pG->CGrid[ncg].nWordsP;
 
-    } /* end if/else on nWordsP */ 
-    } /* end loop over child grids */
-  }} /* end loop over Domains */
+          } /* end if/else on nWordsP */
+        } /* end loop over child grids */
+      }} /* end loop over Domains */
 
 /*=== Step 2. Get step =======================================================*/
 /* Loop over all Domains, get data sent by parent Grids, and prolongate solution
  * into ghost zones. */
 
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
 
-  if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
-    pG=pM->Domain[nl][nd].Grid;          /* set pointer to Grid */
-    rbufN = (nl % 2);
+      if (pM->Domain[nl][nd].Grid != NULL) { /* there is a Grid on this processor */
+        pG=pM->Domain[nl][nd].Grid;          /* set pointer to Grid */
+        rbufN = (nl % 2);
 
 /* Loop over number of parent grids with non-zero-size prolongation data */
-    nZeroP = 0;
-    for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].nWordsP == 0) nZeroP++;
+        nZeroP = 0;
+        for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].nWordsP == 0) nZeroP++;
 
-    for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
+        for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
 
 /* If parent Grid is on this processor, data is at start of recv buffer */
 
-      if (npg < pG->NmyPGrid) {
-        pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
-        pRcv = (double*)&(recv_bufP[rbufN][nd][0]);
-      } else {
+          if (npg < pG->NmyPGrid) {
+            pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
+            pRcv = (double*)&(recv_bufP[rbufN][nd][0]);
+          } else {
 
 #ifdef MPI_PARALLEL
 /* Check non-blocking receives posted above for data in ghost zone from parent
  * Grids, sent in Step 1.  Accept messages in any order. */
 
-        mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
-        ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
-        if(mIndex == MPI_UNDEFINED){
-          ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl,nd);
-        }
+            mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
+            ierr = MPI_Waitany(mCount,recv_rq[nl][nd],&mIndex,MPI_STATUS_IGNORE);
+            if(mIndex == MPI_UNDEFINED){
+              ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl,nd);
+            }
 
 /* Recv buffer is addressed from PGrid[0].nWordsP for first MPI message
  * if NmyPGrid>0.  Also must remove zero size messages from index. */
 
-        mIndex += pG->NmyPGrid;
-        for (i=pG->NmyPGrid; i <= mIndex; i++) 
-          if (pG->PGrid[i].nWordsP == 0) mIndex++;
+            mIndex += pG->NmyPGrid;
+            for (i=pG->NmyPGrid; i <= mIndex; i++)
+              if (pG->PGrid[i].nWordsP == 0) mIndex++;
 
-        mAddress = 0;
-        for (i=0; i<mIndex; i++) mAddress += pG->PGrid[i].nWordsP;
-        pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
-        pRcv = (double*)&(recv_bufP[rbufN][nd][mAddress]);
+            mAddress = 0;
+            for (i=0; i<mIndex; i++) mAddress += pG->PGrid[i].nWordsP;
+            pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]);
+            pRcv = (double*)&(recv_bufP[rbufN][nd][mAddress]);
 
 #else
 /* If not MPI_PARALLEL, and parent Grid not on this processor, then error */
 
-        ath_error("[Prolong]: no Parent Grid on Domain[%d][%d]\n",nl,nd);
+            ath_error("[Prolong]: no Parent Grid on Domain[%d][%d]\n",nl,nd);
 #endif /* MPI_PARALLEL */
-      }
+          }
 
 /*=== Step 3. Set ghost zones ================================================*/
 /* Loop over 6 boundaries, set ghost zones */
 
-      for (dim=0; dim<(2*nDim); dim++){
-        if ((pPO->myFlx[dim] != NULL) && (pPO->nWordsP > 0)) {
+          for (dim=0; dim<(2*nDim); dim++){
+            if ((pPO->myFlx[dim] != NULL) && (pPO->nWordsP > 0)) {
 
 /*--- Steps 3a.  Set GZ and BFld arrays --------------------------------------*/
 /* Compute size of array containing ghost zones from parent Grid.  Set
  * starting and ending indices of GZ array. */
 
-          if (dim == 0 || dim == 1) {
-            ngz1 = (nghost/2) + 2;
-            id = 0;
-          } else {
-            ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + nghost + 2;
-          }
+              if (dim == 0 || dim == 1) {
+                ngz1 = (nghost/2) + 2;
+                id = 0;
+              } else {
+                ngz1 = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + nghost + 2;
+              }
 
-          if (dim == 2 || dim == 3) {
-            ngz2 = (nghost/2) + 2;
-            id = 1;
-          } else {
-            ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + nghost + 2;
-          }
+              if (dim == 2 || dim == 3) {
+                ngz2 = (nghost/2) + 2;
+                id = 1;
+              } else {
+                ngz2 = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + nghost + 2;
+              }
 
-          if (dim == 4 || dim == 5) {
-            ngz3 = (nghost/2) + 2;
-            id = 2;
-          } else {
-            ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + nghost + 2;
-          }
+              if (dim == 4 || dim == 5) {
+                ngz3 = (nghost/2) + 2;
+                id = 2;
+              } else {
+                ngz3 = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + nghost + 2;
+              }
 
-          igzs = 0;
-          igze = ngz1-1;
-          if (pG->Nx[1] > 1) {
-            jgzs = 0;
-            jgze = ngz2-1;
-            mend = 1;
-          } else {
-            ngz2 = 1;
-            jgzs = 1;
-            jgze = 1;
-            mend = 0;
-          }
-          if (pG->Nx[2] > 1) {
-            kgzs = 0;
-            kgze = ngz3-1;
-            nend = 1;
-          } else {
-            ngz3 = 1;
-            kgzs = 1;
-            kgze = 1;
-            nend = 0;
-          }
+              igzs = 0;
+              igze = ngz1-1;
+              if (pG->Nx[1] > 1) {
+                jgzs = 0;
+                jgze = ngz2-1;
+                mend = 1;
+              } else {
+                ngz2 = 1;
+                jgzs = 1;
+                jgze = 1;
+                mend = 0;
+              }
+              if (pG->Nx[2] > 1) {
+                kgzs = 0;
+                kgze = ngz3-1;
+                nend = 1;
+              } else {
+                ngz3 = 1;
+                kgzs = 1;
+                kgze = 1;
+                nend = 0;
+              }
 
 /* Load GZ array with values in receive buffer */
 
-          for (k=kgzs; k<=kgze; k++) {
-          for (j=jgzs; j<=jgze; j++) {
-          for (i=igzs; i<=igze; i++) {
-            GZ[id][k][j][i].d  = *(pRcv++);
-            GZ[id][k][j][i].M1 = *(pRcv++);
-            GZ[id][k][j][i].M2 = *(pRcv++);
-            GZ[id][k][j][i].M3 = *(pRcv++);
+              for (k=kgzs; k<=kgze; k++) {
+                for (j=jgzs; j<=jgze; j++) {
+                  for (i=igzs; i<=igze; i++) {
+                    GZ[id][k][j][i].d  = *(pRcv++);
+                    GZ[id][k][j][i].M1 = *(pRcv++);
+                    GZ[id][k][j][i].M2 = *(pRcv++);
+                    GZ[id][k][j][i].M3 = *(pRcv++);
 #ifndef BAROTROPIC
-            GZ[id][k][j][i].E = *(pRcv++);
+                    GZ[id][k][j][i].E = *(pRcv++);
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-            GZ[id][k][j][i].B1c = *(pRcv++);
-            GZ[id][k][j][i].B2c = *(pRcv++);
-            GZ[id][k][j][i].B3c = *(pRcv++);
-            BFld[id][k][j][i].x1 = *(pRcv++);
-            BFld[id][k][j][i].x2 = *(pRcv++);
-            BFld[id][k][j][i].x3 = *(pRcv++);
+                    GZ[id][k][j][i].B1c = *(pRcv++);
+                    GZ[id][k][j][i].B2c = *(pRcv++);
+                    GZ[id][k][j][i].B3c = *(pRcv++);
+                    BFld[id][k][j][i].x1 = *(pRcv++);
+                    BFld[id][k][j][i].x2 = *(pRcv++);
+                    BFld[id][k][j][i].x3 = *(pRcv++);
 #endif
 #if (NSCALARS > 0)
-            for (ns=0; ns<NSCALARS; ns++) {
-              GZ[id][k][j][i].s[ns] = *(pRcv++);
-            }
+                    for (ns=0; ns<NSCALARS; ns++) {
+                      GZ[id][k][j][i].s[ns] = *(pRcv++);
+                    }
 #endif
-	/* Get the data for radiation part */
+/* Get the data for radiation part */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	   GZ[id][k][j][i].Er = *(pRcv++);
-	   GZ[id][k][j][i].Fr1 = *(pRcv++);
-	   GZ[id][k][j][i].Fr2 = *(pRcv++);
-           GZ[id][k][j][i].Fr3 = *(pRcv++);
-           GZ[id][k][j][i].Edd_11 = *(pRcv++);
-	   GZ[id][k][j][i].Edd_21 = *(pRcv++);
-	   GZ[id][k][j][i].Edd_22 = *(pRcv++);
-	   GZ[id][k][j][i].Edd_31 = *(pRcv++);
-	   GZ[id][k][j][i].Edd_32 = *(pRcv++);
-	   GZ[id][k][j][i].Edd_33 = *(pRcv++);
-	
-	   for(nr=0; nr<NOPACITY; nr++)
-		GZ[id][k][j][i].Sigma[nr] = *(pRcv++);
+                    GZ[id][k][j][i].Er = *(pRcv++);
+                    GZ[id][k][j][i].Fr1 = *(pRcv++);
+                    GZ[id][k][j][i].Fr2 = *(pRcv++);
+                    GZ[id][k][j][i].Fr3 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_11 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_21 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_22 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_31 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_32 = *(pRcv++);
+                    GZ[id][k][j][i].Edd_33 = *(pRcv++);
+
+                    for(nr=0; nr<NOPACITY; nr++)
+                      GZ[id][k][j][i].Sigma[nr] = *(pRcv++);
 #endif
 
 
-          }}}
+                  }}}
 
 /* Set BC on GZ array in 1D; and on GZ and BFld arrays in 2D */
 
-          if (nDim == 1) {
-            for (i=igzs; i<=igze; i++) {
-              GZ[id][1][0][i] = GZ[id][1][1][i];
-              GZ[id][1][2][i] = GZ[id][1][1][i];
-              GZ[id][0][1][i] = GZ[id][1][1][i];
-              GZ[id][2][1][i] = GZ[id][1][1][i];
-            }
-          }
+              if (nDim == 1) {
+                for (i=igzs; i<=igze; i++) {
+                  GZ[id][1][0][i] = GZ[id][1][1][i];
+                  GZ[id][1][2][i] = GZ[id][1][1][i];
+                  GZ[id][0][1][i] = GZ[id][1][1][i];
+                  GZ[id][2][1][i] = GZ[id][1][1][i];
+                }
+              }
 
-          if (nDim == 2) {
-            for (j=jgzs; j<=jgze; j++) {
-            for (i=igzs; i<=igze; i++) {
-              GZ[id][0][j][i] = GZ[id][1][j][i];
-              GZ[id][2][j][i] = GZ[id][1][j][i];
-            }}
+              if (nDim == 2) {
+                for (j=jgzs; j<=jgze; j++) {
+                  for (i=igzs; i<=igze; i++) {
+                    GZ[id][0][j][i] = GZ[id][1][j][i];
+                    GZ[id][2][j][i] = GZ[id][1][j][i];
+                  }}
 #if defined(MHD) || defined(RADIATION_MHD)
-            for (j=jgzs; j<=jgze; j++) {
-            for (i=igzs; i<=igze; i++) {
-              BFld[id][0][j][i] = BFld[id][1][j][i];
-              BFld[id][2][j][i] = BFld[id][1][j][i];
-            }}
+                for (j=jgzs; j<=jgze; j++) {
+                  for (i=igzs; i<=igze; i++) {
+                    BFld[id][0][j][i] = BFld[id][1][j][i];
+                    BFld[id][2][j][i] = BFld[id][1][j][i];
+                  }}
 #endif /* MHD */
-          }
+              }
 
 /*--- Steps 3b.  Prolongate cell-centered values -----------------------------*/
 /* Get coordinates ON THIS GRID of ghost zones that overlap parent Grid */
 
-          ips = pPO->ijks[0] - nghost;
-          ipe = pPO->ijke[0] + nghost;
-          if (pG->Nx[1] > 1) {
-            jps = pPO->ijks[1] - nghost;
-            jpe = pPO->ijke[1] + nghost;
-          } else {
-            jps = pPO->ijks[1];
-            jpe = pPO->ijke[1];
-          }
-          if (pG->Nx[2] > 1) {
-            kps = pPO->ijks[2] - nghost;
-            kpe = pPO->ijke[2] + nghost;
-          } else {
-            kps = pPO->ijks[2];
-            kpe = pPO->ijke[2];
-          }
-          if (dim == 0) {ipe = pPO->ijks[0] - 1;}
-          if (dim == 1) {ips = pPO->ijke[0] + 1;}
-          if (dim == 2) {jpe = pPO->ijks[1] - 1;}
-          if (dim == 3) {jps = pPO->ijke[1] + 1;}
-          if (dim == 4) {kpe = pPO->ijks[2] - 1;}
-          if (dim == 5) {kps = pPO->ijke[2] + 1;}
+              ips = pPO->ijks[0] - nghost;
+              ipe = pPO->ijke[0] + nghost;
+              if (pG->Nx[1] > 1) {
+                jps = pPO->ijks[1] - nghost;
+                jpe = pPO->ijke[1] + nghost;
+              } else {
+                jps = pPO->ijks[1];
+                jpe = pPO->ijke[1];
+              }
+              if (pG->Nx[2] > 1) {
+                kps = pPO->ijks[2] - nghost;
+                kpe = pPO->ijke[2] + nghost;
+              } else {
+                kps = pPO->ijks[2];
+                kpe = pPO->ijke[2];
+              }
+              if (dim == 0) {ipe = pPO->ijks[0] - 1;}
+              if (dim == 1) {ips = pPO->ijke[0] + 1;}
+              if (dim == 2) {jpe = pPO->ijks[1] - 1;}
+              if (dim == 3) {jps = pPO->ijke[1] + 1;}
+              if (dim == 4) {kpe = pPO->ijks[2] - 1;}
+              if (dim == 5) {kps = pPO->ijke[2] + 1;}
 
 /* Prolongate these values in ghost zones */
 
-          for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
-          for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
-          for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
+              for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
+                for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
+                  for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
 
-            ProCon(GZ[id][kk][jj][ii-1],GZ[id][kk][jj][ii],GZ[id][kk][jj][ii+1],
-                   GZ[id][kk][jj-1][ii],                   GZ[id][kk][jj+1][ii],
-                   GZ[id][kk-1][jj][ii],                   GZ[id][kk+1][jj][ii],
-                   ProlongedC);
+                    ProCon(GZ[id][kk][jj][ii-1],GZ[id][kk][jj][ii],GZ[id][kk][jj][ii+1],
+                           GZ[id][kk][jj-1][ii],                   GZ[id][kk][jj+1][ii],
+                           GZ[id][kk-1][jj][ii],                   GZ[id][kk+1][jj][ii],
+                           ProlongedC);
 
 /* 1D/2D/3D problem, set solution prolongated in x1 */
 
-            for (n=0; n<=nend; n++) {
-            for (m=0; m<=mend; m++) {
-            for (l=0; l<=1; l++) {
-              pG->U[k+n][j+m][i+l].d  = ProlongedC[n][m][l].d;
-              pG->U[k+n][j+m][i+l].M1 = ProlongedC[n][m][l].M1;
-              pG->U[k+n][j+m][i+l].M2 = ProlongedC[n][m][l].M2;
-              pG->U[k+n][j+m][i+l].M3 = ProlongedC[n][m][l].M3;
+                    for (n=0; n<=nend; n++) {
+                      for (m=0; m<=mend; m++) {
+                        for (l=0; l<=1; l++) {
+                          pG->U[k+n][j+m][i+l].d  = ProlongedC[n][m][l].d;
+                          pG->U[k+n][j+m][i+l].M1 = ProlongedC[n][m][l].M1;
+                          pG->U[k+n][j+m][i+l].M2 = ProlongedC[n][m][l].M2;
+                          pG->U[k+n][j+m][i+l].M3 = ProlongedC[n][m][l].M3;
 #ifndef BAROTROPIC
-              pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
+                          pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-              pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
-              pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
-              pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
+                          pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
+                          pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
+                          pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
 #endif
 #if (NSCALARS > 0)
-              for (ns=0; ns<NSCALARS; ns++) 
-                pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
+                          for (ns=0; ns<NSCALARS; ns++)
+                            pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
 #endif
-	/* Get solution for radiation quantities */
+/* Get solution for radiation quantities */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	   	pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
-	   	pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
-	   	pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
-           	pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
-           	pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
-	   	pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
-	   	pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
-	   	pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
-	   	pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
-	   	pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
-	
-	   for(nr=0; nr<NOPACITY; nr++)
-		pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
+                          pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
+                          pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
+                          pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
+                          pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
+                          pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
+                          pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
+                          pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
+                          pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
+                          pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
+                          pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
+
+                          for(nr=0; nr<NOPACITY; nr++)
+                            pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
 #endif
 
-            }}}
+                        }}}
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /*--- Steps 3c.  Prolongate face-centered B ----------------------------------*/
 /* Set prolonged face-centered B fields for 1D (trivial case)  */
 
-            if (nDim == 1) {
-              for (l=0; l<=1; l++) {
-                pG->B1i[k][j][i+l] = pG->U[k][j][i+l].B1c;
-                pG->B2i[k][j][i+l] = pG->U[k][j][i+l].B2c;
-                pG->B3i[k][j][i+l] = pG->U[k][j][i+l].B3c;
-              }
-            } else {
-              for (n=0; n<3; n++) {
-              for (m=0; m<3; m++) {
-              for (l=0; l<3; l++) {
-                ProlongedF[n][m][l].x1 = 0.0;
-                ProlongedF[n][m][l].x2 = 0.0;
-                ProlongedF[n][m][l].x3 = 0.0;
-              }}}
-            }
+                    if (nDim == 1) {
+                      for (l=0; l<=1; l++) {
+                        pG->B1i[k][j][i+l] = pG->U[k][j][i+l].B1c;
+                        pG->B2i[k][j][i+l] = pG->U[k][j][i+l].B2c;
+                        pG->B3i[k][j][i+l] = pG->U[k][j][i+l].B3c;
+                      }
+                    } else {
+                      for (n=0; n<3; n++) {
+                        for (m=0; m<3; m++) {
+                          for (l=0; l<3; l++) {
+                            ProlongedF[n][m][l].x1 = 0.0;
+                            ProlongedF[n][m][l].x2 = 0.0;
+                            ProlongedF[n][m][l].x3 = 0.0;
+                          }}}
+                    }
 
 /* Load B-field ghost zone array with values read from Rcv buffer in 2D/3D */
 
-            if (nDim == 2 || nDim ==3) {
-              for (n=0; n<3; n++) {
-              for (m=0; m<3; m++) {
-              for (l=0; l<3; l++) {
-                BGZ[n][m][l].x1 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
-                BGZ[n][m][l].x2 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
-                BGZ[n][m][l].x3 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
-              }}}
+                    if (nDim == 2 || nDim ==3) {
+                      for (n=0; n<3; n++) {
+                        for (m=0; m<3; m++) {
+                          for (l=0; l<3; l++) {
+                            BGZ[n][m][l].x1 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
+                            BGZ[n][m][l].x2 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
+                            BGZ[n][m][l].x3 = BFld[id][kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
+                          }}}
 
 /* If edge of cell touches fine/coarse boundary, use fine grid fields for the
  * normal component at interface. ProFld will not overwrite these values.  If
@@ -1867,168 +1867,168 @@ void Prolongate(MeshS *pM)
  * fine grid fields in corners as well. */
 
 /* inner x1 boundary */
-              if ((dim == 0) &&
-                  (i == (ipe-1)) &&
-                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
-                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
-                ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
-                ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
-                ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
-                if ((nDim == 3) &&
-                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
-                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
-                  ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
-                }
-              }
+                      if ((dim == 0) &&
+                          (i == (ipe-1)) &&
+                          ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                          ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
+                        ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
+                        ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
+                        ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
+                        ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
+                        if ((nDim == 3) &&
+                            ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                            ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
+                          ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
+                          ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
+                        }
+                      }
 
 /* outer x1 boundary */
-              if ((dim == 1) &&
-                  (i == ips) &&
-                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
-                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
-                ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
-                ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
-                ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
-                if ((nDim == 3) &&
-                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
-                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
-                  ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
-                }
-              }
+                      if ((dim == 1) &&
+                          (i == ips) &&
+                          ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                          ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
+                        ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
+                        ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
+                        ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
+                        ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
+                        if ((nDim == 3) &&
+                            ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                            ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
+                          ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
+                          ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
+                        }
+                      }
 
 /* inner x2 boundary */
-              if ((dim == 2) &&
-                  (j == (jpe-1)) &&
-                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
-                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
-                ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
-                ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
-                ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
-                ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
-                if ((nDim == 3) &&
-                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
-                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
-                  ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
-                }
-              }
+                      if ((dim == 2) &&
+                          (j == (jpe-1)) &&
+                          ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                          ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
+                        ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
+                        ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
+                        ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
+                        ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
+                        if ((nDim == 3) &&
+                            ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                            ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
+                          ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
+                          ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
+                        }
+                      }
 
 /* outer x2 boundary */
-              if ((dim == 3) &&
-                  (j == jps) &&
-                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
-                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
-                ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
-                ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
-                ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
-                ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
-                if ((nDim == 3) &&
-                    ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
-                    ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
-                  ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
-                  ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
-                }
-              }
+                      if ((dim == 3) &&
+                          (j == jps) &&
+                          ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                          ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) ){
+                        ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
+                        ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
+                        ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
+                        ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
+                        if ((nDim == 3) &&
+                            ((k >= (kps+nghost)) || (pPO->myFlx[4]==NULL)) &&
+                            ((k <  (kpe-nghost)) || (pPO->myFlx[5]==NULL)) ){
+                          ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
+                          ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
+                        }
+                      }
 
 /* inner x3 boundary */
-              if ((dim == 4) &&
-                  (k == (kpe-1)) &&
-                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
-                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
-                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
-                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
-                ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
-                ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
-                ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
-              }
+                      if ((dim == 4) &&
+                          (k == (kpe-1)) &&
+                          ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                          ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
+                          ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                          ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
+                        ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
+                        ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
+                        ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
+                        ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
+                      }
 
 /* outer x3 boundary */
-              if ((dim == 5) && 
-                  (k == kps) &&
-                  ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
-                  ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
-                  ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
-                  ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
-                ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
-                ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
-                ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
-                ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
-              }
+                      if ((dim == 5) &&
+                          (k == kps) &&
+                          ((i >= (ips+nghost)) || (pPO->myFlx[0]==NULL)) &&
+                          ((i <  (ipe-nghost)) || (pPO->myFlx[1]==NULL)) &&
+                          ((j >= (jps+nghost)) || (pPO->myFlx[2]==NULL)) &&
+                          ((j <  (jpe-nghost)) || (pPO->myFlx[3]==NULL)) ){
+                        ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
+                        ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
+                        ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
+                        ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
+                      }
 
-              ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
+                      ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
 
-              for (n=0; n<=nend; n++) {
-              for (m=0; m<=mend; m++) {
-              for (l=0; l<=1; l++) {
-                if (dim != 1 || (i+l) != ips)
-                  pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
-                if (dim != 3 || (j+m) != jps)
-                  pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
-                if (dim != 5 || (k+n) != kps)
-                  pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
+                      for (n=0; n<=nend; n++) {
+                        for (m=0; m<=mend; m++) {
+                          for (l=0; l<=1; l++) {
+                            if (dim != 1 || (i+l) != ips)
+                              pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
+                            if (dim != 3 || (j+m) != jps)
+                              pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
+                            if (dim != 5 || (k+n) != kps)
+                              pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
 
-                pG->U[k+n][j+m][i+l].B1c = 
-                  0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
-                pG->U[k+n][j+m][i+l].B2c = 
-                  0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
-                pG->U[k+n][j+m][i+l].B3c = 
-                  0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
-              }}}
-            }
+                            pG->U[k+n][j+m][i+l].B1c =
+                              0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
+                            pG->U[k+n][j+m][i+l].B2c =
+                              0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
+                            pG->U[k+n][j+m][i+l].B3c =
+                              0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
+                          }}}
+                    }
 
 #endif /* MHD */
-          }}}
+                  }}}
 
-        }
-      } /* end loop over dims */
+            }
+          } /* end loop over dims */
 
-    } /* end loop over parent grids */
-  }} /* end loop over Domains */
+        } /* end loop over parent grids */
+      }} /* end loop over Domains */
 
 /*=== Step 4. Clear send_bufP ================================================*/
 /* For child/parent Grids on same processor, copy send_bufP into recv_bufP to
  * prevent "send" in Step 1 above from over-writing data in buffer on the next
  * iteration of the loop over levels (for nl=nl+1). */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) { 
-      pG=pM->Domain[nl][nd].Grid; 
-      rbufN = ((nl+1) % 2);
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG=pM->Domain[nl][nd].Grid;
+        rbufN = ((nl+1) % 2);
 
 /* For each Domain nd, the data for child grid on same processor must be in
- * first element of CGrid array */ 
+ * first element of CGrid array */
 
-      for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
-        pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
+        for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
+          pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);    /* ptr to child Grid overlap */
 
-        for (i=0; i<pCO->nWordsP; i++) {
-          recv_bufP[rbufN][pCO->DomN][i]=send_bufP[pCO->DomN][i];
+          for (i=0; i<pCO->nWordsP; i++) {
+            recv_bufP[rbufN][pCO->DomN][i]=send_bufP[pCO->DomN][i];
+          }
         }
       }
     }
-  }
 
 #ifdef MPI_PARALLEL
 /* For MPI jobs, wait for all non-blocking sends in Step 1 to complete */
 
-  for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    if (pM->Domain[nl][nd].Grid != NULL) {
-      pG=pM->Domain[nl][nd].Grid;
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG=pM->Domain[nl][nd].Grid;
 
-      nZeroP = 0;
-      for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].nWordsP == 0) nZeroP++;
+        nZeroP = 0;
+        for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].nWordsP == 0) nZeroP++;
 
-      if (pG->NCGrid > pG->NmyCGrid) {
-        mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
-        ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+        if (pG->NCGrid > pG->NmyCGrid) {
+          mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
+          ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+        }
       }
     }
-  }
 #endif /* MPI_PARALLEL */
 
   } /* end loop over levels */
@@ -2049,640 +2049,640 @@ void INI_prolongate(MeshS *pM)
 
 
 
-	
-  	int i, j, k, n, m, l, ii, jj, kk;
-	int ics, ice, jcs, jce, kcs, kce;
-	int nd, nZeroP, npg, ncg, mend, nend, lend;
-	int nDim, nl;
-	int ips, ipe, jps, jpe, kps, kpe;
+
+  int i, j, k, n, m, l, ii, jj, kk;
+  int ics, ice, jcs, jce, kcs, kce;
+  int nd, nZeroP, npg, ncg, mend, nend, lend;
+  int nDim, nl;
+  int ips, ipe, jps, jpe, kps, kpe;
 
 
-	double *pRcv, *pSnd;
-  	
-	GridOvrlpS *pCO, *pPO;	
-	GridS *pG;
- 	ConsS ProlongedC[2][2][2];
+  double *pRcv, *pSnd;
+
+  GridOvrlpS *pCO, *pPO;
+  GridS *pG;
+  ConsS ProlongedC[2][2][2];
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-  	int nr;
+  int nr;
 #endif
 
 #if (NSCALARS > 0)
-  	int ns;
+  int ns;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-  	Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
+  Real3Vect BGZ[3][3][3], ProlongedF[3][3][3];
 #endif
 #ifdef MPI_PARALLEL
-  	int mAddress, ierr, mIndex, mCount;
+  int mAddress, ierr, mIndex, mCount;
 #endif
 
-	/* number of dimensions in Grid. */
-	/* First, determine the dimensionality */
-  	nDim=1;
-  	for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;
+/* number of dimensions in Grid. */
+/* First, determine the dimensionality */
+  nDim=1;
+  for (i=1; i<3; i++) if (pM->Nx[i]>1) nDim++;
 
-	for(nl=0; nl<(pM->NLevels); nl++){
+  for(nl=0; nl<(pM->NLevels); nl++){
 
 
 #ifdef MPI_PARALLEL
-		if(nl<(pM->NLevels)-1){
-		
-    			for (nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
-      				if (pM->Domain[nl+1][nd].Grid != NULL) {
-        			
-					pG=pM->Domain[nl+1][nd].Grid;
-        				nZeroP = 0;
-        				mAddress = 0;        	
-					
+    if(nl<(pM->NLevels)-1){
 
-        			for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
-	
-				/* Skip if no prolongation needed for this child (only flux correction) */ 
-				/* This is for the case when grids only touch */
-          				if (pG->PGrid[npg].RstWordsP == 0) { 
-            					nZeroP += 1;
-          				} else {
+      for (nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
+        if (pM->Domain[nl+1][nd].Grid != NULL) {
 
-	           				mIndex = npg - pG->NmyPGrid - nZeroP;
-	            				ierr = MPI_Irecv(&(recv_bufRst[nd][mAddress]),
-        	      				pG->PGrid[npg].RstWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
-              					pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
-              						&(recv_rq[nl+1][nd][mIndex]));
-            					mAddress += pG->PGrid[npg].RstWordsP;
-          				}
+          pG=pM->Domain[nl+1][nd].Grid;
+          nZeroP = 0;
+          mAddress = 0;
 
-        			}/* End loop all the parent grids */
-      				}/* End if Grid != NULL */
-    			}/* Finish looping all domains at Level +1 */
-  		}
+
+          for (npg=(pG->NmyPGrid); npg<(pG->NPGrid); npg++){
+
+/* Skip if no prolongation needed for this child (only flux correction) */
+/* This is for the case when grids only touch */
+            if (pG->PGrid[npg].RstWordsP == 0) {
+              nZeroP += 1;
+            } else {
+
+              mIndex = npg - pG->NmyPGrid - nZeroP;
+              ierr = MPI_Irecv(&(recv_bufRst[nd][mAddress]),
+                               pG->PGrid[npg].RstWordsP, MPI_DOUBLE, pG->PGrid[npg].ID,
+                               pG->PGrid[npg].DomN, pM->Domain[nl+1][nd].Comm_Parent,
+                               &(recv_rq[nl+1][nd][mIndex]));
+              mAddress += pG->PGrid[npg].RstWordsP;
+            }
+
+          }/* End loop all the parent grids */
+        }/* End if Grid != NULL */
+      }/* Finish looping all domains at Level +1 */
+    }
 #endif /* MPI_PARALLEL */
 
 
 
-		/*======Step 1, send the data,  Child grids==========*/
-		/* Send the data for the whole overlap region, does not include the ghost zones  */
+/*======Step 1, send the data,  Child grids==========*/
+/* Send the data for the whole overlap region, does not include the ghost zones  */
 
-		for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-			pG = pM->Domain[nl][nd].Grid;
-			/* conditions in if statement are checked from left to right */ 
-			if((pG != NULL) && (pG->NCGrid > 0)){
-				/* Check that there is child grid at this level, otherwise we shouldn't come here. */
-				
+    for(nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      pG = pM->Domain[nl][nd].Grid;
+/* conditions in if statement are checked from left to right */
+      if((pG != NULL) && (pG->NCGrid > 0)){
+/* Check that there is child grid at this level, otherwise we shouldn't come here. */
 
-				for(i=0; i<maxND; i++) start_addrP[i] = 0;
-				nZeroP = 0;
-				
-				for(ncg=0; ncg<(pG->NCGrid); ncg++){
-					if(pG->CGrid[ncg].RstWordsP == 0){
-						if(ncg >= pG->NmyCGrid)
-							nZeroP += 1;
-						
-						/* If on the same process and no data for prolongation, do not count in nZeroP */
-					}/* skip the grid that does need prolongation */
-					else{
-						pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);	/* ptr to child Grid overlap */
 
-					/* index send_buf with DomN of child, since could be multiple child Domains on */
- 					/* same processor.  Start address must be different for each DomN */
+        for(i=0; i<maxND; i++) start_addrP[i] = 0;
+        nZeroP = 0;
 
-						/* First prolongate the region that overlaps */
-						
-						pSnd = (double*)&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]);
+        for(ncg=0; ncg<(pG->NCGrid); ncg++){
+          if(pG->CGrid[ncg].RstWordsP == 0){
+            if(ncg >= pG->NmyCGrid)
+              nZeroP += 1;
 
-						/* We need extra cell for prolongation, but not ghost zones */
-	
+/* If on the same process and no data for prolongation, do not count in nZeroP */
+          }/* skip the grid that does need prolongation */
+          else{
+            pCO = (GridOvrlpS*)&(pG->CGrid[ncg]);       /* ptr to child Grid overlap */
 
-						if(pCO->ijke[0] > pCO->ijks[0]){
-							ics = pCO->ijks[0] - 1 - 1;
-							ice = pCO->ijke[0] + 1 + 1;
-						}
-						else{
-							ics = pCO->ijks[0];
-							ice = pCO->ijke[0];
-						}
+/* index send_buf with DomN of child, since could be multiple child Domains on */
+/* same processor.  Start address must be different for each DomN */
 
-						if((nDim > 1) && (pCO->ijke[1] > pCO->ijks[1])){
-							jcs = pCO->ijks[1] - 1 - 1;
-							jce = pCO->ijke[1] + 1 + 1;
-						}
-						else{
-							jcs = pCO->ijks[1];
-							jce = pCO->ijke[1];
-						}
-		
-						if((nDim > 2) && (pCO->ijke[2] > pCO->ijks[2])){
-							kcs = pCO->ijks[2] - 1 - 1;
-							kce = pCO->ijke[2] + 1 + 1;
-						}
-						else{
-							kcs = pCO->ijks[2];
-							kce = pCO->ijke[2];
-						}
-						
-						
+/* First prolongate the region that overlaps */
 
-						for(k=kcs; k<=kce; k++){
-						for(j=jcs; j<=jce; j++){
-						for(i=ics; i<=ice; i++){
-							*(pSnd++) = pG->U[k][j][i].d;
-            						*(pSnd++) = pG->U[k][j][i].M1;
-            						*(pSnd++) = pG->U[k][j][i].M2;
-            						*(pSnd++) = pG->U[k][j][i].M3;
+            pSnd = (double*)&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]);
+
+/* We need extra cell for prolongation, but not ghost zones */
+
+
+            if(pCO->ijke[0] > pCO->ijks[0]){
+              ics = pCO->ijks[0] - 1 - 1;
+              ice = pCO->ijke[0] + 1 + 1;
+            }
+            else{
+              ics = pCO->ijks[0];
+              ice = pCO->ijke[0];
+            }
+
+            if((nDim > 1) && (pCO->ijke[1] > pCO->ijks[1])){
+              jcs = pCO->ijks[1] - 1 - 1;
+              jce = pCO->ijke[1] + 1 + 1;
+            }
+            else{
+              jcs = pCO->ijks[1];
+              jce = pCO->ijke[1];
+            }
+
+            if((nDim > 2) && (pCO->ijke[2] > pCO->ijks[2])){
+              kcs = pCO->ijks[2] - 1 - 1;
+              kce = pCO->ijke[2] + 1 + 1;
+            }
+            else{
+              kcs = pCO->ijks[2];
+              kce = pCO->ijke[2];
+            }
+
+
+
+            for(k=kcs; k<=kce; k++){
+              for(j=jcs; j<=jce; j++){
+                for(i=ics; i<=ice; i++){
+                  *(pSnd++) = pG->U[k][j][i].d;
+                  *(pSnd++) = pG->U[k][j][i].M1;
+                  *(pSnd++) = pG->U[k][j][i].M2;
+                  *(pSnd++) = pG->U[k][j][i].M3;
 #ifndef BAROTROPIC
-            						*(pSnd++) = pG->U[k][j][i].E;
+                  *(pSnd++) = pG->U[k][j][i].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-            						*(pSnd++) = pG->U[k][j][i].B1c;
-            						*(pSnd++) = pG->U[k][j][i].B2c;
-            						*(pSnd++) = pG->U[k][j][i].B3c;
-            						*(pSnd++) = pG->B1i[k][j][i];
-            						*(pSnd++) = pG->B2i[k][j][i];
-            						*(pSnd++) = pG->B3i[k][j][i];
+                  *(pSnd++) = pG->U[k][j][i].B1c;
+                  *(pSnd++) = pG->U[k][j][i].B2c;
+                  *(pSnd++) = pG->U[k][j][i].B3c;
+                  *(pSnd++) = pG->B1i[k][j][i];
+                  *(pSnd++) = pG->B2i[k][j][i];
+                  *(pSnd++) = pG->B3i[k][j][i];
 #endif
 #if (NSCALARS > 0)
-            						for (ns=0; ns<NSCALARS; ns++) {
-               							*(pSnd++) = pG->U[k][j][i].s[ns];
-            						}
+                  for (ns=0; ns<NSCALARS; ns++) {
+                    *(pSnd++) = pG->U[k][j][i].s[ns];
+                  }
 #endif
 
 /* Add radiation quantities at the end */
 /* There are Er, Fr1, Fr2, Fr3, Edd_??, and Sigma[Opacity] 10+NOPACITY variables */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-	   						*(pSnd++) = pG->U[k][j][i].Er;
-	   						*(pSnd++) = pG->U[k][j][i].Fr1;
-	   						*(pSnd++) = pG->U[k][j][i].Fr2;
-           						*(pSnd++) = pG->U[k][j][i].Fr3;
-           						*(pSnd++) = pG->U[k][j][i].Edd_11;
-						   	*(pSnd++) = pG->U[k][j][i].Edd_21;
-							*(pSnd++) = pG->U[k][j][i].Edd_22;
-							*(pSnd++) = pG->U[k][j][i].Edd_31;
-							*(pSnd++) = pG->U[k][j][i].Edd_32;
-							*(pSnd++) = pG->U[k][j][i].Edd_33;
-	
-							for(nr=0; nr<NOPACITY; nr++)
-								*(pSnd++) = pG->U[k][j][i].Sigma[nr];
+                  *(pSnd++) = pG->U[k][j][i].Er;
+                  *(pSnd++) = pG->U[k][j][i].Fr1;
+                  *(pSnd++) = pG->U[k][j][i].Fr2;
+                  *(pSnd++) = pG->U[k][j][i].Fr3;
+                  *(pSnd++) = pG->U[k][j][i].Edd_11;
+                  *(pSnd++) = pG->U[k][j][i].Edd_21;
+                  *(pSnd++) = pG->U[k][j][i].Edd_22;
+                  *(pSnd++) = pG->U[k][j][i].Edd_31;
+                  *(pSnd++) = pG->U[k][j][i].Edd_32;
+                  *(pSnd++) = pG->U[k][j][i].Edd_33;
+
+                  for(nr=0; nr<NOPACITY; nr++)
+                    *(pSnd++) = pG->U[k][j][i].Sigma[nr];
 #endif
 
-						}/* end i */
-						}/* end j */
-						}/* end k */
-						/* Do not need to send flux correction */
-						
+                }/* end i */
+              }/* end j */
+            }/* end k */
+/* Do not need to send flux correction */
 
-			/* Step 1b: non-blocking send of data  to Child, using Domain number as tag */
+
+/* Step 1b: non-blocking send of data  to Child, using Domain number as tag */
 #ifdef MPI_PARALLEL
-				/* Only do this if we actually have data to send */
-      						if (ncg >= pG->NmyCGrid) {
-        						mIndex = ncg - pG->NmyCGrid - nZeroP;
-        						ierr = MPI_Isend(&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]),
-          						pG->CGrid[ncg].RstWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
-          						pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
-      						}
+/* Only do this if we actually have data to send */
+            if (ncg >= pG->NmyCGrid) {
+              mIndex = ncg - pG->NmyCGrid - nZeroP;
+              ierr = MPI_Isend(&(send_bufRst[pCO->DomN][start_addrP[pCO->DomN]]),
+                               pG->CGrid[ncg].RstWordsP, MPI_DOUBLE, pG->CGrid[ncg].ID, nd,
+                               pM->Domain[nl][nd].Comm_Children, &(send_rq[nd][mIndex]));
+            }
 #endif /* MPI_PARALLEL */
 
-      						start_addrP[pCO->DomN] += pG->CGrid[ncg].RstWordsP;
-					}/* End for the grids that needs prolongation */
-				}/* End loop over the child grid */
+            start_addrP[pCO->DomN] += pG->CGrid[ncg].RstWordsP;
+          }/* End for the grids that needs prolongation */
+        }/* End loop over the child grid */
 
-			}/* End if CPUflag */
-		}/* Finish looping all the domains at Level */
+      }/* End if CPUflag */
+    }/* Finish looping all the domains at Level */
 
 
 
-		
 
-  	/******************************************************************************/
-	/* This step is skipped as we just set Receive pointer to the send buffer if grids are on the same CPU 
-	
-		for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
-    			if (pM->Domain[Level-RootLevel][nd].Grid != NULL) { 
-     				 pG=pM->Domain[Level-RootLevel][nd].Grid; 
-	
 
-      				for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
-        				pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);   
+/******************************************************************************/
+/* This step is skipped as we just set Receive pointer to the send buffer if grids are on the same CPU
 
-        				for (i=0; i<pCO->Rad_nWordsP; i++) {
-          					recv_bufP[pCO->DomN][i]=send_bufP[pCO->DomN][i];
-        				}
-      				}
-    			}
-  		}
+   for (nd=0; nd<(pM->DomainsPerLevel[Level-RootLevel]); nd++){
+   if (pM->Domain[Level-RootLevel][nd].Grid != NULL) {
+   pG=pM->Domain[Level-RootLevel][nd].Grid;
 
- */
+
+   for (ncg=0; ncg<(pG->NmyCGrid); ncg++){
+   pCO=(GridOvrlpS*)&(pG->CGrid[ncg]);
+
+   for (i=0; i<pCO->Rad_nWordsP; i++) {
+   recv_bufP[pCO->DomN][i]=send_bufP[pCO->DomN][i];
+   }
+   }
+   }
+   }
+
+*/
 
 #ifdef MPI_PARALLEL
-		/* For MPI jobs, wait for all non-blocking sends above to finish in order to continue to Level+1  */
-		/* Ortherwise, the CPU may start to working while sent is not complete */
+/* For MPI jobs, wait for all non-blocking sends above to finish in order to continue to Level+1  */
+/* Ortherwise, the CPU may start to working while sent is not complete */
 
-  		for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-    			if (pM->Domain[nl][nd].Grid != NULL) {
-     				pG=pM->Domain[nl][nd].Grid;
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL) {
+        pG=pM->Domain[nl][nd].Grid;
 
-      				nZeroP = 0;
-      				for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].RstWordsP == 0) nZeroP++;
+        nZeroP = 0;
+        for (i=pG->NmyCGrid; i < pG->NCGrid; i++) if (pG->CGrid[i].RstWordsP == 0) nZeroP++;
 
-      				if (pG->NCGrid > pG->NmyCGrid) {
-        				mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
-        				ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
-      				}
-    			}
-  		}
+        if (pG->NCGrid > pG->NmyCGrid) {
+          mCount = pG->NCGrid - pG->NmyCGrid - nZeroP;
+          ierr = MPI_Waitall(mCount, send_rq[nd], MPI_STATUS_IGNORE);
+        }
+      }
+    }
 #endif /* MPI_PARALLEL */
 
 
 
-		/*=====================================================================*/
-		/* Get solution from parent GridS and prolongation solution to ghost zones */
-		/* Now we go back to nl + 1 */
-		for(nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
-			if(pM->Domain[nl+1][nd].Grid != NULL){
-				pG = pM->Domain[nl+1][nd].Grid;
-				
-				/* Loop over number of parent grids with non-zero-size prolongation data */
-				nZeroP = 0;
-    				for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].RstWordsP == 0) nZeroP++;
+/*=====================================================================*/
+/* Get solution from parent GridS and prolongation solution to ghost zones */
+/* Now we go back to nl + 1 */
+    for(nd=0; nd<(pM->DomainsPerLevel[nl+1]); nd++){
+      if(pM->Domain[nl+1][nd].Grid != NULL){
+        pG = pM->Domain[nl+1][nd].Grid;
 
-				for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
+/* Loop over number of parent grids with non-zero-size prolongation data */
+        nZeroP = 0;
+        for (i=pG->NmyPGrid; i < pG->NPGrid; i++) if (pG->PGrid[i].RstWordsP == 0) nZeroP++;
+
+        for (npg=0; npg<(pG->NPGrid - nZeroP); npg++){
 
 
-      					if (npg < pG->NmyPGrid) {						
-        					pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
-						/* For grids on the same CPU, set the pointer to send buffer */
-        					/* pRcv = (double*)&(recv_bufP[nd][0]); */
-						/* One CPU only works for one grid in one Domain */
-						/* So, the address at buffer for domain nd must start from 0 */
-						if(pPO->RstWordsP > 0)
-							pRcv = (double*)&(send_bufRst[nd][0]);
-	
-      					} else {
+          if (npg < pG->NmyPGrid) {
+            pPO = (GridOvrlpS*)&(pG->PGrid[npg]);
+/* For grids on the same CPU, set the pointer to send buffer */
+/* pRcv = (double*)&(recv_bufP[nd][0]); */
+/* One CPU only works for one grid in one Domain */
+/* So, the address at buffer for domain nd must start from 0 */
+            if(pPO->RstWordsP > 0)
+              pRcv = (double*)&(send_bufRst[nd][0]);
+
+          } else {
 
 #ifdef MPI_PARALLEL
-					/* Check non-blocking receives posted above for data in ghost zone from parent
- 						* Grids, sent in Step 1.  Accept messages in any order. */
+/* Check non-blocking receives posted above for data in ghost zone from parent
+ * Grids, sent in Step 1.  Accept messages in any order. */
 
-        					mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
-        					ierr = MPI_Waitany(mCount,recv_rq[nl+1][nd],&mIndex,MPI_STATUS_IGNORE);
-        					if(mIndex == MPI_UNDEFINED){
-          						ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl+1,nd);
-        					}
+            mCount = pG->NPGrid - pG->NmyPGrid - nZeroP;
+            ierr = MPI_Waitany(mCount,recv_rq[nl+1][nd],&mIndex,MPI_STATUS_IGNORE);
+            if(mIndex == MPI_UNDEFINED){
+              ath_error("[Prolong]: Invalid request index nl=%i nd=%i\n",nl+1,nd);
+            }
 
-						/* mIndex returns the number that is completed */
+/* mIndex returns the number that is completed */
 
-					/* Recv buffer is addressed from PGrid[0].Rad_nWordsP for first MPI message
- 					* if NmyPGrid>0.  Also must remove zero size messages from index. */
+/* Recv buffer is addressed from PGrid[0].Rad_nWordsP for first MPI message
+ * if NmyPGrid>0.  Also must remove zero size messages from index. */
 
-						/* re-build the value of mIndex to include NmyPGrid and grids that do not need prolongation */
-						/* mIndex is the process ID in that domain */
-        					mIndex += pG->NmyPGrid;
-        					for (i=pG->NmyPGrid; i <= mIndex; i++) 
-          						if (pG->PGrid[i].RstWordsP == 0) mIndex++;
+/* re-build the value of mIndex to include NmyPGrid and grids that do not need prolongation */
+/* mIndex is the process ID in that domain */
+            mIndex += pG->NmyPGrid;
+            for (i=pG->NmyPGrid; i <= mIndex; i++)
+              if (pG->PGrid[i].RstWordsP == 0) mIndex++;
 
-        					mAddress = 0;
-        					for (i=pG->NmyPGrid; i<mIndex; i++) mAddress += pG->PGrid[i].RstWordsP;
-        					pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]); 
-        					pRcv = (double*)&(recv_bufP[nd][mAddress]);
+            mAddress = 0;
+            for (i=pG->NmyPGrid; i<mIndex; i++) mAddress += pG->PGrid[i].RstWordsP;
+            pPO = (GridOvrlpS*)&(pG->PGrid[mIndex]);
+            pRcv = (double*)&(recv_bufP[nd][mAddress]);
 #else
-				/* If not MPI_PARALLEL, and parent Grid not on this processor, then error */
+/* If not MPI_PARALLEL, and parent Grid not on this processor, then error */
 
-        					ath_error("[Prolong]: no Parent Grid on Domain[%d][%d]\n",nl+1,nd);
+            ath_error("[Prolong]: no Parent Grid on Domain[%d][%d]\n",nl+1,nd);
 #endif /* MPI_PARALLEL */
-      					}/* End if npg > pG->NmyPGrid */
+          }/* End if npg > pG->NmyPGrid */
 
-					
-					/* Loop over 6 boundaries, set ghost zones */
-					/* The difference between Matrix solver and normal MHD is that */
-					/* We also need to prolongate data from each cell to the child grids */
-					
-					/* Only do this if prolongation data is non-zero */
-					/* This is especially for NmyPgrid */
-					if(pPO->RstWordsP > 0){
 
-					/* Get coordinates ON THIS GRID of ghost zones that overlap parent Grid */
-						/* first prolongate the overlap region */
-						/* To use this prolongated solution as initial guess in fine level */
+/* Loop over 6 boundaries, set ghost zones */
+/* The difference between Matrix solver and normal MHD is that */
+/* We also need to prolongate data from each cell to the child grids */
 
-						/*---------------------------------------------------*/
-						/* Two additional cells for prolongation, plus one additional cell at each side */
-						ips = 0;
-						ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 1 + 2;
-						if(nDim > 1){
-							jps = 0;
-							jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 1 + 2;
-						}
-						else{
-							jps = 1;
-							jpe = 1;
-						}
-						if(nDim > 2){
-							kps = 0;
-							kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 1 + 2;
-						}
-						else{
-							kps = 1;
-							kpe = 1;
-						}
-						/* Load the data */
-					
-						for(k=kps; k<=kpe; k++){
-						for(j=jps; j<=jpe; j++){
-						for(i=ips; i<=ipe; i++){
-							Probuf[k][j][i].d  = *(pRcv++);
-            						Probuf[k][j][i].M1 = *(pRcv++);
-            						Probuf[k][j][i].M2 = *(pRcv++);
-							Probuf[k][j][i].M3 = *(pRcv++);
+/* Only do this if prolongation data is non-zero */
+/* This is especially for NmyPgrid */
+          if(pPO->RstWordsP > 0){
+
+/* Get coordinates ON THIS GRID of ghost zones that overlap parent Grid */
+/* first prolongate the overlap region */
+/* To use this prolongated solution as initial guess in fine level */
+
+/*---------------------------------------------------*/
+/* Two additional cells for prolongation, plus one additional cell at each side */
+            ips = 0;
+            ipe = (pPO->ijke[0] - pPO->ijks[0] + 1)/2 + 1 + 2;
+            if(nDim > 1){
+              jps = 0;
+              jpe = (pPO->ijke[1] - pPO->ijks[1] + 1)/2 + 1 + 2;
+            }
+            else{
+              jps = 1;
+              jpe = 1;
+            }
+            if(nDim > 2){
+              kps = 0;
+              kpe = (pPO->ijke[2] - pPO->ijks[2] + 1)/2 + 1 + 2;
+            }
+            else{
+              kps = 1;
+              kpe = 1;
+            }
+/* Load the data */
+
+            for(k=kps; k<=kpe; k++){
+              for(j=jps; j<=jpe; j++){
+                for(i=ips; i<=ipe; i++){
+                  Probuf[k][j][i].d  = *(pRcv++);
+                  Probuf[k][j][i].M1 = *(pRcv++);
+                  Probuf[k][j][i].M2 = *(pRcv++);
+                  Probuf[k][j][i].M3 = *(pRcv++);
 #ifndef BAROTROPIC
-							Probuf[k][j][i].E = *(pRcv++);
+                  Probuf[k][j][i].E = *(pRcv++);
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-							Probuf[k][j][i].B1c = *(pRcv++);
-							Probuf[k][j][i].B2c = *(pRcv++);
-							Probuf[k][j][i].B3c = *(pRcv++);
-							RstBFld[k][j][i].x1 = *(pRcv++);
-							RstBFld[k][j][i].x2 = *(pRcv++);
-							RstBFld[k][j][i].x3 = *(pRcv++);
+                  Probuf[k][j][i].B1c = *(pRcv++);
+                  Probuf[k][j][i].B2c = *(pRcv++);
+                  Probuf[k][j][i].B3c = *(pRcv++);
+                  RstBFld[k][j][i].x1 = *(pRcv++);
+                  RstBFld[k][j][i].x2 = *(pRcv++);
+                  RstBFld[k][j][i].x3 = *(pRcv++);
 #endif
 #if (NSCALARS > 0)
-							for (ns=0; ns<NSCALARS; ns++) {
-							Probuf[k][j][i].s[ns] = *(pRcv++);
-							}
+                  for (ns=0; ns<NSCALARS; ns++) {
+                    Probuf[k][j][i].s[ns] = *(pRcv++);
+                  }
 #endif
-							/* Get the data for radiation part */
+/* Get the data for radiation part */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-							Probuf[k][j][i].Er = *(pRcv++);
-							Probuf[k][j][i].Fr1 = *(pRcv++);
-							Probuf[k][j][i].Fr2 = *(pRcv++);
-							Probuf[k][j][i].Fr3 = *(pRcv++);
-							Probuf[k][j][i].Edd_11 = *(pRcv++);
-							Probuf[k][j][i].Edd_21 = *(pRcv++);
-							Probuf[k][j][i].Edd_22 = *(pRcv++);
-							Probuf[k][j][i].Edd_31 = *(pRcv++);
-							Probuf[k][j][i].Edd_32 = *(pRcv++);
-							Probuf[k][j][i].Edd_33 = *(pRcv++);
-							
-							for(nr=0; nr<NOPACITY; nr++)
-								Probuf[k][j][i].Sigma[nr] = *(pRcv++);
+                  Probuf[k][j][i].Er = *(pRcv++);
+                  Probuf[k][j][i].Fr1 = *(pRcv++);
+                  Probuf[k][j][i].Fr2 = *(pRcv++);
+                  Probuf[k][j][i].Fr3 = *(pRcv++);
+                  Probuf[k][j][i].Edd_11 = *(pRcv++);
+                  Probuf[k][j][i].Edd_21 = *(pRcv++);
+                  Probuf[k][j][i].Edd_22 = *(pRcv++);
+                  Probuf[k][j][i].Edd_31 = *(pRcv++);
+                  Probuf[k][j][i].Edd_32 = *(pRcv++);
+                  Probuf[k][j][i].Edd_33 = *(pRcv++);
+
+                  for(nr=0; nr<NOPACITY; nr++)
+                    Probuf[k][j][i].Sigma[nr] = *(pRcv++);
 #endif /* end radiation */
 
 
-						}/* End i */
-						}/* End j */
-						}/* End k */
+                }/* End i */
+              }/* End j */
+            }/* End k */
 
-						/* Fill the junk zones for 1D and 2D cases */
-						if(nDim == 1){
-							for(i=ips; i<=ipe; i++){
-								Probuf[1][0][i] = Probuf[1][1][i];
-								Probuf[1][2][i] = Probuf[1][1][i];
-								Probuf[0][1][i] = Probuf[1][1][i];
-								Probuf[2][1][i] = Probuf[1][1][i];
-							}
+/* Fill the junk zones for 1D and 2D cases */
+            if(nDim == 1){
+              for(i=ips; i<=ipe; i++){
+                Probuf[1][0][i] = Probuf[1][1][i];
+                Probuf[1][2][i] = Probuf[1][1][i];
+                Probuf[0][1][i] = Probuf[1][1][i];
+                Probuf[2][1][i] = Probuf[1][1][i];
+              }
 
-						}else if(nDim == 2){
-							for(j=jps; j<=jpe; j++){
-							for(i=ips; i<=ipe; i++){
-								Probuf[0][j][i] = Probuf[1][j][i];
-								Probuf[2][j][i] = Probuf[1][j][i];
-							}
-							}
+            }else if(nDim == 2){
+              for(j=jps; j<=jpe; j++){
+                for(i=ips; i<=ipe; i++){
+                  Probuf[0][j][i] = Probuf[1][j][i];
+                  Probuf[2][j][i] = Probuf[1][j][i];
+                }
+              }
 
-						}/* End if nDim == 2 */
+            }/* End if nDim == 2 */
 
 
-						/* Do prolongation */
-						ips = pPO->ijks[0] - 2;
-						ipe = pPO->ijke[0] + 2;
+/* Do prolongation */
+            ips = pPO->ijks[0] - 2;
+            ipe = pPO->ijke[0] + 2;
 
-						jps = pPO->ijks[1];
-						jpe = pPO->ijke[1];
-						if(jpe > jps){
-							jps -= 2;
-							jpe += 2;
-						}
-						
-						kps = pPO->ijks[2];
-						kpe = pPO->ijke[2];
-						if(kpe > kps){
-							kps -= 2;
-							kpe += 2;
-						}
-						
+            jps = pPO->ijks[1];
+            jpe = pPO->ijke[1];
+            if(jpe > jps){
+              jps -= 2;
+              jpe += 2;
+            }
 
-						lend = 1;
-						if(nDim > 1){
-							mend = 1;
-						}
-						else{
-							mend = 0;
-						}
+            kps = pPO->ijks[2];
+            kpe = pPO->ijke[2];
+            if(kpe > kps){
+              kps -= 2;
+              kpe += 2;
+            }
 
-						if(nDim > 2){
-							nend = 1;
-						}
-						else{					
-							nend = 0;
-						}
 
-							/* Prolongate the Pro_buf array data to Ptemp temporarily and then copy the data to pMat */
-							/* i, j, k are for parent grids while kk, jj, ii are for child grids */
-						for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
-						for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
-       						for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
-							ProCon(Probuf[kk][jj][ii-1], Probuf[kk][jj][ii], Probuf[kk][jj][ii+1], Probuf[kk][jj-1][ii], Probuf[kk][jj+1][ii], Probuf[kk-1][jj][ii], Probuf[kk+1][jj][ii], ProlongedC);
+            lend = 1;
+            if(nDim > 1){
+              mend = 1;
+            }
+            else{
+              mend = 0;
+            }
 
-							/* Now set the solution */
-							for(n=0; n<=nend; n++){
-							for(m=0; m<=mend; m++){
-							for(l=0; l<=1; l++){
-								pG->U[k+n][j+m][i+l].d  = ProlongedC[n][m][l].d;
-								pG->U[k+n][j+m][i+l].M1 = ProlongedC[n][m][l].M1;
-								pG->U[k+n][j+m][i+l].M2 = ProlongedC[n][m][l].M2;
-								pG->U[k+n][j+m][i+l].M3 = ProlongedC[n][m][l].M3;
+            if(nDim > 2){
+              nend = 1;
+            }
+            else{
+              nend = 0;
+            }
+
+/* Prolongate the Pro_buf array data to Ptemp temporarily and then copy the data to pMat */
+/* i, j, k are for parent grids while kk, jj, ii are for child grids */
+            for (k=kps, kk=1; k<=kpe; k+=2, kk++) {
+              for (j=jps, jj=1; j<=jpe; j+=2, jj++) {
+                for (i=ips, ii=1; i<=ipe; i+=2, ii++) {
+                  ProCon(Probuf[kk][jj][ii-1], Probuf[kk][jj][ii], Probuf[kk][jj][ii+1], Probuf[kk][jj-1][ii], Probuf[kk][jj+1][ii], Probuf[kk-1][jj][ii], Probuf[kk+1][jj][ii], ProlongedC);
+
+/* Now set the solution */
+                  for(n=0; n<=nend; n++){
+                    for(m=0; m<=mend; m++){
+                      for(l=0; l<=1; l++){
+                        pG->U[k+n][j+m][i+l].d  = ProlongedC[n][m][l].d;
+                        pG->U[k+n][j+m][i+l].M1 = ProlongedC[n][m][l].M1;
+                        pG->U[k+n][j+m][i+l].M2 = ProlongedC[n][m][l].M2;
+                        pG->U[k+n][j+m][i+l].M3 = ProlongedC[n][m][l].M3;
 #ifndef BAROTROPIC
-								pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
+                        pG->U[k+n][j+m][i+l].E  = ProlongedC[n][m][l].E;
 #endif
 #if defined(MHD) || defined(RADIATION_MHD)
-								pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
-								pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
-								pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
+                        pG->U[k+n][j+m][i+l].B1c = ProlongedC[n][m][l].B1c;
+                        pG->U[k+n][j+m][i+l].B2c = ProlongedC[n][m][l].B2c;
+                        pG->U[k+n][j+m][i+l].B3c = ProlongedC[n][m][l].B3c;
 #endif
 #if (NSCALARS > 0)
-								for (ns=0; ns<NSCALARS; ns++) 
-									pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
+                        for (ns=0; ns<NSCALARS; ns++)
+                          pG->U[k+n][j+m][i+l].s[ns] = ProlongedC[n][m][l].s[ns];
 #endif
-								/* Get solution for radiation quantities */
+/* Get solution for radiation quantities */
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-								pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
-								pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
-								pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
-								pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
-								pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
-								pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
-								pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
-								pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
-								pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
-								pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
-								
-								for(nr=0; nr<NOPACITY; nr++)
-									pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
+                        pG->U[k+n][j+m][i+l].Er = ProlongedC[n][m][l].Er;
+                        pG->U[k+n][j+m][i+l].Fr1 = ProlongedC[n][m][l].Fr1;
+                        pG->U[k+n][j+m][i+l].Fr2 = ProlongedC[n][m][l].Fr2;
+                        pG->U[k+n][j+m][i+l].Fr3 = ProlongedC[n][m][l].Fr3;
+                        pG->U[k+n][j+m][i+l].Edd_11 = ProlongedC[n][m][l].Edd_11;
+                        pG->U[k+n][j+m][i+l].Edd_21 = ProlongedC[n][m][l].Edd_21;
+                        pG->U[k+n][j+m][i+l].Edd_22 = ProlongedC[n][m][l].Edd_22;
+                        pG->U[k+n][j+m][i+l].Edd_31 = ProlongedC[n][m][l].Edd_31;
+                        pG->U[k+n][j+m][i+l].Edd_32 = ProlongedC[n][m][l].Edd_32;
+                        pG->U[k+n][j+m][i+l].Edd_33 = ProlongedC[n][m][l].Edd_33;
+
+                        for(nr=0; nr<NOPACITY; nr++)
+                          pG->U[k+n][j+m][i+l].Sigma[nr] = ProlongedC[n][m][l].Sigma[nr];
 #endif /* end radiation */
-							}/* End l */
-							}/* End m */
-							}/* End n */
+                      }/* End l */
+                    }/* End m */
+                  }/* End n */
 
 
 
-				/*-----------------------------------------------------------------*/
-				/* Prolongate face centered magnetic field for the whole grid */
+/*-----------------------------------------------------------------*/
+/* Prolongate face centered magnetic field for the whole grid */
 #if defined(MHD) || defined(RADIATION_MHD)
-							if (nDim == 1) {
-              							for (l=0; l<=1; l++) {
-									pG->B1i[k][j][i+l] = pG->U[k][j][i+l].B1c;
-									pG->B2i[k][j][i+l] = pG->U[k][j][i+l].B2c;
-									pG->B3i[k][j][i+l] = pG->U[k][j][i+l].B3c;
-              							}
-            						} else {
-								for (n=0; n<3; n++) {
-								for (m=0; m<3; m++) {
-								for (l=0; l<3; l++) {
-									ProlongedF[n][m][l].x1 = 0.0;
-									ProlongedF[n][m][l].x2 = 0.0;
-									ProlongedF[n][m][l].x3 = 0.0;
-								}}}
-            						} /* end if ndim= 1 */
+                  if (nDim == 1) {
+                    for (l=0; l<=1; l++) {
+                      pG->B1i[k][j][i+l] = pG->U[k][j][i+l].B1c;
+                      pG->B2i[k][j][i+l] = pG->U[k][j][i+l].B2c;
+                      pG->B3i[k][j][i+l] = pG->U[k][j][i+l].B3c;
+                    }
+                  } else {
+                    for (n=0; n<3; n++) {
+                      for (m=0; m<3; m++) {
+                        for (l=0; l<3; l++) {
+                          ProlongedF[n][m][l].x1 = 0.0;
+                          ProlongedF[n][m][l].x2 = 0.0;
+                          ProlongedF[n][m][l].x3 = 0.0;
+                        }}}
+                  } /* end if ndim= 1 */
 
-							/* Load B-field ghost zone array with values read from Rcv buffer in 2D/3D */
+/* Load B-field ghost zone array with values read from Rcv buffer in 2D/3D */
 
-							if (nDim == 2 || nDim ==3) {
-								for (n=0; n<3; n++) {
-								for (m=0; m<3; m++) {
-								for (l=0; l<3; l++) {
-									BGZ[n][m][l].x1 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
-									BGZ[n][m][l].x2 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
-									BGZ[n][m][l].x3 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
-								}}}
-								/* B1i */
-								ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
-								ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
-								ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
-								ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
-								if(nDim == 3){
-									ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
-                  							ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
-								}
+                  if (nDim == 2 || nDim ==3) {
+                    for (n=0; n<3; n++) {
+                      for (m=0; m<3; m++) {
+                        for (l=0; l<3; l++) {
+                          BGZ[n][m][l].x1 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x1;
+                          BGZ[n][m][l].x2 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x2;
+                          BGZ[n][m][l].x3 = RstBFld[kk+(n-1)][jj+(m-1)][ii+(l-1)].x3;
+                        }}}
+/* B1i */
+                    ProlongedF[0][0][2].x1 = pG->B1i[k][j  ][i+2];
+                    ProlongedF[0][1][2].x1 = pG->B1i[k][j+1][i+2];
+                    ProlongedF[1][0][2].x1 = pG->B1i[k][j  ][i+2];
+                    ProlongedF[1][1][2].x1 = pG->B1i[k][j+1][i+2];
+                    if(nDim == 3){
+                      ProlongedF[1][0][2].x1 = pG->B1i[k+1][j  ][i+2];
+                      ProlongedF[1][1][2].x1 = pG->B1i[k+1][j+1][i+2];
+                    }
 
-								ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
-								ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
-								ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
-								ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
+                    ProlongedF[0][0][0].x1 = pG->B1i[k][j  ][i];
+                    ProlongedF[0][1][0].x1 = pG->B1i[k][j+1][i];
+                    ProlongedF[1][0][0].x1 = pG->B1i[k][j  ][i];
+                    ProlongedF[1][1][0].x1 = pG->B1i[k][j+1][i];
 
-								if(nDim == 3){
-									ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
-                  							ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
-								}
+                    if(nDim == 3){
+                      ProlongedF[1][0][0].x1 = pG->B1i[k+1][j  ][i];
+                      ProlongedF[1][1][0].x1 = pG->B1i[k+1][j+1][i];
+                    }
 
-								/* B2i */
-								ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
-								ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
-								ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
-								ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
+/* B2i */
+                    ProlongedF[0][2][0].x2 = pG->B2i[k][j+2][i  ];
+                    ProlongedF[0][2][1].x2 = pG->B2i[k][j+2][i+1];
+                    ProlongedF[1][2][0].x2 = pG->B2i[k][j+2][i  ];
+                    ProlongedF[1][2][1].x2 = pG->B2i[k][j+2][i+1];
 
-								if(nDim == 3){
-									ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
-                  							ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
-								}
+                    if(nDim == 3){
+                      ProlongedF[1][2][0].x2 = pG->B2i[k+1][j+2][i  ];
+                      ProlongedF[1][2][1].x2 = pG->B2i[k+1][j+2][i+1];
+                    }
 
-								ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
-								ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
-								ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
-								ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
+                    ProlongedF[0][0][0].x2 = pG->B2i[k][j][i  ];
+                    ProlongedF[0][0][1].x2 = pG->B2i[k][j][i+1];
+                    ProlongedF[1][0][0].x2 = pG->B2i[k][j][i  ];
+                    ProlongedF[1][0][1].x2 = pG->B2i[k][j][i+1];
 
-								if(nDim == 3){
-									ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
-                  							ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
-								}
+                    if(nDim == 3){
+                      ProlongedF[1][0][0].x2 = pG->B2i[k+1][j][i  ];
+                      ProlongedF[1][0][1].x2 = pG->B2i[k+1][j][i+1];
+                    }
 
-								/* B3i */
-								if(nDim == 3){
-									ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
-									ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
-									ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
-									ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
-	
-									ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
-									ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
-									ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
-									ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
-								}
+/* B3i */
+                    if(nDim == 3){
+                      ProlongedF[2][0][0].x3 = pG->B3i[k+2][j  ][i  ];
+                      ProlongedF[2][0][1].x3 = pG->B3i[k+2][j  ][i+1];
+                      ProlongedF[2][1][0].x3 = pG->B3i[k+2][j+1][i  ];
+                      ProlongedF[2][1][1].x3 = pG->B3i[k+2][j+1][i+1];
 
-							
+                      ProlongedF[0][0][0].x3 = pG->B3i[k][j  ][i  ];
+                      ProlongedF[0][0][1].x3 = pG->B3i[k][j  ][i+1];
+                      ProlongedF[0][1][0].x3 = pG->B3i[k][j+1][i  ];
+                      ProlongedF[0][1][1].x3 = pG->B3i[k][j+1][i+1];
+                    }
 
 
-							ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
 
-								for (n=0; n<=nend; n++) {
-								for (m=0; m<=mend; m++) {
-								for (l=0; l<=1; l++) {
-									
-									pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
-									pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
-									pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
-							
-									pG->U[k+n][j+m][i+l].B1c = 
-									0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
-									pG->U[k+n][j+m][i+l].B2c = 
-									0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
-									pG->U[k+n][j+m][i+l].B3c = 
-									0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
-								}}}
 
-							} /* End dim == 2 or dim == 3 */
+                    ProFld(BGZ, ProlongedF, pG->dx1, pG->dx2, pG->dx3);
+
+                    for (n=0; n<=nend; n++) {
+                      for (m=0; m<=mend; m++) {
+                        for (l=0; l<=1; l++) {
+
+                          pG->B1i[k+n][j+m][i+l] = ProlongedF[n][m][l].x1;
+                          pG->B2i[k+n][j+m][i+l] = ProlongedF[n][m][l].x2;
+                          pG->B3i[k+n][j+m][i+l] = ProlongedF[n][m][l].x3;
+
+                          pG->U[k+n][j+m][i+l].B1c =
+                            0.5*(ProlongedF[n][m][l].x1 + ProlongedF[n][m][l+1].x1);
+                          pG->U[k+n][j+m][i+l].B2c =
+                            0.5*(ProlongedF[n][m][l].x2 + ProlongedF[n][m+1][l].x2);
+                          pG->U[k+n][j+m][i+l].B3c =
+                            0.5*(ProlongedF[n][m][l].x3 + ProlongedF[n+1][m][l].x3);
+                        }}}
+
+                  } /* End dim == 2 or dim == 3 */
 #endif /* end MHD */
 
-						}/* End i */
-						}/* End j */
-						}/* End k */
-
-
-						
-
-					} /* End if there are data to prolongate */
-				}/* End loop npg grid */
+                }/* End i */
+              }/* End j */
+            }/* End k */
 
 
 
-			}/* End if [Level+1][nd].Grid is not NULL */
-		}/* Finish loop over domains at Level + 1*/
 
-		/*===================================================================*/
-
-	}/* Finish looping all levels */
+          } /* End if there are data to prolongate */
+        }/* End loop npg grid */
 
 
 
-	/*******************************************************************/
-	/* Destroy the temporary space that is secial for RSTSMR */
-	if(send_bufRst != NULL){
-		free_2d_array(send_bufRst);
-		send_bufRst = NULL;
-	}
-	
+      }/* End if [Level+1][nd].Grid is not NULL */
+    }/* Finish loop over domains at Level + 1*/
 
-	if(recv_bufRst != NULL){
-		free_2d_array(recv_bufRst);
-		recv_bufRst = NULL;
-	}
+/*===================================================================*/
 
-	if(Probuf != NULL){
-		free_3d_array(Probuf);
-		Probuf = NULL;
-	}
-	
+  }/* Finish looping all levels */
+
+
+
+/*******************************************************************/
+/* Destroy the temporary space that is secial for RSTSMR */
+  if(send_bufRst != NULL){
+    free_2d_array(send_bufRst);
+    send_bufRst = NULL;
+  }
+
+
+  if(recv_bufRst != NULL){
+    free_2d_array(recv_bufRst);
+    recv_bufRst = NULL;
+  }
+
+  if(Probuf != NULL){
+    free_3d_array(Probuf);
+    Probuf = NULL;
+  }
+
 #if defined(MHD) || defined(RADIATION_MHD)
-	if(RstBFld != NULL){
-		free_3d_array(RstBFld);
-		RstBFld = NULL;
-	}
+  if(RstBFld != NULL){
+    free_3d_array(RstBFld);
+    RstBFld = NULL;
+  }
 #endif
 
 }
@@ -2715,7 +2715,7 @@ void SMR_init(MeshS *pM)
   int ngh1;
 #endif
   GridS *pG;
-  
+
   maxND=1;
   for (nl=0; nl<(pM->NLevels); nl++) maxND=MAX(maxND,pM->DomainsPerLevel[nl]);
   if((start_addrP = (int*)calloc_1d_array(maxND,sizeof(int))) == NULL)
@@ -2742,14 +2742,14 @@ void SMR_init(MeshS *pM)
           sendRC += pG->PGrid[npg].nWordsRC;
           recvP  += pG->PGrid[npg].nWordsP;
 #ifdef RSTSMR
-	  Rstrecv += pG->PGrid[npg].RstWordsP;
+          Rstrecv += pG->PGrid[npg].RstWordsP;
 #endif
         }
         for (ncg=0; ncg<pG->NCGrid; ncg++){
           recvRC += pG->CGrid[ncg].nWordsRC;
           sendP  += pG->CGrid[ncg].nWordsP;
 #ifdef RSTSMR
-	  Rstsend += pG->CGrid[ncg].RstWordsP;
+          Rstsend += pG->CGrid[ncg].RstWordsP;
 #endif
         }
 
@@ -2758,8 +2758,8 @@ void SMR_init(MeshS *pM)
         max_sendP  = MAX(max_sendP ,sendP );
         max_recvP  = MAX(max_recvP ,recvP );
 #ifdef RSTSMR
-	max_Rstsend = MAX(max_Rstsend,Rstsend);
-	max_Rstrecv = MAX(max_Rstrecv,Rstrecv);
+        max_Rstsend = MAX(max_Rstsend,Rstsend);
+        max_Rstrecv = MAX(max_Rstrecv,Rstrecv);
 #endif
         max1 = MAX(max1,(pG->Nx[0]+1));
         max2 = MAX(max2,(pG->Nx[1]+1));
@@ -2772,30 +2772,30 @@ void SMR_init(MeshS *pM)
 /* Allocate memory for send/receive buffers and EMFs used in RestrictCorrect */
 
   if((send_bufRC =
-    (double**)calloc_2d_array(maxND,max_sendRC,sizeof(double))) == NULL)
+      (double**)calloc_2d_array(maxND,max_sendRC,sizeof(double))) == NULL)
     ath_error("[SMR_init]:Failed to allocate send_bufRC\n");
 
 #ifdef MPI_PARALLEL
   if((recv_bufRC =
-    (double***)calloc_3d_array(2,maxND,max_recvRC,sizeof(double))) == NULL)
+      (double***)calloc_3d_array(2,maxND,max_recvRC,sizeof(double))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv_bufRC\n");
   if((recv_rq = (MPI_Request***)
-    calloc_3d_array(pM->NLevels,maxND,maxCG,sizeof(MPI_Request))) == NULL)
+      calloc_3d_array(pM->NLevels,maxND,maxCG,sizeof(MPI_Request))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv MPI_Request array\n");
   if((send_rq = (MPI_Request**)
-    calloc_2d_array(maxND,maxCG,sizeof(MPI_Request))) == NULL)
+      calloc_2d_array(maxND,maxCG,sizeof(MPI_Request))) == NULL)
     ath_error("[SMR_init]: Failed to allocate send MPI_Request array\n");
 #endif /* MPI_PARALLEL */
 
 #if defined(MHD) || defined(RADIATION_MHD)
   if((SMRemf1 =
-    (Real**)calloc_2d_array(MAX(max2,max3),max1,sizeof(Real))) == NULL)
+      (Real**)calloc_2d_array(MAX(max2,max3),max1,sizeof(Real))) == NULL)
     ath_error("[smr_init]Failed to calloc_2d_array for SMRemf1\n");;
   if((SMRemf2 =
-    (Real**)calloc_2d_array(MAX(max2,max3),MAX(max1,max2),sizeof(Real))) ==NULL)
+      (Real**)calloc_2d_array(MAX(max2,max3),MAX(max1,max2),sizeof(Real))) ==NULL)
     ath_error("[smr_init]Failed to calloc_2d_array for SMRemf2\n");;
   if((SMRemf3 =
-    (Real**)calloc_2d_array(max3,MAX(max1,max2),sizeof(Real))) == NULL)
+      (Real**)calloc_2d_array(max3,MAX(max1,max2),sizeof(Real))) == NULL)
     ath_error("[smr_init]Failed to calloc_2d_array for SMRemf3\n");;
 #endif /* MHD */
 
@@ -2803,30 +2803,30 @@ void SMR_init(MeshS *pM)
 
 
   if((send_bufP =
-    (double**)calloc_2d_array(maxND,max_sendP,sizeof(double))) == NULL)
+      (double**)calloc_2d_array(maxND,max_sendP,sizeof(double))) == NULL)
     ath_error("[SMR_init]:Failed to allocate send_bufP\n");
 
   if((recv_bufP =
-    (double***)calloc_3d_array(2,maxND,max_recvP,sizeof(double))) == NULL)
+      (double***)calloc_3d_array(2,maxND,max_recvP,sizeof(double))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv_bufP\n");
 
 
 #ifdef RSTSMR
   if((send_bufRst =
-    (double**)calloc_2d_array(maxND,max_Rstsend,sizeof(double))) == NULL)
+      (double**)calloc_2d_array(maxND,max_Rstsend,sizeof(double))) == NULL)
     ath_error("[SMR_init]:Failed to allocate send_bufRst\n");
 
   if((recv_bufRst =
-    (double**)calloc_2d_array(maxND,max_Rstrecv,sizeof(double))) == NULL)
+      (double**)calloc_2d_array(maxND,max_Rstrecv,sizeof(double))) == NULL)
     ath_error("[SMR_init]: Failed to allocate recv_bufRst\n");
 
 
-   /* Allocate memory space for prolongation data */
-   if((Probuf=(ConsS***)calloc_3d_array(max3,max2,max1,sizeof(ConsS)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate Probuf\n");
+/* Allocate memory space for prolongation data */
+  if((Probuf=(ConsS***)calloc_3d_array(max3,max2,max1,sizeof(ConsS)))
+     ==NULL) ath_error("[SMR_init]:Failed to allocate Probuf\n");
 #if defined(MHD) || defined(RADIATION_MHD)
-   if((RstBFld=(Real3Vect***)calloc_3d_array(max3,max2,max1,sizeof(Real3Vect)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate RstBFld\n");
+  if((RstBFld=(Real3Vect***)calloc_3d_array(max3,max2,max1,sizeof(Real3Vect)))
+     ==NULL) ath_error("[SMR_init]:Failed to allocate RstBFld\n");
 #endif /* end mhd */
 
 #endif /* end rstsmr */
@@ -2839,19 +2839,19 @@ void SMR_init(MeshS *pM)
   max3 += 2*nghost;
 
   if((GZ[0]=(ConsS***)calloc_3d_array(max3,max2,nghost,sizeof(ConsS)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[0]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[0]C\n");
   if((GZ[1]=(ConsS***)calloc_3d_array(max3,nghost,max1,sizeof(ConsS)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[1]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[1]C\n");
   if((GZ[2]=(ConsS***)calloc_3d_array(nghost,max2,max1,sizeof(ConsS)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[2]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate GZ[2]C\n");
 #if defined(MHD) || defined(RADIATION_MHD)
   ngh1 = nghost + 1;
   if((BFld[0]=(Real3Vect***)calloc_3d_array(max3,max2,ngh1,sizeof(Real3Vect)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[0]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[0]C\n");
   if((BFld[1]=(Real3Vect***)calloc_3d_array(max3,ngh1,max1,sizeof(Real3Vect)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[1]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[1]C\n");
   if((BFld[2]=(Real3Vect***)calloc_3d_array(ngh1,max2,max1,sizeof(Real3Vect)))
-    ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[2]C\n");
+     ==NULL) ath_error("[SMR_init]:Failed to allocate BFld[2]C\n");
 #endif /* MHD */
 
   return;
@@ -2886,42 +2886,42 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 #ifdef FIRST_ORDER
 
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].d  = Ui.d;
-    PCon[k][j][i].M1 = Ui.M1;
-    PCon[k][j][i].M2 = Ui.M2;
-    PCon[k][j][i].M3 = Ui.M3;
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].d  = Ui.d;
+        PCon[k][j][i].M1 = Ui.M1;
+        PCon[k][j][i].M2 = Ui.M2;
+        PCon[k][j][i].M3 = Ui.M3;
 #ifndef BAROTROPIC
-    PCon[k][j][i].E  = Ui.E;
+        PCon[k][j][i].E  = Ui.E;
 #endif /* BAROTROPIC */
 #if defined(MHD) || defined(RADIATION_MHD)
-    PCon[k][j][i].B1c = Ui.B1c;
-    PCon[k][j][i].B2c = Ui.B2c;
-    PCon[k][j][i].B3c = Ui.B3c;
+        PCon[k][j][i].B1c = Ui.B1c;
+        PCon[k][j][i].B2c = Ui.B2c;
+        PCon[k][j][i].B3c = Ui.B3c;
 #endif /* MHD */
 #if (NSCALARS > 0)
-    for (n=0; n<NSCALARS; n++) PCon[k][j][i].s[n] = Ui.s[n];
+        for (n=0; n<NSCALARS; n++) PCon[k][j][i].s[n] = Ui.s[n];
 #endif /* NSCALARS */
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-   PCon[k][j][i].Er = Ui.Er;
-   PCon[k][j][i].Fr1 = Ui.Fr1;
-   PCon[k][j][i].Fr2 = Ui.Fr2;
-   PCon[k][j][i].Fr3 = Ui.Fr3;
-   PCon[k][j][i].Edd_11 = Ui.Edd_11;
-   PCon[k][j][i].Edd_21 = Ui.Edd_21;
-   PCon[k][j][i].Edd_22 = Ui.Edd_22;
-   PCon[k][j][i].Edd_31 = Ui.Edd_31;
-   PCon[k][j][i].Edd_32 = Ui.Edd_32;
-   PCon[k][j][i].Edd_33 = Ui.Edd_33;
+        PCon[k][j][i].Er = Ui.Er;
+        PCon[k][j][i].Fr1 = Ui.Fr1;
+        PCon[k][j][i].Fr2 = Ui.Fr2;
+        PCon[k][j][i].Fr3 = Ui.Fr3;
+        PCon[k][j][i].Edd_11 = Ui.Edd_11;
+        PCon[k][j][i].Edd_21 = Ui.Edd_21;
+        PCon[k][j][i].Edd_22 = Ui.Edd_22;
+        PCon[k][j][i].Edd_31 = Ui.Edd_31;
+        PCon[k][j][i].Edd_32 = Ui.Edd_32;
+        PCon[k][j][i].Edd_33 = Ui.Edd_33;
 
-   for(nr=0; nr<NOPACITY; nr++)
-	PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
+        for(nr=0; nr<NOPACITY; nr++)
+          PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
 #endif
 
 
-  }}}
+      }}}
 
 /* second order prolongation -- apply limited slope reconstruction */
 #else /* SECOND_ORDER or THIRD_ORDER */
@@ -2931,44 +2931,44 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   dq2 = mcd_slope(Ujm1.d, Ui.d, Ujp1.d);
   dq3 = mcd_slope(Ukm1.d, Ui.d, Ukp1.d);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].d  = Ui.d 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].d  = Ui.d
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 /* 1-momentum */
   dq1 = mcd_slope(Uim1.M1, Ui.M1, Uip1.M1);
   dq2 = mcd_slope(Ujm1.M1, Ui.M1, Ujp1.M1);
   dq3 = mcd_slope(Ukm1.M1, Ui.M1, Ukp1.M1);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].M1 = Ui.M1 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].M1 = Ui.M1
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 /* 2-momentum */
   dq1 = mcd_slope(Uim1.M2, Ui.M2, Uip1.M2);
   dq2 = mcd_slope(Ujm1.M2, Ui.M2, Ujp1.M2);
   dq3 = mcd_slope(Ukm1.M2, Ui.M2, Ukp1.M2);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].M2 = Ui.M2 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].M2 = Ui.M2
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 /* 3-momentum */
   dq1 = mcd_slope(Uim1.M3, Ui.M3, Uip1.M3);
   dq2 = mcd_slope(Ujm1.M3, Ui.M3, Ujp1.M3);
   dq3 = mcd_slope(Ukm1.M3, Ui.M3, Ukp1.M3);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].M3 = Ui.M3 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].M3 = Ui.M3
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 #if defined(MHD) || defined(RADIATION_MHD)
 /* 1-cell-centered magnetic field */
@@ -2976,33 +2976,33 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   dq2 = mcd_slope(Ujm1.B1c, Ui.B1c, Ujp1.B1c);
   dq3 = mcd_slope(Ukm1.B1c, Ui.B1c, Ukp1.B1c);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].B1c = Ui.B1c 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].B1c = Ui.B1c
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 /* 2-cell-centered magnetic field */
   dq1 = mcd_slope(Uim1.B2c, Ui.B2c, Uip1.B2c);
   dq2 = mcd_slope(Ujm1.B2c, Ui.B2c, Ujp1.B2c);
   dq3 = mcd_slope(Ukm1.B2c, Ui.B2c, Ukp1.B2c);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].B2c = Ui.B2c 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].B2c = Ui.B2c
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 /* 3-cell-centered magnetic field */
   dq1 = mcd_slope(Uim1.B3c, Ui.B3c, Uip1.B3c);
   dq2 = mcd_slope(Ujm1.B3c, Ui.B3c, Ujp1.B3c);
   dq3 = mcd_slope(Ukm1.B3c, Ui.B3c, Ukp1.B3c);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].B3c = Ui.B3c 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].B3c = Ui.B3c
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 #endif /* MHD */
 
 #ifndef BAROTROPIC
@@ -3016,11 +3016,11 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   dq2 = mcd_slope(Ujm1.E, Ui.E, Ujp1.E);
   dq3 = mcd_slope(Ukm1.E, Ui.E, Ukp1.E);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].E = Ui.E 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].E = Ui.E
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+      }}}
 
 #else
 
@@ -3053,17 +3053,17 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   dq3 = mcd_slope(Pkm1, Pi, Pkp1);
 
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].E = Pi
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-    PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].M1) + SQR(PCon[k][j][i].M2) +
-      SQR(PCon[k][j][i].M3))/PCon[k][j][i].d;
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].E = Pi
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+        PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].M1) + SQR(PCon[k][j][i].M2) +
+                                SQR(PCon[k][j][i].M3))/PCon[k][j][i].d;
 #if defined(MHD) || defined(RADIATION_MHD)
-    PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].B1c) + SQR(PCon[k][j][i].B2c) +
-      SQR(PCon[k][j][i].B3c));
+        PCon[k][j][i].E += 0.5*(SQR(PCon[k][j][i].B1c) + SQR(PCon[k][j][i].B2c) +
+                                SQR(PCon[k][j][i].B3c));
 #endif /* MHD */
-  }}}
+      }}}
 
 #endif /* SPECIAL_RELATIVITY */
 #endif /* BAROTROPIC */
@@ -3075,11 +3075,11 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
     dq2 = mcd_slope(Ujm1.s[n], Ui.s[n], Ujp1.s[n]);
     dq3 = mcd_slope(Ukm1.s[n], Ui.s[n], Ukp1.s[n]);
     for (k=0; k<2; k++){
-    for (j=0; j<2; j++){
-    for (i=0; i<2; i++){
-      PCon[k][j][i].s[n] = Ui.s[n] 
-        + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
-    }}}
+      for (j=0; j<2; j++){
+        for (i=0; i<2; i++){
+          PCon[k][j][i].s[n] = Ui.s[n]
+            + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;;
+        }}}
   }
 #endif /* NSCALARS */
 
@@ -3090,170 +3090,170 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 
 
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
-   Erfail = 0;
-	/* Prolongate Er */
+  Erfail = 0;
+/* Prolongate Er */
   dq1 = mcd_slope(Uim1.Er, Ui.Er, Uip1.Er);
   dq2 = mcd_slope(Ujm1.Er, Ui.Er, Ujp1.Er);
   dq3 = mcd_slope(Ukm1.Er, Ui.Er, Ukp1.Er);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Er  = Ui.Er 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	/* If Er becomes negative, we will use first order prolongation */
-	if(PCon[k][j][i].Er < 0.0)
-		Erfail = 1;
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Er  = Ui.Er
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+/* If Er becomes negative, we will use first order prolongation */
+        if(PCon[k][j][i].Er < 0.0)
+          Erfail = 1;
+      }}}
 
-	/* Prolongate Fr1 */	
+/* Prolongate Fr1 */
   dq1 = mcd_slope(Uim1.Fr1, Ui.Fr1, Uip1.Fr1);
   dq2 = mcd_slope(Ujm1.Fr1, Ui.Fr1, Ujp1.Fr1);
   dq3 = mcd_slope(Ukm1.Fr1, Ui.Fr1, Ukp1.Fr1);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Fr1  = Ui.Fr1 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Fr1  = Ui.Fr1
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+
+      }}}
 
 
-	/* Prolongate Fr2 */	
+/* Prolongate Fr2 */
   dq1 = mcd_slope(Uim1.Fr2, Ui.Fr2, Uip1.Fr2);
   dq2 = mcd_slope(Ujm1.Fr2, Ui.Fr2, Ujp1.Fr2);
   dq3 = mcd_slope(Ukm1.Fr2, Ui.Fr2, Ukp1.Fr2);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Fr2  = Ui.Fr2 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Fr2  = Ui.Fr2
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+
+      }}}
 
 
-	/* Prolongate Fr3 */	
+/* Prolongate Fr3 */
   dq1 = mcd_slope(Uim1.Fr3, Ui.Fr3, Uip1.Fr3);
   dq2 = mcd_slope(Ujm1.Fr3, Ui.Fr3, Ujp1.Fr3);
   dq3 = mcd_slope(Ukm1.Fr3, Ui.Fr3, Ukp1.Fr3);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Fr3  = Ui.Fr3 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Fr3  = Ui.Fr3
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+
+      }}}
 
 
-	/* Prolongate Edd_11 */	
+/* Prolongate Edd_11 */
   dq1 = mcd_slope(Uim1.Edd_11, Ui.Edd_11, Uip1.Edd_11);
   dq2 = mcd_slope(Ujm1.Edd_11, Ui.Edd_11, Ujp1.Edd_11);
   dq3 = mcd_slope(Ukm1.Edd_11, Ui.Edd_11, Ukp1.Edd_11);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_11  = Ui.Edd_11 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_11  = Ui.Edd_11
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+
+      }}}
 
 
-	/* Prolongate Edd_21 */	
+/* Prolongate Edd_21 */
   dq1 = mcd_slope(Uim1.Edd_21, Ui.Edd_21, Uip1.Edd_21);
   dq2 = mcd_slope(Ujm1.Edd_21, Ui.Edd_21, Ujp1.Edd_21);
   dq3 = mcd_slope(Ukm1.Edd_21, Ui.Edd_21, Ukp1.Edd_21);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_21  = Ui.Edd_21 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_21  = Ui.Edd_21
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
 
-	/* Prolongate Edd_22 */	
+      }}}
+
+/* Prolongate Edd_22 */
   dq1 = mcd_slope(Uim1.Edd_22, Ui.Edd_22, Uip1.Edd_22);
   dq2 = mcd_slope(Ujm1.Edd_22, Ui.Edd_22, Ujp1.Edd_22);
   dq3 = mcd_slope(Ukm1.Edd_22, Ui.Edd_22, Ukp1.Edd_22);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_22  = Ui.Edd_22 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_22  = Ui.Edd_22
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
 
-	/* Prolongate Edd_31 */	
+      }}}
+
+/* Prolongate Edd_31 */
   dq1 = mcd_slope(Uim1.Edd_31, Ui.Edd_31, Uip1.Edd_31);
   dq2 = mcd_slope(Ujm1.Edd_31, Ui.Edd_31, Ujp1.Edd_31);
   dq3 = mcd_slope(Ukm1.Edd_31, Ui.Edd_31, Ukp1.Edd_31);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_31  = Ui.Edd_31 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_31  = Ui.Edd_31
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
+
+      }}}
 
 
-	/* Prolongate Edd_32 */	
+/* Prolongate Edd_32 */
   dq1 = mcd_slope(Uim1.Edd_32, Ui.Edd_32, Uip1.Edd_32);
   dq2 = mcd_slope(Ujm1.Edd_32, Ui.Edd_32, Ujp1.Edd_32);
   dq3 = mcd_slope(Ukm1.Edd_32, Ui.Edd_32, Ukp1.Edd_32);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_32  = Ui.Edd_32 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_32  = Ui.Edd_32
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
 
-	/* Prolongate Edd_33 */	
+      }}}
+
+/* Prolongate Edd_33 */
   dq1 = mcd_slope(Uim1.Edd_33, Ui.Edd_33, Uip1.Edd_33);
   dq2 = mcd_slope(Ujm1.Edd_33, Ui.Edd_33, Ujp1.Edd_33);
   dq3 = mcd_slope(Ukm1.Edd_33, Ui.Edd_33, Ukp1.Edd_33);
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    PCon[k][j][i].Edd_33  = Ui.Edd_33 
-      + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        PCon[k][j][i].Edd_33  = Ui.Edd_33
+          + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
 
-	/* Prolongate Sigma[m] */
-  for(nr=0; nr<NOPACITY; nr++){	
-  	dq1 = mcd_slope(Uim1.Sigma[nr], Ui.Sigma[nr], Uip1.Sigma[nr]);
-  	dq2 = mcd_slope(Ujm1.Sigma[nr], Ui.Sigma[nr], Ujp1.Sigma[nr]);
-  	dq3 = mcd_slope(Ukm1.Sigma[nr], Ui.Sigma[nr], Ukp1.Sigma[nr]);
-  	for (k=0; k<2; k++){
-  	for (j=0; j<2; j++){
-  	for (i=0; i<2; i++){
-   		 PCon[k][j][i].Sigma[nr]  = Ui.Sigma[nr] 
-      			+ (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
-	
-  	}}}
- }
+      }}}
 
-  /* If Er becomes negative due to prolongation, we will use first order prolongation */ 
-   if(Erfail){
-	for (k=0; k<2; k++){
-  	for (j=0; j<2; j++){
-  	for (i=0; i<2; i++){
-   		PCon[k][j][i].Er = Ui.Er;
-   		PCon[k][j][i].Fr1 = Ui.Fr1;
-   		PCon[k][j][i].Fr2 = Ui.Fr2;
-   		PCon[k][j][i].Fr3 = Ui.Fr3;
-   		PCon[k][j][i].Edd_11 = Ui.Edd_11;
-   		PCon[k][j][i].Edd_21 = Ui.Edd_21;
-   		PCon[k][j][i].Edd_22 = Ui.Edd_22;
-   		PCon[k][j][i].Edd_31 = Ui.Edd_31;
-   		PCon[k][j][i].Edd_32 = Ui.Edd_32;
-   		PCon[k][j][i].Edd_33 = Ui.Edd_33;
+/* Prolongate Sigma[m] */
+  for(nr=0; nr<NOPACITY; nr++){
+    dq1 = mcd_slope(Uim1.Sigma[nr], Ui.Sigma[nr], Uip1.Sigma[nr]);
+    dq2 = mcd_slope(Ujm1.Sigma[nr], Ui.Sigma[nr], Ujp1.Sigma[nr]);
+    dq3 = mcd_slope(Ukm1.Sigma[nr], Ui.Sigma[nr], Ukp1.Sigma[nr]);
+    for (k=0; k<2; k++){
+      for (j=0; j<2; j++){
+        for (i=0; i<2; i++){
+          PCon[k][j][i].Sigma[nr]  = Ui.Sigma[nr]
+            + (0.5*i - 0.25)*dq1 + (0.5*j - 0.25)*dq2 + (0.5*k - 0.25)*dq3;
 
-   		for(nr=0; nr<NOPACITY; nr++)
-			PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
-   		
+        }}}
+  }
 
-	}}}
-   }
+/* If Er becomes negative due to prolongation, we will use first order prolongation */
+  if(Erfail){
+    for (k=0; k<2; k++){
+      for (j=0; j<2; j++){
+        for (i=0; i<2; i++){
+          PCon[k][j][i].Er = Ui.Er;
+          PCon[k][j][i].Fr1 = Ui.Fr1;
+          PCon[k][j][i].Fr2 = Ui.Fr2;
+          PCon[k][j][i].Fr3 = Ui.Fr3;
+          PCon[k][j][i].Edd_11 = Ui.Edd_11;
+          PCon[k][j][i].Edd_21 = Ui.Edd_21;
+          PCon[k][j][i].Edd_22 = Ui.Edd_22;
+          PCon[k][j][i].Edd_31 = Ui.Edd_31;
+          PCon[k][j][i].Edd_32 = Ui.Edd_32;
+          PCon[k][j][i].Edd_33 = Ui.Edd_33;
+
+          for(nr=0; nr<NOPACITY; nr++)
+            PCon[k][j][i].Sigma[nr] = Ui.Sigma[nr];
+
+
+        }}}
+  }
 #endif /* End if radiation hydro || radiation mhd */
 
 
@@ -3271,28 +3271,28 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
   Vfail = 0;
   fail = 0;
   for (k=0; k<2; k++){
-  for (j=0; j<2; j++){
-  for (i=0; i<2; i++){
-    W = check_Prim(&(PCon[k][j][i]));
-    Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
-    if (W.d < 0.0){
-      dfail++;
-      fail = 1;
-    }
-    if (W.P < 0.0){
-      Pfail++;
-      fail = 1;
-    }
-    if (Vsq > 1.0){
-      Vfail++;
-      fail = 1;
-    }
-  }}}
+    for (j=0; j<2; j++){
+      for (i=0; i<2; i++){
+        W = check_Prim(&(PCon[k][j][i]));
+        Vsq = SQR(W.V1) + SQR(W.V2) + SQR(W.V3);
+        if (W.d < 0.0){
+          dfail++;
+          fail = 1;
+        }
+        if (W.P < 0.0){
+          Pfail++;
+          fail = 1;
+        }
+        if (Vsq > 1.0){
+          Vfail++;
+          fail = 1;
+        }
+      }}}
 
 /* If the state is unphysical, revert to first order prologongation */
 
   if (fail) {
-    
+
     for (k=0; k<2; k++){
       for (j=0; j<2; j++){
         for (i=0; i<2; i++){
@@ -3325,7 +3325,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
 }
 
 /*----------------------------------------------------------------------------*/
-/*! \fn void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
+/*! \fn void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
  *            const Real dx1c, const Real dx2c, const Real dx3c)
  *  \brief Uses the divergence-preserving prolongation operators of
  * Toth & Roe (JCP, 180, 736, 2002) to interpolate the face centered fields
@@ -3333,7 +3333,7 @@ void ProCon(const ConsS Uim1,const ConsS Ui,  const ConsS Uip1,
  */
 
 #if defined(MHD) || defined(RADIATION_MHD)
-void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3], 
+void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
             const Real dx1c, const Real dx2c, const Real dx3c)
 {
   int i,j,k;
@@ -3432,20 +3432,20 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
   Uxx = Vyy = Wzz = 0.0;
   Uxyz = Vxyz = Wxyz = 0.0;
   for(j=0; j<2; j++){
-  for(i=0; i<2; i++){
-    Uxx += (2*i-1)*((2*j-1)*dx3c*(PFld[0][2*j][i].x2 + PFld[1][2*j][i].x2) +
-                            dx2c*(PFld[2][j  ][i].x3 - PFld[0][j  ][i].x3) );
+    for(i=0; i<2; i++){
+      Uxx += (2*i-1)*((2*j-1)*dx3c*(PFld[0][2*j][i].x2 + PFld[1][2*j][i].x2) +
+                      dx2c*(PFld[2][j  ][i].x3 - PFld[0][j  ][i].x3) );
 
-    Vyy += (2*j-1)*(        dx1c*(PFld[2][j][i  ].x3 - PFld[0][j][i  ].x3) +
-                    (2*i-1)*dx3c*(PFld[0][j][2*i].x1 + PFld[1][j][2*i].x1) );
+      Vyy += (2*j-1)*(        dx1c*(PFld[2][j][i  ].x3 - PFld[0][j][i  ].x3) +
+                              (2*i-1)*dx3c*(PFld[0][j][2*i].x1 + PFld[1][j][2*i].x1) );
 
-    Wzz += ((2*i-1)*dx2c*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1) +
-            (2*j-1)*dx1c*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2) );
+      Wzz += ((2*i-1)*dx2c*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1) +
+              (2*j-1)*dx1c*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2) );
 
-    Uxyz += (2*i-1)*(2*j-1)*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1);
-    Vxyz += (2*i-1)*(2*j-1)*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2);
-    Wxyz += (2*i-1)*(2*j-1)*(PFld[2][j][i].x3 - PFld[0][j][i].x3);
-  }}
+      Uxyz += (2*i-1)*(2*j-1)*(PFld[1][j][2*i].x1 - PFld[0][j][2*i].x1);
+      Vxyz += (2*i-1)*(2*j-1)*(PFld[1][2*j][i].x2 - PFld[0][2*j][i].x2);
+      Wxyz += (2*i-1)*(2*j-1)*(PFld[2][j][i].x3 - PFld[0][j][i].x3);
+    }}
 
 /* Multiply through by some common factors */
 
@@ -3459,26 +3459,26 @@ void ProFld(Real3Vect BGZ[][3][3], Real3Vect PFld[][3][3],
 /* Initialize B1i on interior faces */
 
   for(k=0; k<2; k++){
-  for(j=0; j<2; j++){
-    PFld[k][j][1].x1 =0.5*(PFld[k][j][0].x1 + PFld[k][j][2].x1) +Uxx/(dx2c*dx3c)
-       + (2*k-1)*(dx3c/dx2c)*Vxyz + (2*j-1)*(dx2c/dx3c)*Wxyz;
-  }}
+    for(j=0; j<2; j++){
+      PFld[k][j][1].x1 =0.5*(PFld[k][j][0].x1 + PFld[k][j][2].x1) +Uxx/(dx2c*dx3c)
+        + (2*k-1)*(dx3c/dx2c)*Vxyz + (2*j-1)*(dx2c/dx3c)*Wxyz;
+    }}
 
 /* Initialize B2i on interior faces */
 
   for(k=0; k<2; k++){
-  for(i=0; i<2; i++){
-    PFld[k][1][i].x2 =0.5*(PFld[k][0][i].x2 + PFld[k][2][i].x2) +Vyy/(dx3c*dx1c)
-      + (2*i-1)*(dx1c/dx3c)*Wxyz + (2*k-1)*(dx3c/dx1c)*Uxyz;
-  }}
+    for(i=0; i<2; i++){
+      PFld[k][1][i].x2 =0.5*(PFld[k][0][i].x2 + PFld[k][2][i].x2) +Vyy/(dx3c*dx1c)
+        + (2*i-1)*(dx1c/dx3c)*Wxyz + (2*k-1)*(dx3c/dx1c)*Uxyz;
+    }}
 
 /* Initialize B3i on interior faces */
 
   for(j=0; j<2; j++){
-  for(i=0; i<2; i++){
-    PFld[1][j][i].x3 =0.5*(PFld[0][j][i].x3 + PFld[2][j][i].x3) +Wzz/(dx1c*dx2c)
-      + (2*j-1)*(dx2c/dx1c)*Uxyz + (2*i-1)*(dx1c/dx2c)*Vxyz;
-  }}
+    for(i=0; i<2; i++){
+      PFld[1][j][i].x3 =0.5*(PFld[0][j][i].x3 + PFld[2][j][i].x3) +Wzz/(dx1c*dx2c)
+        + (2*j-1)*(dx2c/dx1c)*Uxyz + (2*i-1)*(dx1c/dx2c)*Vxyz;
+    }}
 
 }
 #endif /* MHD */
