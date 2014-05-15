@@ -202,8 +202,12 @@ void bvals_mhd(DomainS *pD)
   if (pGrid->Nx[0] > 1){
 
 #ifdef MPI_PARALLEL
+#ifdef CONS_GRAVITY
+    cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2])*(NVAR+1);
+#else
     cnt = nghost*(pGrid->Nx[1])*(pGrid->Nx[2])*(NVAR);
-
+#endif
+      
 #if defined(MHD) || defined(RADIATION_MHD)
     cnt2 = (pGrid->Nx[1] > 1) ? (pGrid->Nx[1] + 1) : 1;
     cnt3 = (pGrid->Nx[2] > 1) ? (pGrid->Nx[2] + 1) : 1;
@@ -306,8 +310,11 @@ void bvals_mhd(DomainS *pD)
   if (pGrid->Nx[1] > 1){
 
 #ifdef MPI_PARALLEL
+#ifdef CONS_GRAVITY
+    cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2])*(NVAR+1);
+#else
     cnt = (pGrid->Nx[0] + 2*nghost)*nghost*(pGrid->Nx[2])*(NVAR);
-
+#endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
     cnt3 = (pGrid->Nx[2] > 1) ? (pGrid->Nx[2] + 1) : 1;
@@ -424,8 +431,11 @@ void bvals_mhd(DomainS *pD)
   if (pGrid->Nx[2] > 1){
 
 #ifdef MPI_PARALLEL
+#ifdef CONS_GRAVITY
+    cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost*(NVAR+1);
+#else
     cnt = (pGrid->Nx[0] + 2*nghost)*(pGrid->Nx[1] + 2*nghost)*nghost*(NVAR);
-
+#endif
 
 #if defined(MHD) || defined(RADIATION_MHD)
     cnt += (pGrid->Nx[0] + 2*nghost - 1)*(pGrid->Nx[1] + 2*nghost)*nghost;
@@ -910,13 +920,23 @@ void bvals_mhd_init(MeshS *pM)
       ath_error("[bvals_init]: Failed to allocate recv buffer\n");
 #endif
 
+#ifdef CONS_GRAVITY
 
+#if defined(MHD) || defined(RADIATION_MHD)
+    size *= nghost*((NVAR)+3+1);
+#else
+    size *= nghost*(NVAR+1);
+#endif
+    
+#else
+    
 #if defined(MHD) || defined(RADIATION_MHD)
   size *= nghost*((NVAR)+3);
 #else
   size *= nghost*(NVAR);
 #endif
 
+#endif
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
@@ -1006,6 +1026,10 @@ static void reflect_ix1(GridS *pGrid)
 #if defined(MHD) || defined(RADIATION_MHD)
         pGrid->U[k][j][is-i].B1c= -pGrid->U[k][j][is-i].B1c;/* reflect 1-fld. */
 #endif
+          
+#ifdef CONS_GRAVITY
+    pGrid->dphidtsource[k][j][is-i] = pGrid->dphidtsource[k][j][is+(i-1)];
+#endif
 
 
 
@@ -1072,7 +1096,9 @@ static void reflect_ox1(GridS *pGrid)
         pGrid->U[k][j][ie+i].B1c= -pGrid->U[k][j][ie+i].B1c;/* reflect 1-fld. */
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][ie+i] = pGrid->dphidtsource[k][j][ie-(i-1)];
+#endif
 
 
       }
@@ -1138,7 +1164,10 @@ static void reflect_ix2(GridS *pGrid)
         pGrid->U[k][js-j][i].B2c= -pGrid->U[k][js-j][i].B2c;/* reflect 2-fld. */
 #endif
 
-
+#ifdef CONS_GRAVITY
+          pGrid->dphidtsource[k][js-j][i] = pGrid->dphidtsource[k][js+(j-1)][i];
+#endif
+          
       }
     }
   }
@@ -1204,7 +1233,9 @@ static void reflect_ox2(GridS *pGrid)
         pGrid->U[k][je+j][i].B2c= -pGrid->U[k][je+j][i].B2c;/* reflect 2-fld. */
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][je+j][i] = pGrid->dphidtsource[k][je+j][i];
+#endif
 
       }
     }
@@ -1268,7 +1299,9 @@ static void reflect_ix3(GridS *pGrid)
         pGrid->U[ks-k][j][i].B3c= -pGrid->U[ks-k][j][i].B3c;/* reflect 3-fld.*/
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ks-k][j][i] = pGrid->dphidtsource[ks+(k-1)][j][i];
+#endif
 
       }
     }
@@ -1334,7 +1367,9 @@ static void reflect_ox3(GridS *pGrid)
         pGrid->U[ke+k][j][i].B3c= -pGrid->U[ke+k][j][i].B3c;/* reflect 3-fld. */
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ke+k][j][i] = pGrid->dphidtsource[ke-(k-1)][j][i];
+#endif
 
       }
     }
@@ -1395,6 +1430,10 @@ static void outflow_ix1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][is-i] = pGrid->U[k][j][is];
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][is-i] = pGrid->dphidtsource[k][j][is];
+#endif
 
       }
     }
@@ -1450,7 +1489,10 @@ static void outflow_ox1(GridS *pGrid)
     for (j=js; j<=je; j++) {
       for (i=1; i<=nghost; i++) {
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][ie];
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][ie+i] = pGrid->dphidtsource[k][j][ie];
+#endif
+          
       }
     }
   }
@@ -1505,7 +1547,11 @@ static void outflow_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][js][i];
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][js-j][i] = pGrid->dphidtsource[k][js][i];
+#endif
+          
       }
     }
   }
@@ -1560,6 +1606,10 @@ static void outflow_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][je][i];
+#ifdef CONS_GRAVITY
+          pGrid->dphidtsource[k][je+j][i] = pGrid->dphidtsource[k][je][i];
+#endif
+          
 
       }
     }
@@ -1612,7 +1662,10 @@ static void outflow_ix3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ks][j][i];
-
+#ifdef CONS_GRAVITY
+          pGrid->dphidtsource[ks-k][j][i] = pGrid->dphidtsource[ks][j][i];
+#endif
+          
       }
     }
   }
@@ -1664,6 +1717,10 @@ static void outflow_ox3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ke][j][i];
+          
+#ifdef CONS_GRAVITY
+          pGrid->dphidtsource[ke+k][j][i] = pGrid->dphidtsource[ke][j][i];
+#endif
 
       }
     }
@@ -1735,6 +1792,10 @@ static void periodic_ix1(GridS *pGrid)
 
 #endif
         pGrid->U[k][j][is-i] = pGrid->U[k][j][ie-(i-1)];
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][is-i] = pGrid->dphidtsource[k][j][ie-(i-1)];
+#endif
 
 
 		  
@@ -1818,7 +1879,9 @@ static void periodic_ox1(GridS *pGrid)
 			
         pGrid->U[k][j][ie+i] = pGrid->U[k][j][is+(i-1)];
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][ie+i] = pGrid->dphidtsource[k][j][is+(i-1)];
+#endif
 			
 #if defined(RADIATION_MHD) || defined(RADIATION_HYDRO)
 #ifdef SHEARING_BOX		  
@@ -1883,6 +1946,10 @@ static void periodic_ix2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][js-j][i] = pGrid->U[k][je-(j-1)][i];
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][js-j][i] = pGrid->dphidtsource[k][je-(j-1)][i];
+#endif
 
       }
     }
@@ -1938,6 +2005,10 @@ static void periodic_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[k][je+j][i] = pGrid->U[k][js+(j-1)][i];
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][je+j][i] = pGrid->dphidtsource[k][js+(j-1)][i];
+#endif
 
       }
     }
@@ -1990,7 +2061,10 @@ static void periodic_ix3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ks-k][j][i] = pGrid->U[ke-(k-1)][j][i];
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ks-k][j][i] = pGrid->dphidtsource[ke-(k-1)][j][i];
+#endif
       }
     }
   }
@@ -2042,7 +2116,11 @@ static void periodic_ox3(GridS *pGrid)
     for (j=js-nghost; j<=je+nghost; j++) {
       for (i=is-nghost; i<=ie+nghost; i++) {
         pGrid->U[ke+k][j][i] = pGrid->U[ks+(k-1)][j][i];
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ke+k][j][i] = pGrid->dphidtsource[ks+(k-1)][j][i];
+#endif
+          
       }
     }
   }
@@ -2106,7 +2184,9 @@ static void conduct_ix1(GridS *pGrid)
 	pGrid->U[k][j][is-i].Fr1 = -pGrid->U[k][j][is-i].Fr1; /* reflect 1-rad Flux. */
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][is-i] = pGrid->dphidtsource[k][j][is+(i-1)];
+#endif
 
 
       }
@@ -2172,7 +2252,9 @@ static void conduct_ox1(GridS *pGrid)
 	pGrid->U[k][j][ie+i].Fr1 = -pGrid->U[k][j][ie+i].Fr1; /* reflect 1-rad Flux */
 #endif
 
-
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][j][ie+i] = pGrid->dphidtsource[k][j][ie-(i-1)];
+#endif
 
       }
     }
@@ -2236,7 +2318,10 @@ static void conduct_ix2(GridS *pGrid)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][js-j][i].Fr2 = -pGrid->U[k][js-j][i].Fr2; /* reflect 2 radFlux */
 #endif
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][js-j][i] = pGrid->dphidtsource[k][js+(j-1)][i];
+#endif
 
       }
     }
@@ -2300,7 +2385,10 @@ static void conduct_ox2(GridS *pGrid)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[k][je+j][i].Fr2 = -pGrid->U[k][je+j][i].Fr2; /* reflect 2-rad Flux. */
 #endif
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[k][je+j][i] = pGrid->dphidtsource[k][je-(j-1)][i];
+#endif
 
       }
     }
@@ -2362,6 +2450,9 @@ static void conduct_ix3(GridS *pGrid)
 	pGrid->U[ks-k][j][i].Fr3 = -pGrid->U[ks-k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
 
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ks-k][j][i] = pGrid->dphidtsource[ks+(k-1)][j][i];
+#endif
 
       }
     }
@@ -2422,7 +2513,10 @@ static void conduct_ox3(GridS *pGrid)
 #if defined(RADIATION_HYDRO) || defined(RADIATION_MHD)
 	pGrid->U[ke+k][j][i].Fr3 = -pGrid->U[ke+k][j][i].Fr3; /* reflect 3-rad Flux. */
 #endif
-
+          
+#ifdef CONS_GRAVITY
+        pGrid->dphidtsource[ke+k][j][i] = pGrid->dphidtsource[ke-(k-1)][j][i];
+#endif
 
       }
     }
@@ -2863,7 +2957,10 @@ static void pack_ix1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-
+          
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
       }
     }
   }
@@ -2937,6 +3034,10 @@ static void pack_ox1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
+  
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
 
       }
     }
@@ -3009,6 +3110,10 @@ static void pack_ix2(GridS *pG)
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
+#endif
+          
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
 
       }
@@ -3084,6 +3189,10 @@ static void pack_ox2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
+          
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
 
       }
     }
@@ -3155,6 +3264,10 @@ static void pack_ix3(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
+    
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
 
       }
     }
@@ -3225,6 +3338,10 @@ static void pack_ox3(GridS *pG)
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
+#endif
+        
+#ifdef CONS_GRAVITY
+        *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
 
       }
@@ -3300,6 +3417,10 @@ static void unpack_ix1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
+          
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
+#endif
 
       }
     }
@@ -3373,6 +3494,10 @@ static void unpack_ox1(GridS *pG)
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
+#endif
+    
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
 
       }
@@ -3449,6 +3574,10 @@ static void unpack_ix2(GridS *pG)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
 
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
+#endif
+
       }
     }
   }
@@ -3522,6 +3651,10 @@ static void unpack_ox2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
+          
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
+#endif
 
       }
     }
@@ -3594,6 +3727,10 @@ static void unpack_ix3(GridS *pG)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
 
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
+#endif
+
       }
     }
   }
@@ -3663,6 +3800,10 @@ static void unpack_ox3(GridS *pG)
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
+#endif
+          
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
 
       }

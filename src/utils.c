@@ -2901,15 +2901,15 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 /* Absolution value of minimum velocity, actual value should include velocity */
 void FLD_limiter(const Real divEr, const Real Er, const Real Sigma, Real *lambda)
 {
-	Real FLDR, limiter;
-	FLDR = fabs(divEr)/(Sigma*Er);
-	if(FLDR < 1.e-6)
-		limiter = 1.0/3.0 - FLDR * FLDR/45.0;
-	else
-		limiter = (1.0/tanh(FLDR) - 1.0/FLDR)/FLDR;
-	
-	(*lambda) = limiter; 
-	
+        Real FLDR, limiter;
+        Real beta = 1.e-4;
+        FLDR = (fabs(divEr)/Er + beta)/Sigma;
+        if(FLDR < 1.e-6)
+	                limiter = 1.0/3.0 - FLDR * FLDR/45.0;
+        else
+	                limiter = (1.0/tanh(FLDR) - 1.0/FLDR)/FLDR;
+
+        (*lambda) = limiter;	
 	
 }
 

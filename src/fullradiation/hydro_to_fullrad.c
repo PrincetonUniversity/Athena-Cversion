@@ -71,7 +71,7 @@ void hydro_to_fullrad(DomainS *pD)
 	/* ------------------------------------*/
 	/* First, update the opacity */
 		  for(ifr=0; ifr<nf; ifr++) {
-			  get_full_opacity(pG,ifr,ig,jg,kg,&(pRG->R[ifr][k][j][i].Sigma[0]));
+			  get_full_opacity(pG,ifr,ig,jg,kg,&(pRG->R[k][j][i][ifr].Sigma[0]));
 		  }	
 
 	/*-------------------------------------------*/
@@ -225,7 +225,7 @@ void RadAsource(const int i, const int j, const int k, const int N, const int Ab
 					
 			if(DeltaKin[l] + 0.5 * rho * Vel[l] * Vel[l] < 0.0){
                  Msource[l] = -rho * Vel[l];
-                 DeltaKin[l] = 0.5 * rho * Vel[l] * Vel[l];
+                 DeltaKin[l] = -0.5 * rho * Vel[l] * Vel[l];
         	}
 					
 		}/* end l for three directions */

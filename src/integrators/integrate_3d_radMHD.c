@@ -3986,6 +3986,10 @@ k][j][i].M3);
 		pG->U[k][j][i].d  -= dtodx1*(x1Flux[k][j][i+1].d -x1Flux[k][j][i].d );
 		pG->U[k][j][i].d  -= dtodx2*(x2Flux[k][j+1][i].d -x2Flux[k][j][i].d );
 		pG->U[k][j][i].d  -= dtodx3*(x3Flux[k+1][j][i].d -x3Flux[k][j][i].d );
+          /* calculate the source term */
+          pG->dphidtsource[k][j][i] = -four_pi_G * ((pG->x1MassFlux[k][j][i+1] - pG->x1MassFlux[k][j][i])/pG->dx1
+          +(pG->x2MassFlux[k][j+1][i] - pG->x2MassFlux[k][j][i])/pG->dx2
+          +(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3);
 
       }
     }

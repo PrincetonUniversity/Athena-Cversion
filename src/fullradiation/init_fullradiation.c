@@ -51,10 +51,11 @@ VDFun_t init_fullradiation(MeshS *pM)
   int i,j,k,l,m,n,n1, n2, n3, n1z, n2z, n3z, nmu1, nmu2;
   int nang, nmu, noct,np, iang, ip, nelements, Mi;
 
-  Real phi, sintheta;
+  Real phi, sintheta, mu;
 
   /* Angleflag=0, use Shane's original scheme to choose angles */
   /* Angleflag=1, devide the angles so that the weight for each ray is the same */
+  /* Angleflag = 10, single mu_z, put all angles in the 2D plane */
   int Angleflag;
   Angleflag = par_geti("fullradiation","Angleflag");
  
@@ -100,6 +101,9 @@ VDFun_t init_fullradiation(MeshS *pM)
 		  if(Angleflag == 0){
 			  pRG->nang =  pRG->nmu * (pRG->nmu + 1) / 2;
 		  }
+          else if(Angleflag == 10){
+              pRG->nang = pRG->nmu;
+          }
 		  else { 
 			  /* In this case, divide longitude and latitude into nmu parts */
 			  pRG->nang = pRG->nmu;		  
@@ -488,6 +492,50 @@ VDFun_t init_fullradiation(MeshS *pM)
 			free_1d_array(mu2tmp);
 		
 		}/* End Angleflag == 0*/
+        else if(Angleflag == 10){
+            if ((nDim == 1) || (nDim == 3)) {
+                ath_error("[single_z_ray]: ang_quad = 10 should be used only for 2D problems.\n");
+            }
+                              
+            mutmp = (Real **)calloc_2d_array(pRG->nang,3,sizeof(Real));
+            if (mutmp == NULL)
+                ath_error("[single_z_ray]: Error allocating memory\n");
+                              
+            mu=1.0/sqrt((Real)3.0);
+            sintheta = sqrt((Real)2.0)/sqrt((Real)3.0);
+            phi = 0.5 * PI / (Real) (2*nmu);
+            for(i=0; i<nmu; i++) {
+                mutmp[i][0] = sintheta * cos( phi * (Real)(2*i+1));
+                mutmp[i][1] = sintheta * sin( phi * (Real)(2*i+1));
+                mutmp[i][2] = mu;
+            }
+            for(n2=0; n2<n2z; n2++){
+                for(n1=0; n1<n1z; n1++){
+                    for (j=0; j<2; j++) {
+                        for (k=0; k<2; k++) {
+                            l=2*j+k;
+                            for (i=0; i<pRG->nang; i++) {
+                                Mi = l * nang + i;
+                                if (k == 0)
+                                    pRG->mu[0][n2][n1][Mi][0] =  mutmp[i][0];
+                                else
+                                    pRG->mu[0][n2][n1][Mi][0] = -mutmp[i][0];
+                                if (j == 0)
+                                    pRG->mu[0][n2][n1][Mi][1] =  mutmp[i][1];
+                                else
+                                    pRG->mu[0][n2][n1][Mi][1] = -mutmp[i][1];
+                                
+                                pRG->wmu[0][n2][n1][Mi] = 0.25 / (Real)nmu;
+                            }
+                        }
+                        
+                    }
+                }
+            }
+            free_2d_array(mutmp);
+            
+            
+        }/* end if Angleflag == 10, with single ray along z direction */
 		else {
 			/* For this scheme, uniformly devide azimuthal phi and polidal angle sintheta */
 			if (nDim == 2) {

@@ -70,6 +70,7 @@ void selfg_fft_disk_1d(DomainS *pD)
   int ks = pG->ks;
   Real total_Phi=0.0,dx1sq = (pG->dx1*pG->dx1);
 /* Copy current potential into old */
+    
 
   for (i=is-nghost; i<=ie+nghost; i++){
     pG->Phi_old[ks][js][i] = pG->Phi[ks][js][i];
@@ -90,11 +91,47 @@ void selfg_fft_disk_1d(DomainS *pD)
     pG->Phi[ks][js][i] = four_pi_G*dx1sq*pG->U[ks][js][i-1].d 
       + 2.0*pG->Phi[ks][js][i-1] - pG->Phi[ks][js][i-2];
   }
-/* apply open BC in x1 direction to obtain values in ghost zones */
-      pG->Phi[ks][js][ie+1] = 2.0*pG->Phi[ks][js][ie] - pG->Phi[ks][js][ie-1] +
+    
+    
+    
+    /* apply open BC in x1 direction to obtain values in ghost zones */
+    pG->Phi[ks][js][ie+1] = 2.0*pG->Phi[ks][js][ie] - pG->Phi[ks][js][ie-1] +
 	dx1sq*four_pi_G*pG->U[ks][js][ie].d;
-      pG->Phi[ks][js][is-1] = 2.0*pG->Phi[ks][js][is] - pG->Phi[ks][js][is+1] +
+    pG->Phi[ks][js][is-1] = 2.0*pG->Phi[ks][js][is] - pG->Phi[ks][js][is+1] +
 	dx1sq*four_pi_G*pG->U[ks][js][is].d;
+    
+    /*****************************************/
+    /* Now calculate dphi/dt from momentum */
+    /******************************************/
+#ifdef CONS_GRAVITY
+    
+    
+    pG->dphidt[ks][js][is]=0.0;
+    
+    for (i=is; i<=ie; i++) {
+        pG->dphidt[ks][js][is] += pG->dphidtsource[ks][js][i];
+    }
+    
+    pG->dphidt[ks][js][is] += ((float)((pG->Nx[0])-1))*dx1sq*0.25;
+    
+    pG->dphidt[ks][js][is+1] = pG->dphidt[ks][js][is] + dx1sq*pG->dphidtsource[ks][js][is] -
+        2.*pG->dphidt[ks][js][is]/(float)((pG->Nx[0])-1);
+    
+    for (i=is+2; i<=ie; i++) {
+    	pG->dphidt[ks][js][i] = dx1sq*pG->dphidtsource[ks][js][i-1]
+        + 2.0*pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i-2];
+        
+    }
+    
+/* apply open BC in x1 direction to obtain values in ghost zones */
+      pG->dphidt[ks][js][ie+1] = 2.0*pG->dphidt[ks][js][ie] - pG->dphidt[ks][js][ie-1] +
+	dx1sq*pG->dphidtsource[ks][js][ie];
+      pG->dphidt[ks][js][is-1] = 2.0*pG->dphidt[ks][js][is] - pG->dphidt[ks][js][is+1] +
+	dx1sq*pG->dphidtsource[ks][js][is];
+
+
+#endif
+
 }
 
 
@@ -118,6 +155,7 @@ void selfg_fft_disk_2d(DomainS *pD)
   static Real **Acoeff=NULL,**Bcoeff=NULL; 
   static Real dky=0.;
   int ip;
+
 
 /* first time through: compute coefficients of poisson kernel and dky*/
 
@@ -216,6 +254,69 @@ void selfg_fft_disk_2d(DomainS *pD)
         bplan2d->gcnt;
     }
   }
+   
+/**********************************************************************************/
+    /*****************************************/
+    /* Now calculate dphi/dt from momentum */
+    /******************************************/
+#ifdef CONS_GRAVITY
+    
+    /* Fill complex work arrays with -4\piG*Div(M) and -4\piG*Div(M) *exp(-i pi x2/Lperp) */
+    
+    for (j=js; j<=je; j++){
+        for (i=is; i<=ie; i++){
+            /* real part */
+            work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] = pG->dphidtsource[ks][j][i];
+            /* imaginary part */
+            work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
+            /* real part */
+            work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]= pG->dphidtsource[ks][j][i]*
+            cos(0.5*((j-js)+pG->Disp[1])*dky) ;
+            /* imaginary part */
+            work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1]= pG->dphidtsource[ks][j][i]*
+            (-sin(0.5*((j-js)+pG->Disp[1])*dky));
+        }
+    }
+    
+    /* Forward FFT of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
+    
+    ath_2d_fft(fplan2d, work);
+    ath_2d_fft(fplan2d, work2);
+    
+    /* Compute potential in Fourier space, using pre-computed coefficients. */
+    
+    for (i=is; i<=ie; i++){
+        for (j=js; j<=je; j++){
+            work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Acoeff[i-is][j-js];
+            work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Acoeff[i-is][j-js];
+            work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] *=Bcoeff[i-is][j-js];
+            work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] *=Bcoeff[i-is][j-js];
+        }
+    }
+    
+    /* Backward FFT */
+    
+    ath_2d_fft(bplan2d, work);
+    ath_2d_fft(bplan2d, work2);
+    
+    /* Set potential in real space.  Normalization of Phi is over
+     total number of cells in Domain */
+    
+    for (j=js; j<=je; j++){
+        for (i=is; i<=ie; i++){
+            pG->dphidt[ks][j][i] = (work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]
+                                 +cos(0.5*((j-js)+pG->Disp[1])*dky)*work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0]
+                                 -sin(0.5*((j-js)+pG->Disp[1])*dky)*work2[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1])/
+            bplan2d->gcnt;
+        }
+    }
+    
+    
+#endif
+    
+    
+
+/**********************************************************************************/
 
   return;
 }
@@ -239,7 +340,15 @@ void selfg_fft_disk_3d(DomainS *pD)
   Real dx1sq=(pG->dx1*pG->dx1),dx2sq=(pG->dx2*pG->dx2),dx3sq=(pG->dx3*pG->dx3); 
   Real xmin,xmax;
   Real Lperp,den; 
-  Real ***Acoeff=NULL,***Bcoeff=NULL; 
+  Real ***Acoeff=NULL,***Bcoeff=NULL;
+    
+#ifdef CONS_GRAVITY
+  Real divrhov;
+#ifdef FARGO
+  Real drhovdy;
+  Real x1, x2, x3;
+#endif
+#endif
 
 #ifdef SHEARING_BOX
   int nx3=pG->Nx[2]+2*nghost;
@@ -252,6 +361,14 @@ void selfg_fft_disk_3d(DomainS *pD)
     ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
   if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
     ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+    
+#ifdef CONS_GRAVITY
+  Real ***RollDivM = NULL, ***UnRolldphidt = NULL;
+  if((RollDivM=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+  if((UnRolldphidt=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+#endif
 
   xmin = pD->RootMinX[0];
   xmax = pD->RootMaxX[0];
@@ -426,11 +543,11 @@ the ghost zones? */
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
 #ifdef SHEARING_BOX
-        UnRollPhi[k][i][j] = 
+        UnRollPhi[k][i][j] =
 #else
         pG->Phi[k][j][i] =
 #endif
-                           (work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+            (work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
                          + cos(0.5*((k-ks)+pG->Disp[2])*dkz)*
 		           work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] 
                          - sin(0.5*((k-ks)+pG->Disp[2])*dkz)*
@@ -439,6 +556,10 @@ the ghost zones? */
       }
     }
   }
+    
+    
+    
+    
 
 #ifdef SHEARING_BOX
   RemapVar(pD,UnRollPhi,dt);
@@ -451,9 +572,162 @@ the ghost zones? */
     }
   }
 
-  free_3d_array(RollDen);
+
   free_3d_array(UnRollPhi);
+    
+    
 #endif
+    
+/**********************************************************************************/
+/*****************************************/
+    /* Now calculate dphi/dt from momentum */
+/******************************************/
+    
+#ifdef CONS_GRAVITY
+
+#ifdef SHEARING_BOX
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+
+                RollDivM[k][i][j] = pG->dphidtsource[k][j][i];
+
+            }
+        }
+    }
+    
+#endif
+    
+#ifdef SHEARING_BOX
+    RemapVar(pD,RollDivM,-dt);
+    /* Add fargo source term */
+#ifdef FARGO
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+                cc_pos(pG,i,j,k,&x1,&x2,&x3);
+                /* source term due to background shearing */
+                /* using the remapped density */
+                drhovdy = qshear * Omega_0 * x1 * (RollDen[k][j+1][i] - RollDen[k][j-1][i]) * 0.5 / pG->dx2;
+                RollDivM[k][j][i] += four_pi_G * drhovdy;
+            }
+        }
+    }
+#endif
+#endif
+    
+    /* Fill arrays of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
+    
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+                /* Fargo will only be used for shearing box */
+                divrhov=RollDivM[k][i][j];
+#else
+                divrhov = pG->dphidtsource[k][j][i];
+#endif
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = divrhov;
+            }
+        }
+    }
+    
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *= 1.;
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
+                
+                work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] =
+                cos(0.5*((k-ks)+pG->Disp[2])*dkz)*
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0];
+                work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] =
+                -sin(0.5*((k-ks)+pG->Disp[2])*dkz)*
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0];
+            }
+        }
+    }
+    
+
+    
+    /* Forward FFT of 4\piG*d and 4\piG*d *exp(-i pi x2/Lperp) */
+    
+    ath_3d_fft(fplan3d, work);
+    ath_3d_fft(fplan3d, work2);
+    
+    /* Compute potential in Fourier space, using pre-computed coefficients */
+    
+    for (i=is; i<=ie; i++){
+        for (j=js; j<=je; j++){
+            for (k=ks; k<=ke; k++){
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *=
+                Acoeff[i-is][j-js][k-ks];
+                work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *=
+                Acoeff[i-is][j-js][k-ks];
+                work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] *=
+                Bcoeff[i-is][j-js][k-ks];
+                work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] *=
+                Bcoeff[i-is][j-js][k-ks];
+            }
+        }
+    }
+    
+    
+    /* Backward FFT and set potential in real space.  Normalization of Phi is over
+     * total number of cells in Domain */
+    
+    ath_3d_fft(bplan3d, work);
+    ath_3d_fft(bplan3d, work2);
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+#ifdef SHEARING_BOX
+                UnRolldphidt[k][i][j] =
+#else
+                pG->dphidt[k][j][i] =
+#endif
+                (work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
+                 + cos(0.5*((k-ks)+pG->Disp[2])*dkz)*
+                 work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] 
+                 - sin(0.5*((k-ks)+pG->Disp[2])*dkz)*
+                 work2[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1])/
+                bplan3d->gcnt;
+            }
+        }
+    }
+    
+    
+    
+#ifdef SHEARING_BOX
+    RemapVar(pD,UnRolldphidt,dt);
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+                pG->dphidt[k][j][i] = UnRolldphidt[k][i][j];
+            }
+        }
+    }
+    
+    free_3d_array(RollDivM);
+    free_3d_array(UnRolldphidt);
+    
+#endif
+    
+#endif /* cons_gravity */
+ 
+#ifdef SHEARING_BOX
+    free_3d_array(RollDen);
+#endif
+    
+    
+    
+/**********************************************************************************/
+    
+    
   free_3d_array(Acoeff);
   free_3d_array(Bcoeff);
 

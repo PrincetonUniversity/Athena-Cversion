@@ -250,6 +250,9 @@ void init_grid(MeshS *pM)
 
       pG->dphidt_old = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
       if (pG->dphidt_old == NULL) goto on_error19;
+        
+      pG->dphidtsource = (Real***)calloc_3d_array(n3z, n2z, n1z, sizeof(Real));
+      if (pG->dphidtsource == NULL) goto on_error30;
 
 #endif
 
@@ -1583,6 +1586,8 @@ G3.ijkl[2],G3.ijkr[2]);
     free_3d_array(pG->dphidt);
   on_error19:
     free_3d_array(pG->dphidt_old);
+  on_error30:
+    free_3d_array(pG->dphidtsource);
 #endif
 #endif
 

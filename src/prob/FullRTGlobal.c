@@ -231,10 +231,9 @@ void problem(DomainS *pDomain)
 #ifdef FULL_RADIATION_TRANSFER
 	Prat = par_getd("problem","Pratio");
 	Crat = par_getd("problem","Cratio");
-	R_ideal = par_getd("problem","R_ideal");
+	R_ideal = par_getd("problem","R_ideal");	
 	Taufactor = 20.0;
-    Vguessflag = 1;
-
+    	Vguessflag = 1;
 #ifdef MPI_PARALLEL 
   if(myID_Comm_world == 0){
 #endif
@@ -247,7 +246,7 @@ void problem(DomainS *pDomain)
 #endif
 	
 	betaz=0.0;
-	betay=40.0;
+	betay=10.0;
 	pres = 1.0;
 
   	B0z = 0.0;
@@ -290,9 +289,9 @@ void problem(DomainS *pDomain)
 
 	/* Parameters to setup the initial torus */
 
-	Real Lprofile = 0.0;
+	Real Lprofile = 0.4;
 	Real vs0 = 10.0;
-	Real rho0 = 30.0;
+	Real rho0 = 10.0;
 	Real L0 = sqrt(R0/2.0) * R0 * Crat/(R0 - 1.0);
 	Real Effphi, Effphi0, tempphi;
 	Real nindex, langular, vphi;
@@ -380,6 +379,8 @@ void problem(DomainS *pDomain)
 
 	
 	temperature = rtsafe(Tequilibrium, 0.0, T0, 1.e-12, coef1, coef2, coef3,0.0);
+	if(temperature < 1.0)
+		temperature = 1.0;
 	pressure = temperature * density * R_ideal;	
 		
 		
@@ -1090,12 +1091,12 @@ void get_eta_user(GridS *pG, int i, int j, int k,
         Real x1, x2, x3, distance, Radius;
 	Real VA;
 	dl = pG->dx1;
-        if(pG->dx2 < dl) dl = pG->dx2;
+        if(r[i] *pG->dx2 < dl) dl = r[i] * pG->dx2;
         if(pG->dx3 < dl) dl = pG->dx3;
 
 	if(pG->dt > TINY_NUMBER){	
 		
-        	eta0 = 0.03 * dl * dl/pG->dt;
+        	eta0 = 0.05 * dl * dl/pG->dt;
 	}	
 	else{
 		eta0 = 0.0;

@@ -55,6 +55,9 @@ static void periodic_Phi_ox2(GridS *pG);
 static void periodic_Phi_ix3(GridS *pG);
 static void periodic_Phi_ox3(GridS *pG);
 
+static void Open_Phi_ix3(GridS *pG);
+static void Open_Phi_ox3(GridS *pG);
+
 static void ProlongateLater(GridS *pG);
 
 #ifdef MPI_PARALLEL
@@ -634,6 +637,10 @@ void bvals_grav_init(MeshS *pM)
           case 2: /* Outflow */
             ath_error("[bvals_grav_init]: BCFlag_ix3 = 2 not defined\n");
           break;
+                  
+          case 3: /* open boundary condition */
+            pD->ix3_GBCFun = Open_Phi_ix3;
+          break;
 
           case 4: /* Periodic */
             pD->ix3_GBCFun = periodic_Phi_ix3;
@@ -673,6 +680,10 @@ void bvals_grav_init(MeshS *pM)
 
           case 2: /* Outflow */
             ath_error("[bvals_grav_init]: BCFlag_ox3 = 2 not defined\n");
+          break;
+                  
+          case 3: /* open boundary condition */
+            pD->ox3_GBCFun = Open_Phi_ox3;
           break;
 
           case 4: /* Periodic */
@@ -1124,6 +1135,97 @@ static void periodic_Phi_ox3(GridS *pGrid)
 
   return;
 }
+
+
+/*----------------------------------------------------------------------------*/
+/*! \fn static void Open_Phi_ox3(GridS *pGrid)
+ *  \brief Open boundary conditions (cont), Outer x3 boundary (obc_x3=3)
+ */
+/* calculate ghost zones values of potential based on Possison equation */
+/* \partial^2 \Phi/ \partial^2x + \partial^2 \Phi/ \partial^2y + \partial^2 \Phi/ \partial^2z = 4\pi G\rho
+ * We actually neglect the horizontal density variation
+ *
+ */
+static void Open_Phi_ox3(GridS *pG)
+{
+    int is = pG->is, ie = pG->ie;
+    int js = pG->js, je = pG->je;
+    int ks = pG->ks, ke = pG->ke;
+    int i,j,k;
+#ifdef CONS_GRAVITY
+    Real source;
+#endif
+    
+    
+    for (k=1; k<=nghost; k++) {
+        for (j=js-nghost; j<=je+nghost; j++) {
+            for (i=is-nghost; i<=ie+nghost; i++) {
+/*                pG->Phi[ke+k][j][i] = four_pi_G * (pG->U[ke+k-1][j][i].d - grav_mean_rho) + 2.0 * pG->Phi[ke+k-1][j][i] - pG->Phi[ke+k-2][j][i];
+#ifdef CONS_GRAVITY
+                source = four_pi_G * (pG->U[ke+k-2][j][i].M3 - pG->U[ke+k][j][i].M3)/(2.0 * pG->dx3);
+                pG->dphidt[ke+k][j][i] = source + 2.0 * pG->dphidt[ke+k-1][j][i] - pG->dphidt[ke+k-2][j][i];
+#endif
+*/
+                
+
+                pG->Phi[ke+k][j][i] = 2.0 * pG->Phi[ke+k-1][j][i] - pG->Phi[ke+k-2][j][i];
+#ifdef CONS_GRAVITY
+                pG->dphidt[ke+k][j][i] = 2.0 * pG->dphidt[ke+k-1][j][i] - pG->dphidt[ke+k-2][j][i];
+#endif
+
+
+
+                
+                
+            }
+        }
+    }
+    
+    
+    
+    
+}
+
+
+static void Open_Phi_ix3(GridS *pG)
+{
+    int is = pG->is, ie = pG->ie;
+    int js = pG->js, je = pG->je;
+    int ks = pG->ks, ke = pG->ke;
+    int i,j,k;
+#ifdef CONS_GRAVITY
+    Real source;
+#endif
+    
+    
+    for (k=1; k<=nghost; k++) {
+        for (j=js-nghost; j<=je+nghost; j++) {
+            for (i=is-nghost; i<=ie+nghost; i++) {
+/*                pG->Phi[ks-k][j][i] = four_pi_G * (pG->U[ks-k+1][j][i].d - grav_mean_rho) + 2.0 * pG->Phi[ks-k+1][j][i] - pG->Phi[ks-k+2][j][i];
+#ifdef CONS_GRAVITY
+                source = four_pi_G * (pG->U[ks-k+2][j][i].M3 - pG->U[ks-k][j][i].M3)/(2.0 * pG->dx3);
+                pG->dphidt[ks-k][j][i] = source + 2.0 * pG->dphidt[ks-k+1][j][i] - pG->dphidt[ks-k+2][j][i];
+#endif
+*/
+
+                
+                pG->Phi[ks-k][j][i] = 2.0 * pG->Phi[ks-k+1][j][i] - pG->Phi[ks-k+2][j][i];
+#ifdef CONS_GRAVITY
+                pG->dphidt[ks-k][j][i] = 2.0 * pG->dphidt[ks-k+1][j][i] - pG->dphidt[ks-k+2][j][i];
+#endif
+
+
+
+ 
+            }
+        }
+    }
+    
+    
+    
+    
+}
+
 
 /*----------------------------------------------------------------------------*/
 /*! \fn static void ProlongateLater(GridS *pGrid)

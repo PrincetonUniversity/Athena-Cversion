@@ -1646,6 +1646,9 @@ void integrate_2d_radMHD(DomainS *pD)
 		density_old[j][i] = pG->U[ks][j][i].d;
 		pG->U[ks][j][i].d  -= dtodx1*(x1Flux[j][i+1].d -x1Flux[j][i].d );
 		pG->U[ks][j][i].d  -= dtodx2*(x2Flux[j+1][i].d -x2Flux[j][i].d );
+        /* calculate the source term */
+        pG->dphidtsource[ks][j][i] = -four_pi_G * ((pG->x1MassFlux[ks][j][i+1] - pG->x1MassFlux[ks][j][i])/pG->dx1
+                            +(pG->x2MassFlux[ks][j+1][i] - pG->x2MassFlux[ks][j][i])/pG->dx2);
 
       }
     }

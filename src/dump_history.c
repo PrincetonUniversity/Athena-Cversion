@@ -386,7 +386,7 @@ void dump_history(MeshS *pM, OutputS *pOut)
 		/* dump a particular specific intensity for each cell */
               for(n=0; n<I_hst_cnt; n++){
                 mhst++;
-                scal[mhst] += dVol*(pRG->imu[kr][jr][ir][Ifre[n]][(Il[n]*pRG->nang+Il[n])]);
+                scal[mhst] += dVol*(pRG->imu[kr][jr][ir][Ifre[n]][(Il[n]*pRG->nang+In[n])]);
               } /* End specific intensity */
 
 #endif

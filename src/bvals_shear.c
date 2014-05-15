@@ -58,12 +58,31 @@
 #endif
 #else /* ADIABATIC or other EOS */
 #if defined(HYDRO) || defined(RADIATION_HYDRO)
+#ifdef CONS_GRAVITY
+ enum {NREMAP = 6, NFARGO = 6};
+#else
  enum {NREMAP = 5, NFARGO = 5};
-#endif
+#endif /* gravity */
+#endif /* hydro */
 #if defined(MHD) || defined (RADIATION_MHD)
+#ifdef CONS_GRAVITY
+ enum {NREMAP = 10, NFARGO = 8};
+#else
  enum {NREMAP = 9, NFARGO = 7};
-#endif
+#endif /* gravity */
+#endif /* MHD */
 #endif /* EOS */
+
+
+#ifdef CONS_GRAVITY
+
+#if defined(MHD) || defined(RADIATION_MHD)
+#define NVAR_SHARE (NVAR + 4)
+#else
+#define NVAR_SHARE (NVAR + 1)
+#endif
+
+#else
 
 #if defined(MHD) || defined(RADIATION_MHD)
 #define NVAR_SHARE (NVAR + 3)
@@ -71,15 +90,21 @@
 #define NVAR_SHARE NVAR
 #endif
 
+#endif
+
 /*! \struct Remap
  *  \brief Define structure which holds variables remapped 
  *  by shearing sheet BCs */
+/* For CONS_GRAVITY, NREMAP already includes dphidtsource term */
 typedef struct Remap_s{
   Real U[NREMAP];
 #if (NSCALARS > 0)
   Real s[NSCALARS];
 #endif
 #ifdef SELF_GRAVITY
+#ifdef CONS_GRAVITY
+  Real dphidt;
+#endif /* finish dphidt */
   Real Phi;
 #endif
 }Remap;
@@ -205,6 +230,10 @@ void ShearingSheet_ix1(DomainS *pD)
         GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
+          
+#ifdef CONS_GRAVITY
+       GhstZns[k][i][j].U[5] = pG->dphidtsource[k][j][ii];
+#endif
 #if defined(MHD) || defined(RADIATION_MHD)
         GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
         GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
@@ -446,6 +475,11 @@ void ShearingSheet_ix1(DomainS *pD)
 #ifdef ADIABATIC
         pG->U[k][j][is-nghost+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
+    
+#ifdef CONS_GRAVITY
+        pG->dphidtsource[k][j][is-nghost+i] = GhstZns[k][i][j].U[5];
+#endif
+          
 #if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][is-nghost+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
         pG->B1i[k][j][is-nghost+i] = GhstZns[k][i][j].U[NREMAP-3];
@@ -516,6 +550,10 @@ void ShearingSheet_ix1(DomainS *pD)
           pG->B2i[k][je+j][i] = pG->B2i[k][js+(j-1)][i];
           pG->B3i[k][je+j][i] = pG->B3i[k][js+(j-1)][i];
 #endif /* MHD */
+#ifdef CONS_GRAVITY
+          pG->dphidt[k][js-j][i] = pG->dphidt[k][je-(j-1)][i];
+          pG->dphidt[k][je+j][i] = pG->dphidt[k][js+(j-1)][i];
+#endif
         }
       }
     }
@@ -568,6 +606,10 @@ void ShearingSheet_ix1(DomainS *pD)
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
+            
+#ifdef CONS_GRAVITY
+            *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
         }
       }
     }
@@ -604,6 +646,9 @@ void ShearingSheet_ix1(DomainS *pD)
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
+#ifdef CONS_GRAVITY
+          pG->dphidtsource[k][j][i] =  *(pRcv++);
+#endif
         }
       }
     }
@@ -636,6 +681,9 @@ void ShearingSheet_ix1(DomainS *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
+#endif
+#ifdef CONS_GRAVITY
+          *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
         }
       }
@@ -672,6 +720,9 @@ void ShearingSheet_ix1(DomainS *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
+#endif
+#ifdef CONS_GRAVITY
+          pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
         }
       }
@@ -796,6 +847,9 @@ void ShearingSheet_ox1(DomainS *pD)
         GhstZns[k][i][j].U[4] = pG->U[k][j][ii].E + (0.5/GhstZns[k][i][j].U[0])*
           (SQR(GhstZns[k][i][j].U[2]) - SQR(pG->U[k][j][ii].M2));
 #endif /* ADIABATIC */
+#ifdef CONS_GRAVITY
+       GhstZns[k][i][j].U[5] = pG->dphidtsource[k][j][ii];
+#endif
 #if defined(MHD) || defined(RADIATION_MHD)
         GhstZns[k][i][j].U[NREMAP-4] = pG->U[k][j][ii].B1c;
         GhstZns[k][i][j].U[NREMAP-3] = pG->B1i[k][j][ii];
@@ -1039,6 +1093,11 @@ void ShearingSheet_ox1(DomainS *pD)
 #ifdef ADIABATIC
         pG->U[k][j][ie+1+i].E  = GhstZns[k][i][j].U[4];
 #endif /* ADIABATIC */
+          
+#ifdef CONS_GRAVITY
+       pG->dphidtsource[k][j][ie+1+i] = GhstZns[k][i][j].U[5];
+#endif
+          
 #if defined(MHD) || defined(RADIATION_MHD)
         pG->U[k][j][ie+1+i].B1c = GhstZns[k][i][j].U[NREMAP-4];
         if(i>0) pG->B1i[k][j][ie+1+i] = GhstZns[k][i][j].U[NREMAP-3];
@@ -1050,6 +1109,7 @@ void ShearingSheet_ox1(DomainS *pD)
           pG->U[k][j][ie+1+i].s[n] = GhstZns[k][i][j].s[n];
         }
 #endif
+
       }
     }
   }
@@ -1100,6 +1160,12 @@ void ShearingSheet_ox1(DomainS *pD)
         for(i=ie+1; i<=ie+nghost; i++){
           pG->U[k][js-j][i] = pG->U[k][je-(j-1)][i];
           pG->U[k][je+j][i] = pG->U[k][js+(j-1)][i];
+            
+#ifdef CONS_GRAVITY
+          pG->dphidtsource[k][js-j][i] = pG->dphidtsource[k][je-(j-1)][i];
+          pG->dphidtsource[k][je+j][i] = pG->dphidtsource[k][js+(j-1)][i];
+#endif
+            
 #if defined(MHD) || defined(RADIATION_MHD)
           pG->B1i[k][js-j][i] = pG->B1i[k][je-(j-1)][i];
           pG->B2i[k][js-j][i] = pG->B2i[k][je-(j-1)][i];
@@ -1161,6 +1227,10 @@ void ShearingSheet_ox1(DomainS *pD)
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
 #endif
+            
+#ifdef CONS_GRAVITY
+         *(pSnd++) = pG->dphidtsource[k][j][i];
+#endif
         }
       }
     }
@@ -1197,6 +1267,11 @@ void ShearingSheet_ox1(DomainS *pD)
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
 #endif
+            
+#ifdef CONS_GRAVITY
+          pG->dphidtsource[k][j][i] = *(pRcv++);
+#endif
+            
         }
       }
     }
@@ -1229,6 +1304,9 @@ void ShearingSheet_ox1(DomainS *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) *(pSnd++) = pCons->s[n];
+#endif
+#ifdef CONS_GRAVITY
+         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
         }
       }
@@ -1265,6 +1343,9 @@ void ShearingSheet_ox1(DomainS *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
           for (n=0; n<NSCALARS; n++) pCons->s[n] = *(pRcv++);
+#endif
+#ifdef CONS_GRAVITY
+          pG->dphidtsource[k][j][i] =  *(pRcv++);
 #endif
         }
       }
@@ -1381,6 +1462,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for(i=0; i<nghost; i++){
         ii = is-nghost+i;
         GhstZns[k][i][j].Phi = pG->Phi[k][j][ii];
+#ifdef CONS_GRAVITY
+        GhstZns[k][i][j].dphidt = pG->dphidt[k][j][ii];
+#endif
       }
     }
   }
@@ -1397,6 +1481,13 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for(j=js; j<=je; j++){
         GhstZnsBuf[k][i][j].Phi = GhstZns[k][i][j].Phi - (Flx[j+1]-Flx[j]);
       }
+#ifdef CONS_GRAVITY
+      for (j=js-nghost; j<=je+nghost; j++) U[j] = GhstZns[k][i][j].dphidt;
+      RemapFlux(U,epsi,js,je+1,Flx);
+      for(j=js; j<=je; j++){
+        GhstZnsBuf[k][i][j].dphidt = GhstZns[k][i][j].dphidt - (Flx[j+1]-Flx[j]);
+      }
+#endif
     }
   }
 
@@ -1413,6 +1504,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
 
         for(i=0; i<nghost; i++){
           GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+#ifdef CONS_GRAVITY
+          GhstZns[k][i][j].dphidt = GhstZnsBuf[k][i][jremap].dphidt;
+#endif
         }
       }
     }
@@ -1450,6 +1544,10 @@ void ShearingSheet_grav_ix1(DomainS *pD)
  * Pack send buffer and send data in [je-(joverlap-1):je] from GhstZnsBuf */
 
       cnt = nghost*joverlap*(ku-ks+1);
+#ifdef CONS_GRAVITY
+      /* Need to re-map two variables */
+      cnt *= 2;
+#endif
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
@@ -1461,6 +1559,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZnsBuf[k][i][j]);
             *(pSnd++) = pRemap->Phi;
+#ifdef CONS_GRAVITY
+            *(pSnd++) = pRemap->dphidt;
+#endif
           }
         }
       }
@@ -1479,6 +1580,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
           for(i=0; i<nghost; i++){
             pRemap = &(GhstZns[k][i][j]);
             pRemap->Phi = *(pRcv++);
+#ifdef CONS_GRAVITY
+            pRemap->dphidt = *(pRcv++);
+#endif
           }
         }
       }
@@ -1497,6 +1601,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
           jremap = j-joverlap;
           for(i=0; i<nghost; i++){
             GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+#ifdef CONS_GRAVITY
+            GhstZns[k][i][j].dphidt = GhstZnsBuf[k][i][jremap].dphidt;
+#endif
           }
         }
       }
@@ -1518,6 +1625,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1);
+#ifdef CONS_GRAVITY
+      cnt *= 2;
+#endif
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
@@ -1529,6 +1639,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZnsBuf[k][i][j]);
             *(pSnd++) = pRemap->Phi;
+#ifdef CONS_GRAVITY
+            *(pSnd++) = pRemap->dphidt;
+#endif
           }
         }
       }
@@ -1546,6 +1659,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZns[k][i][j]);
             pRemap->Phi = *(pRcv++);
+#ifdef CONS_GRAVITY
+            pRemap->dphidt = *(pRcv++);
+#endif
           }
         }
       }
@@ -1561,6 +1677,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
         pG->Phi[k][j][is-nghost+i] = GhstZns[k][i][j].Phi;
+#ifdef CONS_GRAVITY          
+        pG->dphidt[k][j][is-nghost+i] = GhstZns[k][i][j].dphidt;
+#endif
       }
     }
   }
@@ -1576,6 +1695,10 @@ void ShearingSheet_grav_ix1(DomainS *pD)
         for(i=is-nghost; i<is; i++){
           pG->Phi[k][js-j][i] = pG->Phi[k][je-(j-1)][i];
           pG->Phi[k][je+j][i] = pG->Phi[k][js+(j-1)][i];
+#ifdef CONS_GRAVITY
+          pG->dphidt[k][js-j][i] = pG->dphidt[k][je-(j-1)][i];
+          pG->dphidt[k][je+j][i] = pG->dphidt[k][js+(j-1)][i];
+#endif
         }
       }
     }
@@ -1590,6 +1713,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(ku-ks+1);
+#ifdef CONS_GRAVITY
+    cnt *= 2;
+#endif
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_grav_ix1_tag, pD->Comm_Domain, &rq);
 
@@ -1598,6 +1724,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for (j=je-nghost+1; j<=je; j++){
         for (i=is-nghost; i<is; i++){
           *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+          *(pSnd++) = pG->dphidt[k][j][i];
+#endif
         }
       }
     }
@@ -1614,6 +1743,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for (j=js-nghost; j<=js-1; j++){
         for (i=is-nghost; i<is; i++){
           pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+          pG->dphidt[k][j][i] = *(pRcv++);
+#endif
         }
       }
     }
@@ -1627,6 +1759,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for (j=js; j<=js+nghost-1; j++){
         for (i=is-nghost; i<is; i++){
           *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+          *(pSnd++) = pG->dphidt[k][j][i];
+#endif
         }
       }
     }
@@ -1643,6 +1778,9 @@ void ShearingSheet_grav_ix1(DomainS *pD)
       for (j=je+1; j<=je+nghost; j++){
         for (i=is-nghost; i<is; i++){
           pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+         pG->dphidt[k][j][i] = *(pRcv++);
+#endif
         }
       }
     }
@@ -1725,6 +1863,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for(i=0; i<nghost; i++){
         ii = ie+1+i;
         GhstZns[k][i][j].Phi = pG->Phi[k][j][ii];
+#ifdef CONS_GRAVITY
+        GhstZns[k][i][j].dphidt = pG->dphidt[k][j][ii];
+#endif
       }
     }
   }
@@ -1740,6 +1881,14 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for(j=js; j<=je; j++){
         GhstZnsBuf[k][i][j].Phi = GhstZns[k][i][j].Phi - (Flx[j+1]-Flx[j]);
       }
+#ifdef CONS_GRAVITY
+      for (j=js-nghost; j<=je+nghost; j++) U[j] = GhstZns[k][i][j].dphidt;
+        RemapFlux(U,epso,js,je+1,Flx);
+      for(j=js; j<=je; j++){
+        GhstZnsBuf[k][i][j].dphidt = GhstZns[k][i][j].dphidt - (Flx[j+1]-Flx[j]);
+      }
+#endif
+        
     }
   }
 
@@ -1756,6 +1905,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
 
         for(i=0; i<nghost; i++){
           GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+#ifdef CONS_GRAVITY
+          GhstZns[k][i][j].dphidt = GhstZnsBuf[k][i][jremap].dphidt;
+#endif
         }
 
       }
@@ -1794,6 +1946,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
  * Pack send buffer and send data in [js:js+(joverlap-1)] from GhstZnsBuf */
 
       cnt = nghost*joverlap*(ku-ks+1);
+#ifdef CONS_GRAVITY
+      cnt *= 2;
+#endif
 /* Post a non-blocking receive for the input data */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
@@ -1805,6 +1960,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZnsBuf[k][i][j]);
             *(pSnd++) = pRemap->Phi;
+#ifdef CONS_GRAVITY
+            *(pSnd++) = pRemap->dphidt;
+#endif
           }
         }
       }
@@ -1826,6 +1984,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZns[k][i][j]);
             pRemap->Phi = *(pRcv++);
+#ifdef CONS_GRAVITY
+            pRemap->dphidt = *(pRcv++);
+#endif
           }
         }
       }
@@ -1844,6 +2005,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
           jremap = j+joverlap;
           for(i=0; i<nghost; i++){
             GhstZns[k][i][j].Phi = GhstZnsBuf[k][i][jremap].Phi;
+#ifdef CONS_GRAVITY
+            GhstZns[k][i][j].dphidt = GhstZnsBuf[k][i][jremap].dphidt;
+#endif
           }
         }
       }
@@ -1865,6 +2029,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       getfrom_id = pD->GData[my_kproc][jproc][my_iproc].ID_Comm_Domain;
 
       cnt = nghost*(pG->Nx[1]-joverlap)*(ku-ks+1);
+#ifdef CONS_GRAVITY
+      cnt *= 2;
+#endif
 /* Post a non-blocking receive for the input data from the left grid */
       ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, getfrom_id,
                       shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
@@ -1876,6 +2043,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZnsBuf[k][i][j]);
             *(pSnd++) = pRemap->Phi;
+#ifdef CONS_GRAVITY
+            *(pSnd++) = pRemap->dphidt;
+#endif
           }
         }
       }
@@ -1894,6 +2064,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
             /* Get a pointer to the Remap structure */
             pRemap = &(GhstZns[k][i][j]);
             pRemap->Phi = *(pRcv++);
+#ifdef CONS_GRAVITY
+            pRemap->dphidt = *(pRcv++);
+#endif
           }
         }
       }
@@ -1909,6 +2082,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
     for(j=js; j<=je; j++){
       for(i=0; i<nghost; i++){
         pG->Phi[k][j][ie+1+i] = GhstZns[k][i][j].Phi;
+#ifdef CONS_GRAVITY
+        pG->dphidt[k][j][ie+1+i] = GhstZns[k][i][j].dphidt;
+#endif
       }
     }
   }
@@ -1924,6 +2100,10 @@ void ShearingSheet_grav_ox1(DomainS *pD)
         for(i=ie+1; i<=ie+nghost; i++){
           pG->Phi[k][js-j][i] = pG->Phi[k][je-(j-1)][i];
           pG->Phi[k][je+j][i] = pG->Phi[k][js+(j-1)][i];
+#ifdef CONS_GRAVITY
+          pG->dphidt[k][js-j][i] = pG->dphidt[k][je-(j-1)][i];
+          pG->dphidt[k][je+j][i] = pG->dphidt[k][js+(j-1)][i];
+#endif
         }
       }
     }
@@ -1937,6 +2117,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
 
 /* Post a non-blocking receive for the input data from the left grid */
     cnt = nghost*nghost*(ku-ks + 1);
+#ifdef CONS_GRAVITY
+    cnt *= 2;
+#endif
     ierr = MPI_Irecv(recv_buf, cnt, MPI_DOUBLE, pG->lx2_id,
                     shearing_sheet_grav_ox1_tag, pD->Comm_Domain, &rq);
 
@@ -1945,6 +2128,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for (j=je-nghost+1; j<=je; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+          *(pSnd++) = pG->dphidt[k][j][i];
+#endif
         }
       }
     }
@@ -1961,6 +2147,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for (j=js-nghost; j<=js-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+          pG->dphidt[k][j][i] = *(pRcv++);
+#endif
         }
       }
     }
@@ -1974,6 +2163,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for (j=js; j<=js+nghost-1; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           *(pSnd++) = pG->Phi[k][j][i];
+#ifdef CONS_GRAVITY
+          *(pSnd++) = pG->dphidt[k][j][i];
+#endif
         }
       }
     }
@@ -1990,6 +2182,9 @@ void ShearingSheet_grav_ox1(DomainS *pD)
       for (j=je+1; j<=je+nghost; j++){
         for (i=ie+1; i<=ie+nghost; i++){
           pG->Phi[k][j][i] = *(pRcv++);
+#ifdef CONS_GRAVITY
+         pG->dphidt[k][j][i] = *(pRcv++);
+#endif
         }
       }
     }
@@ -5082,7 +5277,7 @@ void Fargo(DomainS *pD)
 #if defined(MHD) || defined(RADIATION_MHD)
       for (n=0; n<(NFARGO-2); n++) {
 #else
-      for (n=0; n<(NFARGO); n++) {
+       for (n=0; n<(NFARGO); n++) {
 #endif
         for (j=jfs-nfghost; j<=jfe+nfghost; j++) U[j] = FargoVars[k][i][j].U[n];
         RemapFlux(U,eps,(jfs-joffset),(jfe+1-joffset),Flx);

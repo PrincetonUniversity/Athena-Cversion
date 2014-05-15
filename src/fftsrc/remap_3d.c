@@ -14,7 +14,11 @@
 
 #include "stdio.h"
 #include "mpi.h"
+#if !defined(__APPLE__)
 #include "malloc.h"
+#else
+#include "stdlib.h"
+#endif
 #include "assert.h"
 
 #include "pack_3d.h"

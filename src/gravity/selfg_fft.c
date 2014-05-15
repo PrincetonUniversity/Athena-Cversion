@@ -62,9 +62,6 @@ void selfg_fft_1d(DomainS *pD)
   int ks = pG->ks;
   Real total_Phi=0.0,drho,dx_sq = (pG->dx1*pG->dx1);
 
-#ifdef CONS_GRAVITY
-  Real divrhov;
-#endif
 
 /* Copy current potential into old */
 
@@ -112,20 +109,16 @@ void selfg_fft_1d(DomainS *pD)
   pG->dphidt[ks][js][is]=0.0;
 
   for (i=is; i<=ie; i++) {
-	divrhov = - (pG->x1MassFlux[ks][js][i+1] - pG->x1MassFlux[ks][js][i])/pG->dx1;
-    	pG->dphidt[ks][js][is] += ((float)(i-is+1))*four_pi_G*dx_sq*divrhov;
+    	pG->dphidt[ks][js][is] += ((float)(i-is+1))*pG->dphidtsource[ks][js][i];
   }
 
   pG->dphidt[ks][js][is] /= (float)(pG->Nx[0]);
 
-  divrhov = - (pG->x1MassFlux[ks][js][is+1] - pG->x1MassFlux[ks][js][is])/pG->dx1;
-  pG->dphidt[ks][js][is+1] = 2.0*pG->dphidt[ks][js][is] + four_pi_G*dx_sq*divrhov;
+  pG->dphidt[ks][js][is+1] = 2.0*pG->dphidt[ks][js][is] + pG->dphidtsource[ks][js][is];
 
 
   for (i=is+2; i<=ie; i++) {
-	 divrhov = - (pG->x1MassFlux[ks][js][i] - pG->x1MassFlux[ks][js][i-1])/pG->dx1;
-
-    	pG->dphidt[ks][js][i] = four_pi_G*dx_sq*divrhov 
+    	pG->dphidt[ks][js][i] = dx_sq*pG->dphidtsource[ks][js][i-1]
       		+ 2.0*pG->dphidt[ks][js][i-1] - pG->dphidt[ks][js][i-2];
 
   }
@@ -333,11 +326,6 @@ void selfg_fft_2d(DomainS *pD)
   Real dkx,dky,pcoeff;
 
 
-#ifdef CONS_GRAVITY
-  Real divrhov;
-  Real tot_Phi = 0.0;
-  Real tot_dphidt = 0.0;
-#endif
 
 
 /* Copy current potential into old */
@@ -413,6 +401,7 @@ void selfg_fft_2d(DomainS *pD)
 /*****************************************/
 /* Now calculate dphi/dt from momentum */
 /******************************************/
+/* Shearing box is not implemented in 2D yet for conservative gravity */
 #ifdef CONS_GRAVITY
 
 
@@ -420,10 +409,7 @@ void selfg_fft_2d(DomainS *pD)
 
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-	divrhov = - (pG->x1MassFlux[ks][j][i+1] - pG->x1MassFlux[ks][j][i])/pG->dx1
-		-(pG->x2MassFlux[ks][j+1][i] - pG->x2MassFlux[ks][j][i])/pG->dx2;
-
-      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] = four_pi_G*divrhov;
+      work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][0] = pG->dphidtsource[ks][j][i];
       work[F2DI(i-is,j-js,pG->Nx[0],pG->Nx[1])][1] = 0.0;
     }
   }
@@ -521,8 +507,13 @@ void selfg_fft_3d(DomainS *pD)
 
 #ifdef CONS_GRAVITY
   Real divrhov;
-  Real tot_Phi = 0.0;
-  Real tot_dphidt = 0.0;
+
+#ifdef FARGO
+  Real drhovdy;
+  Real x1, x2, x3;
+
+#endif
+
 #endif
 
 #ifdef SHEARING_BOX
@@ -539,6 +530,15 @@ void selfg_fft_3d(DomainS *pD)
     ath_error("[selfg_fft_3d]: malloc returned a NULL pointer\n");
   if((UnRollPhi=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
     ath_error("[selfg_fft_3d]: malloc returned a NULL pointer\n");
+    
+#ifdef CONS_GRAVITY
+  Real ***RollDivM = NULL, ***UnRolldphidt = NULL;
+  if((RollDivM=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+  if((UnRolldphidt=(Real***)calloc_3d_array(nx3,nx1,nx2,sizeof(Real)))==NULL)
+    ath_error("[selfg_fft_disk]: malloc returned a NULL pointer\n");
+#endif
+    
 
   xmin = pD->RootMinX[0];
   xmax = pD->RootMaxX[0];
@@ -708,7 +708,7 @@ void selfg_fft_3d(DomainS *pD)
     }
   }
 
-  free_3d_array(RollDen);
+
   free_3d_array(UnRollPhi);
 #endif
 
@@ -720,19 +720,55 @@ void selfg_fft_3d(DomainS *pD)
 /******************************************/
 
 #ifdef CONS_GRAVITY
+  
+#ifdef SHEARING_BOX
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
 
+                RollDivM[k][i][j] = pG->dphidtsource[k][j][i];
 
+            }
+        }
+    }
+    
+#endif
+    
+#ifdef SHEARING_BOX
+    RemapVar(pD,RollDivM,-dt);
+    
+    /* Add fargo source term */
+#ifdef FARGO
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+                cc_pos(pG,i,j,k,&x1,&x2,&x3);
+                /* source term due to background shearing */
+                /* using the remapped density */
+                drhovdy = qshear * Omega_0 * x1 * (RollDen[k][j+1][i] - RollDen[k][j-1][i]) * 0.5 / pG->dx2;
+                RollDivM[k][j][i] += four_pi_G * drhovdy;
+            }
+        }
+    }
+#endif
+    
+#endif
+    
+    
 
 /* Forward FFT of -4\piG Div(M) */
 
  for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-	divrhov = -(pG->x1MassFlux[k][j][i+1] - pG->x1MassFlux[k][j][i])/pG->dx1
-		-(pG->x2MassFlux[k][j+1][i] - pG->x2MassFlux[k][j][i])/pG->dx2
-		-(pG->x3MassFlux[k+1][j][i] - pG->x3MassFlux[k][j][i])/pG->dx3;
-
-      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = four_pi_G*divrhov;
+#ifdef SHEARING_BOX
+        /* Fargo will only be used for shearing box */
+        divrhov=RollDivM[k][i][j];
+#else
+        divrhov = pG->dphidtsource[k][j][i];
+#endif
+      work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0] = divrhov;
       work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][1] = 0.0;
     }
   }
@@ -797,12 +833,31 @@ void selfg_fft_3d(DomainS *pD)
   for (k=ks; k<=ke; k++){
   for (j=js; j<=je; j++){
     for (i=is; i<=ie; i++){
-      pG->dphidt[k][j][i] = 
+#ifdef SHEARING_BOX
+      UnRolldphidt[k][i][j] =
+#else
+      pG->dphidt[k][j][i] =
+#endif
         work[F3DI(i-is,j-js,k-ks,pG->Nx[0],pG->Nx[1],pG->Nx[2])][0]
         / bplan3d->gcnt;
     }
   }}
-
+    
+#ifdef SHEARING_BOX
+    RemapVar(pD,UnRolldphidt,dt);
+    
+    for (k=ks; k<=ke; k++){
+        for (j=js; j<=je; j++){
+            for (i=is; i<=ie; i++){
+                pG->dphidt[k][j][i] = UnRolldphidt[k][i][j];
+            }
+        }
+    }
+    
+    free_3d_array(RollDivM);
+    free_3d_array(UnRolldphidt);
+    
+#endif
 
 /* Normalize phi and dphidt */
 /* Do not subtract. This is bad for MPI case */
@@ -836,6 +891,11 @@ for(j=js; j<=je; j++){
        pG->dphidt_old[k][j][i] = pG->dphidt[k][j][i];  
     }
   }}
+#endif
+    
+    /* We need RollDen in the conservative gravity solver */
+#ifdef SHEARING_BOX
+      free_3d_array(RollDen);
 #endif
 
   return;

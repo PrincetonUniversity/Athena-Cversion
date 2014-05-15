@@ -49,8 +49,8 @@ endif
 
 ifeq (@FFT_MODE@,FFT_ENABLED)
   BLOCKINC = -I fftsrc
-  FFTWLIB = -L/Users/YanFei/Tools/FFTW/fftw-3/lib -lfftw3
-  FFTWINC = -I/Users/YanFei/Tools/FFTW/fftw-3/include
+  FFTWLIB = -L/Users/YanFei/Tools/FFTW/lib -lfftw3
+  FFTWINC = -I/Users/YanFei/Tools/FFTW/include
 endif
 
 

@@ -454,6 +454,7 @@ typedef struct Grid_s{
   Real ***Phi, ***Phi_old;      /* gravitational potential */
 #ifdef CONS_GRAVITY
   Real ***dphidt, ***dphidt_old; /*!<derivative of gravitational potential over time */
+  Real ***dphidtsource;
 #endif
   Real ***x1MassFlux;           /* x1 mass flux for source term correction */
   Real ***x2MassFlux;           /* x2 mass flux for source term correction */
