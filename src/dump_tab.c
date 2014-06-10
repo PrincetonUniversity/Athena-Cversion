@@ -520,11 +520,11 @@ void dump_tab_prim(MeshS *pM, OutputS *pOut)
             }
           }
         }
+        fclose(pfile);
       }}
     } /* end loop over domains */
   } /* end loop over levels */
 
-  fclose(pfile);
 
   return;
 }
