@@ -1129,17 +1129,19 @@ void integrate_2d_vl(DomainS *pD)
 
 
 /*=====   Add radiation source term for full time step =============*/
+/* This is now added in main.c */
+/*
 #ifdef FULL_RADIATION_TRANSFER
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
 	pG->U[ks][j][i].M1 += pG->Frsource[ks][j][i][0];
 	pG->U[ks][j][i].M2 += pG->Frsource[ks][j][i][1];
 	pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
-    }/* end i */
-  }/* end j */
+    }
+  }
 
 #endif
-
+*/
 
 
 /*=== STEP 13: Update cell-centered values for a full timestep ===============*/

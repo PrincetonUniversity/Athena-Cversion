@@ -130,7 +130,6 @@ void fullRT_3d(DomainS *pD)
     for(j=js-nghost; j<=je+nghost; j++){
       for(i=is-nghost; i<=ie+nghost; i++){
         pG->Radheat[k][j][i] = 0.0;
-        pG->Pgsource[k][j][i] = 0.0;
         for(l=0; l<3; l++)
           pG->Frsource[k][j][i][l] = 0.0;
       }
@@ -793,7 +792,7 @@ void Sourceloop3D(RadGridS *pRG, GridS *pG)
           for(Mi=0; Mi<nelements; Mi++){
 
 /* Set RHS */
-            RHS[ifr][Mi] = sol[ifr][Mi] + Comptflag * pRG->Ercompt[k][j][i][ifr] - Scatflag * Divi[k][j][i][ifr][Mi];
+            RHS[ifr][Mi] = sol[ifr][Mi] - Scatflag * Divi[k][j][i][ifr][Mi] + Comptflag * pRG->ComptI[k][j][i][ifr][Mi];
 
             AngleV = FullAngleV[k][j][i][Mi];
             AngleV2 = MatrixAngleV2[k][j][i][Mi];

@@ -71,8 +71,9 @@ Real dotphil, dotgxl;
 #ifdef FULL_RADIATION_TRANSFER
 /* Radiation source term for gas pressure, 
  * which is calculated based Tnew */
+ /*
 static Real ***RadPsource=NULL;
-
+*/
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -496,7 +497,7 @@ void integrate_3d_ctu(DomainS *pD)
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add radiation velocity and pressure source terms 0.5*dt to L/R states
  */
-		
+	/*
 #ifdef FULL_RADIATION_TRANSFER
 		
 	 for (i=il+1; i<=iu; i++) {
@@ -506,7 +507,9 @@ void integrate_3d_ctu(DomainS *pD)
 		 Wr[i].Vx += 0.5 * pG->Frsource[k][j][i][0]/Wr[i].d;
 	}
 		
-#endif /* FULL_RADIATION_TRANSFER */	  
+#endif 
+*/
+/* FULL_RADIATION_TRANSFER */
 		
 
 /*--- Step 1c (cont) -----------------------------------------------------------
@@ -891,6 +894,7 @@ void integrate_3d_ctu(DomainS *pD)
       }
 #endif /* BAROTROPIC */
 
+/*
 		
 #ifdef FULL_RADIATION_TRANSFER
 		
@@ -901,7 +905,10 @@ void integrate_3d_ctu(DomainS *pD)
 		Wr[j].Vy += 0.5 * pG->Frsource[k][j][i][1]/Wr[j].d;
 	}
 		
-#endif /* FULL_RADIATION_TRANSFER */	 		
+#endif 
+*/
+
+/* FULL_RADIATION_TRANSFER */
 		
 
 /*--- Step 2c (cont) -----------------------------------------------------------
@@ -1164,7 +1171,7 @@ void integrate_3d_ctu(DomainS *pD)
       }
 #endif /* BAROTROPIC */
 		
-		
+/*
 #ifdef FULL_RADIATION_TRANSFER
 		
 		for (k=kl+1; k<=ku; k++) {
@@ -1174,7 +1181,10 @@ void integrate_3d_ctu(DomainS *pD)
 			Wr[k].Vz += 0.5 * pG->Frsource[k][j][i][2]/Wr[k].d;
 		}
 		
-#endif /* FULL_RADIATION_TRANSFER */			
+#endif 
+*/
+
+/* FULL_RADIATION_TRANSFER */
 
 /*--- Step 3c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
@@ -3728,7 +3738,8 @@ void integrate_3d_ctu(DomainS *pD)
 #endif /* BAROTROPIC */
 	
 /* Add radiation momentum and energy source terms */
-
+/* This is now added in the main */
+/*
 #ifdef FULL_RADIATION_TRANSFER
 	for (k=ks; k<=ke; k++) {
 		for (j=js; j<=je; j++) {
@@ -3737,11 +3748,12 @@ void integrate_3d_ctu(DomainS *pD)
 				pG->U[k][j][i].M2 += pG->Frsource[k][j][i][1];
 				pG->U[k][j][i].M3 += pG->Frsource[k][j][i][2];
 				pG->U[k][j][i].E += pG->Radheat[k][j][i];
-			}/* end i */
-		}/* end j */
+			}
+		}
 	}
 	
 #endif
+*/
 
 /*--- Step 11d -----------------------------------------------------------------
  * Add source terms for particle feedback
@@ -4259,8 +4271,8 @@ void integrate_init_3d(MeshS *pM)
 #ifdef FULL_RADIATION_TRANSFER
 		  
 		  /* Set the pointer */
-		  RadPsource = pM->Domain[nl][nd].Grid->Pgsource;
-		  
+/*		  RadPsource = pM->Domain[nl][nd].Grid->Pgsource;
+	*/
 #endif
 		  
         if (pM->Domain[nl][nd].Grid->Nx[0] > size1){

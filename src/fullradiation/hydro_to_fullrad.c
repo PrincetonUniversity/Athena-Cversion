@@ -240,8 +240,8 @@ void RadAsource(const int i, const int j, const int k, const int N, const int Ab
     pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
 
 /* Radiation source term for gas pressure alone */
-    pG->Pgsource[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Tcoef[ifr][0] * (Tgas - pG->tgas[k+koff][j+joff][i+ioff]) * Gamma_1);
-
+/*    pG->Pgsource[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Tcoef[ifr][0] * (Tgas - pG->tgas[k+koff][j+joff][i+ioff]) * Gamma_1);
+*/
     for(l=0; l<3; l++)
       pG->Frsource[k+koff][j+joff][i+ioff][l] += (pRG->wnu[ifr] * Msource[l]);
 
@@ -351,7 +351,6 @@ void RadSsource(const int i, const int j, const int k, const int N, const int Sc
 
 
 /* Now put the energy and momentum source term back */
-/* This is initialized to be zero before it is called */
     pG->Radheat[k+koff][j+joff][i+ioff] += (pRG->wnu[ifr] * Ersource);
 
     for(l=0; l<3; l++)
@@ -360,13 +359,47 @@ void RadSsource(const int i, const int j, const int k, const int N, const int Sc
 
   }/* end ifr */
 
-/* Add Compton Scattering energy source term */
-  pG->Radheat[k+koff][j+joff][i+ioff] += Comptflag * pG->ComptSource[k+koff][j+joff][i+ioff];
+}
+
+/* Add radiation energy and moment source terms to the gas equation */
+void FullRTsource(DomainS *pD)
+{
+
+  GridS *pG = (pD->Grid);
+
+  int i, j, k;
+  int il = pG->is, iu = pG->ie;
+  int jl = pG->js, ju = pG->je;
+  int kl = pG->ks, ku = pG->ke;
+
+  
+
+
+  for(k=kl; k<=ku; k++){
+    for(j=jl; j<=ju; j++){
+      for(i=il; i<=iu; i++){
+
+        
+        pG->U[k][j][i].E += pG->Radheat[k][j][i];
+        pG->U[k][j][i].M1 += pG->Frsource[k][j][i][0];
+        pG->U[k][j][i].M2 += pG->Frsource[k][j][i][1];
+        pG->U[k][j][i].M3 += pG->Frsource[k][j][i][2];
+        
+      }
+    }
+  }
+  
+  /* update boundary condition for gas quantity */
+  
+  bvals_mhd(pD);
+
 
 }
 
-/* Function to post processing gas T and Er */
-void ComptTEr(DomainS *pD)
+
+/* Distribute the Compton scattering contribution to each rays in the lab frame */
+/* There is no moment change to first order of v/c due to Compton scattering */
+void ComptIntensity(DomainS *pD)
 {
 
   RadGridS *pRG=(pD->RadGrid);
@@ -378,13 +411,23 @@ void ComptTEr(DomainS *pD)
   int kl = pRG->ks, ku = pRG->ke;
   int koff = 0, joff = 0, ioff = 0;
   int nDim;
-  int nf = pRG->nf;
-  int ifr;
-
-  Real dt =pG->dt;
-  Real Tgas, Er, Ernew, Tr, Ersource, sigmas;
+  int nf = pRG->nf, nelements, noct, nang;
+  int ifr, n;
+  
+  Real Tgas, Er, Ernew, Tr, Ersource;
   Real coefA, coefK, coefB,coef1,coef2,coef3,coef4;
   PrimS Wtemp;
+  Real Jnew, Hnew[3], Knew[6], Vel[3];
+  Real dtsigmas;
+  Real miux, miuy, miuz;
+  Real vdotn, vdotH, Hdotn, nnK, vnK, vsquar;
+  
+  
+  noct = pRG->noct;
+  nang = pRG->nang;
+  nelements = noct * nang;
+
+
 
 
   nDim = 1;
@@ -401,9 +444,8 @@ void ComptTEr(DomainS *pD)
   if(nDim > 2){
     koff = nghost - Radghost;
   }
-
-
-
+  
+  
 
   for(k=kl; k<=ku; k++){
     for(j=jl; j<=ju; j++){
@@ -411,21 +453,24 @@ void ComptTEr(DomainS *pD)
         kg = k + koff;
         jg = j + joff;
         ig = i + ioff;
-
+        
         Ersource = 0.0;
+ 
+        
         Wtemp = Cons_to_Prim(&(pG->U[kg][jg][ig]));
         Tgas = Wtemp.P / (R_ideal * Wtemp.d);
 
         for(ifr=0; ifr<nf; ifr++){
           if(Comptflag){
-
+              /* First, update zeroth moment J due to Compton process */
+            
             Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
-            sigmas = pRG->R[k][j][i][ifr].Sigma[2];
+            dtsigmas = pG->dt * pRG->R[k][j][i][ifr].Sigma[2];
 
             Tr = sqrt(Er);
             Tr = sqrt(Tr);
 
-            coefA = 4.0 * dt * Crat * sigmas / (T_e/Tunit);
+            coefA = 4.0 * Crat * dtsigmas / (T_e/Tunit);
             coefK = (Gamma - 1.0) * Prat/(R_ideal * Wtemp.d);
             coefB = Tgas + coefK * Er;
             coef1 = coefA * coefK;
@@ -445,24 +490,162 @@ void ComptTEr(DomainS *pD)
 
             pRG->Ercompt[k][j][i][ifr] = (Ernew - Er)/(4.0*PI);
             Ersource += (pRG->wnu[ifr] * (Ernew - Er));
+          
+            Jnew = pRG->R[k][j][i][ifr].J + pRG->Ercompt[k][j][i][ifr];
+            
+            /* Use the actual velocity, not need to use guess velocity for Compton scattering */
+            
+            Vel[0] = pG->Velguess[k+koff][j+joff][i+ioff][0];
+            Vel[1] = pG->Velguess[k+koff][j+joff][i+ioff][1];
+            Vel[2] = pG->Velguess[k+koff][j+joff][i+ioff][2];
+      
+      
+
+            
+            /* update H due to bulk compton */
+ /*           UpdateHcomp(&(Hnew[0]), pRG->R[k][j][i][ifr].H, dtsigmas, Vel);
+  *         Do not do this now. There is no corresponding energy term for this bulk Compton momentum term */
+  /*        for(n=0; n<3; n++)
+                MomSource[n] += (pRG->wnu[ifr] * (Hnew[n] - pRG->R[k][j][i][ifr].H[n]));
+    */
+            for(n=0; n<3; n++){
+                Hnew[n] = pRG->R[k][j][i][ifr].H[n];
+            }
+            
+              
+            /* update K due to Compton terms */
+            UpdateKcomp(&(Knew[0]), pRG->R[k][j][i][ifr].K, Hnew, Vel, Jnew, dtsigmas, pRG->Ercompt[k][j][i][ifr]);
+            
+            
+            /* With the updated J, H and K, we can update intensity due to Compton terms */
+            for(n=0; n<nelements; n++){
+
+#ifdef CYLINDRICAL
+                miux = pRG->Rphimu[k][j][i][n][0];
+                miuy = pRG->Rphimu[k][j][i][n][1];
+                miuz = pRG->Rphimu[k][j][i][n][2];
+#else
+                miux = pRG->mu[k][j][i][n][0];
+                miuy = pRG->mu[k][j][i][n][1];
+                miuz = pRG->mu[k][j][i][n][2];
+#endif
+        
+                vdotn = (Vel[0] * miux + Vel[1] * miuy + Vel[2] * miuz);
+                vdotH = (Vel[0] * Hnew[0] + Vel[1] * Hnew[1] + Vel[2] * Hnew[2]);
+                Hdotn = (Hnew[0] * miux + Hnew[1] * miuy + Hnew[2] * miuz);
+                nnK = miux * miux * Knew[0] + 2.0 * miux * miuy * Knew[1] + miuy * miuy * Knew[2] + 2.0 * miux * miuz * Knew[3] + 2.0 * miuy * miuz * Knew[4] + miuz * miuz * Knew[5];
+                vnK = Vel[0] * miux * Knew[0] + (Vel[0] * miuy + Vel[1] * miux) * Knew[1] + Vel[1] * miuy * Knew[2] + (Vel[0] * miuz + Vel[2] * miux) * Knew[3] + (Vel[1] * miuz + Vel[2] * miuy) * Knew[4] + Vel[2] * miuz * Knew[5];
+              
+      /*  Do not include (v/c)^2 terms right now */
+          /*
+                pRG->imu[k][j][i][ifr][Mi] = pRG->imu[k][j][i][ifr][Mi] + pRG->Ercompt[k][j][i][ifr] + dtsigmas * (-0.75 * vdotn + 5.25 * vdotn * vdotn/Crat - 1.75 * vsquar/Crat) * Jnew
+                                              + dtsigmas * (0.5 * vdotH - 1.5 * vdotn * Hdotn - 7.5 * vdotn * vdotn * Hdotn/Crat + 1.5 * vsquar * Hdotn/Crat - 3.0 * vdotn * vdotH/Crat)
+                                              + dtsigmas * (3.75 * vdotn * nnK - 1.5 * vnK);
+          */
+        
+                /* Include the J and K terms, the first moment is not zero numerically, although it should be */
+                pRG->ComptI[k][j][i][ifr][n] = pRG->Ercompt[k][j][i][ifr] + dtsigmas * (0.5 * vdotH - 1.5 * vdotn * Hdotn)
+                                          + 0.0 * (dtsigmas * (3.75 * vdotn * nnK - 1.5 * vnK) - dtsigmas * 0.75 * vdotn * Jnew);
+
+
+            }/* End nelements */
+            
+            
           }/* End comptflag */
           else{
             pRG->Ercompt[k][j][i][ifr] = 0.0;
             Ersource = 0.0;
+            for(n=0; n<nelements; n++){
+              pRG->ComptI[k][j][i][ifr][n] = 0.0;
+            }
           }/* Comptflag */
 
         }/* End ifr */
-
-        pG->ComptSource[kg][jg][ig] = - Prat * Ersource;
-
-
+  
+        /* Add Compton energy source to gas end pressure source */
+        pG->U[kg][jg][ig].E += -Prat * Ersource;
 
       }/* end i */
     }/* End j */
   }/* End k */
+  
+  
+  /* Update boundary condition for gas quantity, as gas energy is changed */
+  bvals_mhd(pD);
 
+  return;
 
 }
+
+
+/* update H due to bulk Comptonization, given the old values of H, velocity and dtsigmas*/
+/* This function basically inverts a 3x3 matrix */
+void UpdateHcomp(Real *Hnew, Real Hold[3], const Real dtsigma, Real Vel[3])
+{
+  Real Ha1, Ha2, Ha3, Hb1, Hb2, Hc1;
+  Real InvHa1, InvHa2, InvHa3, InvHb1, InvHb2, InvHc1;
+  Real Delta;
+  
+  Ha1 = 1.0 + 2.0 * dtsigma * Vel[0] * Vel[0] / Crat;
+  Ha2 = 2.0 * dtsigma * Vel[0] * Vel[1] / Crat;
+  Ha3 = 2.0 * dtsigma * Vel[0] * Vel[2] /Crat;
+  Hb1 = 1.0 + 2.0 * dtsigma * Vel[1] * Vel[1] / Crat;
+  Hb2 = 2.0 * dtsigma * Vel[1] * Vel[2] / Crat;
+  Hc1 = 1.0 + 2.0 * dtsigma * Vel[2] * Vel[2] / Crat;
+  Delta = -Ha3 * Ha3 * Hb1 + 2.0 * Ha2 * Ha3 * Hb2 - Ha1 * Hb2 * Hb2 - Ha2 * Ha2 * Hc1 + Ha1 * Hb1 * Hc1;
+
+  InvHa1 = Hb1 * Hc1 - Hb2 * Hb2;
+  InvHa2 = Ha3 * Hb2 - Ha2 * Hc1;
+  InvHa3 = -Ha3 * Hb1 + Ha2 * Hb2;
+  InvHb1 = Ha1 * Hc1 - Ha3 * Ha3;
+  InvHb2 = Ha2 * Ha3 - Ha1 * Hb2;
+  InvHc1 = -Ha2 * Ha2 + Ha1 * Hb1;
+  
+  Hnew[0] = (InvHa1 * Hold[0] + InvHa2 * Hold[1] + InvHa3 * Hold[2]) / Delta;
+  Hnew[1] = (InvHa2 * Hold[0] + InvHb1 * Hold[1] + InvHb2 * Hold[2]) / Delta;
+  Hnew[2] = (InvHa3 * Hold[0] + InvHb2 * Hold[1] + InvHc1 * Hold[2]) / Delta;
+
+  return;
+
+}
+
+/* update radiation pressure tensor according to  *
+ * \partial K/\partial t = Delta S/3\delta t I + 1/6\sigma_s V\codt H I - 1/10 sigma_s(V H + H V + V/cdot H I) 
+ * + sigma_s(-7 * v^2/(30Crat) I + 7 * VV/(10 Crat)) J
+ * K[0] = K[0][0], K[1] = K[0][1], K[2] = K[1][1], K[3] = K[0][2], K[4] = K[1][2], K[5] = K[2][2]
+ */
+void UpdateKcomp(Real *Knew, Real Kold[6], Real Hnew[3], Real Vel[3], const Real Jnew, const Real dtsigma, const Real Source)
+{
+  /* Source is the term dt * Crat * Sigma_s * 4 (T - Tr)/T_e J */
+  Real vsquar, vdotH;
+  vsquar = Vel[0] * Vel[0] + Vel[1] * Vel[1] + Vel[2] * Vel[2];
+  vdotH = Vel[0] * Hnew[0] + Vel[1] * Hnew[1] + Vel[2] * Hnew[2];
+  /*
+  Knew[0] = Kold[0] + Source/3.0 + dtsigma * (-7.0 * vsquar /(30.0 * Crat) + 7.0 * Vel[0] * Vel[0] /(10.0 * Crat)) * Jnew
+            + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[0] * Hnew[0] * 2.0  + vdotH);
+  Knew[1] = Kold[1] + dtsigma * (7.0 * Vel[0] * Vel[1] /(10.0 * Crat)) * Jnew
+            - 0.1 * dtsigma * (Vel[0] * Hnew[1] + Hnew[0] * vel[1]);
+  Knew[2] = Kold[2] + Source/3.0 + dtsigma * (-7.0 * vsquar /(30.0 * Crat) + 7.0 * Vel[1] * Vel[1] /(10.0 * Crat)) * Jnew
+            + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[1] * Hnew[1] * 2.0  + vdotH);
+  Knew[3] = Kold[3] + dtsigma * (7.0 * Vel[0] * Vel[2] /(10.0 * Crat)) * Jnew
+            - 0.1 * dtsigma * (Vel[0] * Hnew[2] + Hnew[0] * vel[2]);
+  Knew[4] = Kold[4] + dtsigma * (7.0 * Vel[1] * Vel[2] /(10.0 * Crat)) * Jnew
+            - 0.1 * dtsigma * (Vel[1] * Hnew[2] + Hnew[1] * vel[2]);
+  Knew[5] = Kold[5] + Source/3.0 + dtsigma * (-7.0 * vsquar /(30.0 * Crat) + 7.0 * Vel[2] * Vel[2] /(10.0 * Crat)) * Jnew
+            + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[2] * Hnew[2] * 2.0  + vdotH);
+*/
+  /* Do not include v^2 term */
+  Knew[0] = Kold[0] + Source/3.0 + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[0] * Hnew[0] * 2.0  + vdotH);
+  Knew[1] = Kold[1] - 0.1 * dtsigma * (Vel[0] * Hnew[1] + Hnew[0] * Vel[1]);
+  Knew[2] = Kold[2] + Source/3.0 + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[1] * Hnew[1] * 2.0  + vdotH);
+  Knew[3] = Kold[3] - 0.1 * dtsigma * (Vel[0] * Hnew[2] + Hnew[0] * Vel[2]);
+  Knew[4] = Kold[4] - 0.1 * dtsigma * (Vel[1] * Hnew[2] + Hnew[1] * Vel[2]);
+  Knew[5] = Kold[5] + Source/3.0 + dtsigma * vdotH/6.0 - 0.1 * dtsigma * (Vel[2] * Hnew[2] * 2.0  + vdotH);
+  
+  return;
+}
+
+
 
 
 

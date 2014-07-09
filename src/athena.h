@@ -363,7 +363,8 @@ typedef struct RadGrid_s {
 #else
   Real *****imu;     /* specific intensity  for  cell k, j, i, frequency nf, for octant * angle,*/
   Real *****Speedfactor; /* The factor to reduce the speed of light due to opacity */
-  Real ****Ercompt; /* Store the source due to Compton scattering*/
+  Real ****Ercompt; /* Store the source due to Compton scattering */
+  Real *****ComptI; /* Source for each specific intensity due to Compton Scattering */
 #endif
 
 
@@ -511,14 +512,13 @@ MPI_Comm Comm_Domain;
 
 #if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
   Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
+                  /* In Full_RADIATION_TRANSFER, this is used to store gas temperature in intermediate step */
 #endif
 	
 #ifdef FULL_RADIATION_TRANSFER
   Real ***Radheat; /* Total heating and cooling rate due to absorption opacity, or the energy source term */
-  Real ***Pgsource; /* radiation source term for gas pressure */	
   Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */	
   Real ****Velguess;  /* The estimated velocity to reduce momentum error */
-  Real ***ComptSource; /* The gas temperature that should be with Compton scattering */
 #endif
 	
 

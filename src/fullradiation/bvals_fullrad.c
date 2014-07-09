@@ -812,7 +812,6 @@ void bvals_fullrad_init(MeshS *pM)
 /* No need to transfer moments and opacity, they are updated locally */
 
                 xcnt = Radghost * nx2t * nx3t * noct * nang * nf;
-                xcnt += Radghost * nx2t * nx3t * (1 + 1 + 3);
 
                 if(xcnt > x1cnt) x1cnt = xcnt;
               }
@@ -829,7 +828,6 @@ void bvals_fullrad_init(MeshS *pM)
 /* space for J H, K and Sigma */
 
                 xcnt = Radghost * nx1t * nx3t * noct * nang * nf;
-                xcnt += Radghost * nx1t * nx3t * (1 + 1 + 3);
 
                 if(xcnt > x2cnt) x2cnt = xcnt;
               }
@@ -839,11 +837,7 @@ void bvals_fullrad_init(MeshS *pM)
                 nx1t = pD->GData[n][m][l].Nx[0] + 2 * Radghost;
                 nx2t = pD->GData[n][m][l].Nx[1] + 2 * Radghost;
 
-
-/* space for Radheat, Pgsource, and 3 Frsource */
-
                 xcnt = Radghost * nx1t * nx2t * noct * nang * nf;
-                xcnt += Radghost * nx1t * nx2t * (1 + 1 + 3);
 
                 if(xcnt > x3cnt) x3cnt = xcnt;
               }
@@ -958,7 +952,7 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -971,10 +965,10 @@ static void outflow_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+    }
+  }
+*/
 
 
 
@@ -1016,6 +1010,7 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -1028,11 +1023,11 @@ static void outflow_ox1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+    }
+  }
 
-
+*/
 
 
 
@@ -1069,6 +1064,7 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1081,11 +1077,11 @@ static void outflow_ix2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+    }
+  }
 
-
+*/
 
 
   for(k=ks; k<=ke; k++){
@@ -1116,6 +1112,7 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1128,11 +1125,11 @@ static void outflow_ox2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+    }
+  }
 
-
+*/
 
 
 
@@ -1166,7 +1163,7 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
-
+/*
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1179,10 +1176,10 @@ static void outflow_ix3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+    }
+  }
+*/
 
 
 
@@ -1216,6 +1213,7 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1228,11 +1226,11 @@ static void outflow_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+    }
+  }
 
-
+*/
 
 
 
@@ -1274,7 +1272,7 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
 /* set the angle independent values */
 
 
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -1287,10 +1285,10 @@ static void periodic_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+    }
+    }
+    */
 
 
 
@@ -1328,6 +1326,7 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -1340,11 +1339,11 @@ static void periodic_ox1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
 
-
+*/
 
 
   for(k=ks; k<=ke; k++){
@@ -1376,7 +1375,7 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int i, j, k, ifr, l;
   int Mi;
   int N = pRG->nang * pRG->noct;
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1389,9 +1388,10 @@ static void periodic_ix2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+      */
 
 
 
@@ -1427,6 +1427,7 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1439,9 +1440,10 @@ static void periodic_ox2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+      */
 
 
 
@@ -1478,6 +1480,7 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -1490,9 +1493,10 @@ static void periodic_ix3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+      */
 
 
 
@@ -1532,6 +1536,7 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int Mi;
   int N = pRG->nang * pRG->noct;
 
+/*
 
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
@@ -1545,9 +1550,11 @@ static void periodic_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -1850,6 +1857,7 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 /* In principle, the source terms should be recalculated */
 /* here just copy from last active zones for safety */
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -1862,9 +1870,11 @@ static void vacuum_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -1929,6 +1939,7 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 #endif
   int Mi;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=1; i<=Radghost; i++){
@@ -1941,9 +1952,11 @@ static void vacuum_ox1_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2002,6 +2015,7 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
   int i, j, k, l, n, ifr;
   int Mi;
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2014,10 +2028,11 @@ static void vacuum_ix2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+      }
+      }
+  
+      */
 
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
@@ -2059,6 +2074,8 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
   int Mi;
+  
+  /*
 
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
@@ -2073,9 +2090,10 @@ static void vacuum_ox2_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+*/
 
   for(k=ks; k<=ke; k++){
     for(j=1; j<=Radghost; j++){
@@ -2117,6 +2135,7 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
   int i, j, k, l, n, ifr;
   int Mi;
 
+/*
 
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
@@ -2130,9 +2149,11 @@ static void vacuum_ix3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
   for(k=1; k<=Radghost; k++){
@@ -2176,6 +2197,8 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
   int nf = pRG->nf;
   int i, j, k, l, n, ifr;
   int Mi;
+  
+  /*
 
   for(k=1; k<=Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
@@ -2189,9 +2212,11 @@ static void vacuum_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
         }
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2320,7 +2345,7 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=is; i<=is+(Radghost-1); i++){
@@ -2330,11 +2355,11 @@ static void pack_ix1_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
 
-
+*/
 
 
   for(k=ks; k<=ke; k++){
@@ -2375,7 +2400,7 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
 
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=ie-(Radghost-1); i<=ie; i++){
@@ -2385,9 +2410,11 @@ static void pack_ox1_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2427,6 +2454,8 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
+  
+  /*
 
   for(k=ks; k<=ke; k++){
     for(j=js; j<=js+(Radghost-1); j++){
@@ -2438,9 +2467,11 @@ static void pack_ix2_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  */
+  
 
 
 
@@ -2480,7 +2511,7 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
 
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=je-(Radghost-1); j<=je; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2491,9 +2522,11 @@ static void pack_ox2_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2537,7 +2570,7 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   double *pSnd;
   pSnd = (double*)&(send_buf[0][0]);
 
-
+/*
   for(k=ks; k<=ks+(Radghost-1); k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2548,9 +2581,11 @@ static void pack_ix3_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
   for(k=ks; k<=ks+(Radghost-1); k++){
@@ -2589,6 +2624,8 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
 
   double *pSnd;
   pSnd = (double*)&(send_buf[1][0]);
+  
+  /*
 
   for(k=ke-(Radghost-1); k<=ke; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
@@ -2600,11 +2637,11 @@ static void pack_ox3_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           *(pSnd++) = pG->Frsource[k+koff][j+joff][i+ioff][l];
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
 
-
+*/
 
 
 
@@ -2644,6 +2681,8 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
+  
+  /*
 
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
@@ -2655,9 +2694,11 @@ static void unpack_ix1_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
   for(k=ks; k<=ke; k++){
@@ -2699,7 +2740,7 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
 
-
+/*
   for(k=ks; k<=ke; k++){
     for(j=js; j<=je; j++){
       for(i=ie+1; i<=ie+Radghost; i++){
@@ -2710,10 +2751,11 @@ static void unpack_ox1_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2753,6 +2795,8 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
 
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
+  
+  /*
 
   for(k=ks; k<=ke; k++){
     for(j=js-Radghost; j<=js-1; j++){
@@ -2764,11 +2808,11 @@ static void unpack_ix2_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
 
-
+*/
 
 
   for(k=ks; k<=ke; k++){
@@ -2807,6 +2851,7 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
   double *pRcv;
   pRcv = (double*)&(recv_buf[1][0]);
 
+/*
   for(k=ks; k<=ke; k++){
     for(j=je+1; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2817,10 +2862,11 @@ static void unpack_ox2_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
-
+      }
+      }
+      }
+  
+      */
 
 
   for(k=ks; k<=ke; k++){
@@ -2858,6 +2904,7 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
   double *pRcv;
   pRcv = (double*)&(recv_buf[0][0]);
 
+/*
   for(k=ks-Radghost; k<=ks-1; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2868,9 +2915,11 @@ static void unpack_ix3_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+  
+      */
 
 
 
@@ -2913,6 +2962,7 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
   pRcv = (double*)&(recv_buf[1][0]);
 
 
+/*
   for(k=ke+1; k<=ke+Radghost; k++){
     for(j=js-Radghost; j<=je+Radghost; j++){
       for(i=is-Radghost; i<=ie+Radghost; i++){
@@ -2923,9 +2973,11 @@ static void unpack_ox3_fullrad(GridS *pG, RadGridS *pRG)
         for(l=0; l<3; l++)
           pG->Frsource[k+koff][j+joff][i+ioff][l] = *(pRcv++);
 
-      }/* end i */
-    }/* end J */
-  } /* End k */
+      }
+      }
+      }
+      
+      */
 
 
 

@@ -58,6 +58,14 @@ static void periodic_Phi_ox3(GridS *pG);
 static void Open_Phi_ix3(GridS *pG);
 static void Open_Phi_ox3(GridS *pG);
 
+static void obc_fft_Phi_ix1(GridS *pG);
+static void obc_fft_Phi_ox1(GridS *pG);
+static void obc_fft_Phi_ix2(GridS *pG);
+static void obc_fft_Phi_ox2(GridS *pG);
+static void obc_fft_Phi_ix3(GridS *pG);
+static void obc_fft_Phi_ox3(GridS *pG);
+
+
 static void ProlongateLater(GridS *pG);
 
 #ifdef MPI_PARALLEL
@@ -639,7 +647,7 @@ void bvals_grav_init(MeshS *pM)
           break;
                   
           case 3: /* open boundary condition */
-            pD->ix3_GBCFun = Open_Phi_ix3;
+            pD->ix3_GBCFun = obc_fft_Phi_ix3;
           break;
 
           case 4: /* Periodic */
@@ -683,7 +691,7 @@ void bvals_grav_init(MeshS *pM)
           break;
                   
           case 3: /* open boundary condition */
-            pD->ox3_GBCFun = Open_Phi_ox3;
+            pD->ox3_GBCFun = obc_fft_Phi_ox3;
           break;
 
           case 4: /* Periodic */
@@ -1224,6 +1232,149 @@ static void Open_Phi_ix3(GridS *pG)
     
     
     
+}
+
+
+
+/*----------------------------------------------------------------------------
+ * OPEN BOUNDARY CONDITION FUNCTIONS
+ *----------------------------------------------------------------------------*/
+
+/* For linear extrapolation, just comment out the following line */
+#define QUADRATIC_EXTRAPOLATION
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Inner x1 boundary
+ *
+ * This BC uses a linear (quadratic) extrapolation of Phi normal to each face.
+ * NOTE:  This version requires AT LEAST 2(3) active zones in each direction! */
+static void obc_fft_Phi_ix1(GridS *pG)
+{
+  int i,is=pG->is;
+  int j,js=pG->js,je=pG->je;
+  int k,ks=pG->ks,ke=pG->ke;
+  
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[k][j][is-i] = 3.0*pG->Phi[k][j][is-i+1] - 3.0*pG->Phi[k][j][is-i+2] + pG->Phi[k][j][is-i+3];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[k][j][is-i] = 2.0*pG->Phi[k][j][is-i+1] - pG->Phi[k][j][is-i+2];
+#endif
+      }
+    }
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Outer x1 boundary
+ */
+static void obc_fft_Phi_ox1(GridS *pG)
+{
+  int i,ie=pG->ie;
+  int j,js=pG->js,je=pG->je;
+  int k,ks=pG->ks,ke=pG->ke;
+  
+  for (k=ks; k<=ke; k++) {
+    for (j=js; j<=je; j++) {
+      for (i=1; i<=nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[k][j][ie+i] = 3.0*pG->Phi[k][j][ie+i-1] - 3.0*pG->Phi[k][j][ie+i-2] + pG->Phi[k][j][ie+i-3];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[k][j][ie+i] = 2.0*pG->Phi[k][j][ie+i-1] - pG->Phi[k][j][ie+i-2];
+#endif
+      }
+    }
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Innter x2 boundary
+ */
+static void obc_fft_Phi_ix2(GridS *pG)
+{
+  int i,is=pG->is,ie=pG->ie;
+  int j,js=pG->js;
+  int k,ks=pG->ks,ke=pG->ke;
+  
+  for (k=ks; k<=ke; k++) {
+    for (j=1; j<=nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[k][js-j][i] = 3.0*pG->Phi[k][js-j+1][i] - 3.0*pG->Phi[k][js-j+2][i] + pG->Phi[k][js-j+3][i];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[k][js-j][i] = 2.0*pG->Phi[k][js-j+1][i] - pG->Phi[k][js-j+2][i];
+#endif
+      }
+    }
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Outer x2 boundary
+ */
+static void obc_fft_Phi_ox2(GridS *pG)
+{
+  int i,is=pG->is,ie=pG->ie;
+  int j,je=pG->je;
+  int k,ks=pG->ks,ke=pG->ke;
+  
+  for (k=ks; k<=ke; k++) {
+    for (j=1; j<=nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[k][je+j][i] = 3.0*pG->Phi[k][je+j-1][i] - 3.0*pG->Phi[k][je+j-2][i] + pG->Phi[k][je+j-3][i];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[k][je+j][i] = 2.0*pG->Phi[k][je+j-1][i] - pG->Phi[k][je+j-2][i];
+#endif
+      }
+    }
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Inner x3 boundary
+ */
+static void obc_fft_Phi_ix3(GridS *pG)
+{
+  int i,is=pG->is,ie=pG->ie;
+  int j,js=pG->js,je=pG->je;
+  int k,ks=pG->ks;
+  
+  for (k=1; k<=nghost; k++) {
+    for (j=js-nghost; j<=je+nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[ks-k][j][i] = 3.0*pG->Phi[ks-k+1][j][i] - 3.0*pG->Phi[ks-k+2][j][i] + pG->Phi[ks-k+3][j][i];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[ks-k][j][i] = 2.0*pG->Phi[ks-k+1][j][i] - pG->Phi[ks-k+2][j][i];
+#endif
+      }
+    }
+  }
+}
+
+/*----------------------------------------------------------------------------*/
+/* OPEN (VACUUM) boundary conditions, Outer x3 boundary
+ */
+static void obc_fft_Phi_ox3(GridS *pG)
+{
+  int i,is=pG->is,ie=pG->ie;
+  int j,js=pG->js,je=pG->je;
+  int k,ke=pG->ke;
+  
+  for (k=1; k<=nghost; k++) {
+    for (j=js-nghost; j<=je+nghost; j++) {
+      for (i=is-nghost; i<=ie+nghost; i++) {
+#ifdef QUADRATIC_EXTRAPOLATION
+        pG->Phi[ke+k][j][i] = 3.0*pG->Phi[ke+k-1][j][i] - 3.0*pG->Phi[ke+k-2][j][i] + pG->Phi[ke+k-3][j][i];
+#else  /* LINEAR EXTRAPOLATION */
+        pG->Phi[ke+k][j][i] = 2.0*pG->Phi[ke+k-1][j][i] - pG->Phi[ke+k-2][j][i];
+#endif
+      }
+    }
+  }
 }
 
 

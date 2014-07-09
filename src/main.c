@@ -697,15 +697,27 @@ int main(int argc, char *argv[])
           GetVelguess(&(Mesh.Domain[nl][nd]));
 /* Also get the reduce factor for speed of light */
           GetSpeedfactor(&(Mesh.Domain[nl][nd]));
-/* Get Compton scattering source term */
-          if(Comptflag)
-            ComptTEr(&(Mesh.Domain[nl][nd]));
+
+          /* Compton Scattering */
+          
+          
+          if(Comptflag){
+            /* With Compton scattering, first, need to update the moments */
+            ComptIntensity(&(Mesh.Domain[nl][nd]));
+            
+            /* gas boundary condition is updated inside Compton scattering routine */
+          }
 
           FullRT(&(Mesh.Domain[nl][nd]));
-/* update boundary condition */
+          
+          /* Add radiation source terms to gas, no need to update boundary condition here, if Compton is used */
+          /* gas boundary condition is also updated inside this routine */
+          
+          FullRTsource(&(Mesh.Domain[nl][nd]));
+          
+          /* update boundary condition */
           bvals_fullrad(&(Mesh.Domain[nl][nd]));
-/* Update the moments with the new specific intensities
- * Only in the ghost zones */
+/* Update the moments with the new specific intensities */
           UpdateRT(&(Mesh.Domain[nl][nd]));
 
         }/* end if grid is not null */

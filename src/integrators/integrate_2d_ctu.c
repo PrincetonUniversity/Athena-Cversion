@@ -61,8 +61,9 @@ Real dotphil, dotgxl;
 #ifdef FULL_RADIATION_TRANSFER
 /* Radiation source term for gas pressure, 
  * which is calculated based Tnew */
+ /*
 static Real **RadPsource=NULL;
-
+*/
 #endif
 
 /* The interface magnetic fields and emfs */
@@ -356,7 +357,8 @@ void integrate_2d_ctu(DomainS *pD)
 /*--- Step 1c (cont) -----------------------------------------------------------
  * Add radiation velocity and pressure source terms 0.5*dt to L/R states
  */
-	  
+
+/*
 #ifdef FULL_RADIATION_TRANSFER
 	  
 	for (i=il+1; i<=iu; i++) {
@@ -366,7 +368,9 @@ void integrate_2d_ctu(DomainS *pD)
 	   Wr[i].Vx += 0.5 * pG->Frsource[ks][j][i][0]/Wr[i].d;
     }
 	  
-#endif /* FULL_RADIATION_TRANSFER */	  
+#endif 
+*/
+/* FULL_RADIATION_TRANSFER */
 	  
 	  
 
@@ -656,7 +660,7 @@ void integrate_2d_ctu(DomainS *pD)
 #endif /* BAROTROPIC */
 	  
 	  
-	  
+/*
 #ifdef FULL_RADIATION_TRANSFER
 	  
 	  for (j=jl+1; j<=ju; j++) {
@@ -666,7 +670,10 @@ void integrate_2d_ctu(DomainS *pD)
 		  Wr[j].Vy += 0.5 * pG->Frsource[ks][j][i][1]/Wr[j].d;
 	  }
 	  
-#endif /* FULL_RADIATION_TRANSFER */	  
+#endif 
+*/
+
+/* FULL_RADIATION_TRANSFER */
 
 /*--- Step 2c (cont) -----------------------------------------------------------
  * Add source terms for particle feedback for 0.5*dt to L/R states
@@ -1926,17 +1933,19 @@ void integrate_2d_ctu(DomainS *pD)
 #endif /* BAROTROPIC */
 	
 /* Add radiation source term for full time step */
+/* This is now added in main.c */
+/*
 #ifdef FULL_RADIATION_TRANSFER
 	for (j=js; j<=je; j++) {
 		for (i=is; i<=ie; i++) {
 			pG->U[ks][j][i].M1 += pG->Frsource[ks][j][i][0];
 			pG->U[ks][j][i].M2 += pG->Frsource[ks][j][i][1];
 			pG->U[ks][j][i].E += pG->Radheat[ks][j][i];
-		}/* end i */
-	}/* end j */
+		}
+	}
 	
 #endif
-	
+*/
 	
 	
 /*--- Step 11d -----------------------------------------------------------------
@@ -2250,8 +2259,9 @@ void integrate_init_2d(MeshS *pM)
 		  
 #ifdef FULL_RADIATION_TRANSFER
 		  /* Set the pointer */
+  /*
 		  RadPsource = pM->Domain[nl][nd].Grid->Pgsource[0];
-		  
+		*/
 #endif
 		  
         if (pM->Domain[nl][nd].Grid->Nx[0] > size1){

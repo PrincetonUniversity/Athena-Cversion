@@ -30,7 +30,10 @@ void RadSsource(const int i, const int j, const int k, const int N, const int Sc
 void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
 void GetSpeedfactor(DomainS *pD);
-void ComptTEr(DomainS *pD);
+void ComptIntensity(DomainS *pD);
+void FullRTsource(DomainS *pD);
+void UpdateHcomp(Real *Hnew, Real Hold[3], const Real dtsigma, Real Vel[3]);
+void UpdateKcomp(Real *Knew, Real Kold[6], Real Hnew[3], Real Vel[3], const Real Jnew, const Real dtsigma, const Real Source);
 
 
 /* bvals_fullrad.c */

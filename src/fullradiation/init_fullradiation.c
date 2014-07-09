@@ -208,6 +208,16 @@ VDFun_t init_fullradiation(MeshS *pM)
           pRG->MinX[2] += (Real)(pD->GData[n-1][myM][myL].Nx[2])*pRG->dx3;
         }
         pRG->MaxX[2] = pRG->MinX[2] + (Real)(pRG->Nx[2])*pRG->dx3;
+        
+        
+        
+/* Allocate memory for intensities, angles and weights for angular quadratures */
+
+        nmu = pRG->nmu;
+        nang = pRG->nang;
+        noct = pRG->noct;
+
+        nelements = pRG->noct * pRG->nang;
 
 
 /*  Allocate memory for array of RadS */
@@ -217,17 +227,16 @@ VDFun_t init_fullradiation(MeshS *pM)
 /* Allocate memory for reduction factor of speed of light */
         pRG->Speedfactor = (Real *****)calloc_5d_array(n3z,n2z,n1z,pRG->nf,3,sizeof(Real));
         if (pRG->Speedfactor == NULL) goto on_error16;
+        
+ /* Allocate memory for Compton scattering */
 
         pRG->Ercompt = (Real ****)calloc_4d_array(n3z,n2z,n1z,pRG->nf,sizeof(Real));
         if (pRG->Ercompt == NULL) goto on_error17;
 
-/* Allocate memory for intensities, angles and weights for angular quadratures */
+        pRG->ComptI = (Real *****)calloc_5d_array(n3z,n2z,n1z,pRG->nf,nelements,sizeof(Real));
+        if (pRG->ComptI == NULL) goto on_error17_2;
 
-        nmu = pRG->nmu;
-        nang = pRG->nang;
-        noct = pRG->noct;
 
-        nelements = pRG->noct * pRG->nang;
 
         pRG->mu = (Real *****)calloc_5d_array(n3z,n2z,n1z,nelements, 3,sizeof(Real));
         if (pRG->mu == NULL) goto on_error2;
@@ -738,6 +747,8 @@ VDFun_t init_fullradiation(MeshS *pM)
   free_5d_array(pRG->Speedfactor);
  on_error17:
   free_4d_array(pRG->Ercompt);
+ on_error17_2:
+  free_5d_array(pRG->ComptI);
  on_error22:
   free_1d_array(pRG->wnu);
  on_error21:
