@@ -29,9 +29,6 @@
 #include "prototypes.h"
 #include "../prototypes.h"
 
-/* maximum wavespeed used by H-correction, value passed from integrator */
-Real etah=0.0;
-
 #ifdef ROE_FLUX
 /*! \fn void flux_hlle(const Cons1DS Ul, const Cons1DS Ur,
  *               const Prim1DS Wl, const Prim1DS Wr,

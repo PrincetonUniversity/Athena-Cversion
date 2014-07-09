@@ -461,6 +461,43 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
 }
 
 /*----------------------------------------------------------------------------*/
+/*! \fn Real cfast_prim(const Prim1DS *W, const Real *Bx)
+ *
+ *  \brief Returns fast magnetosonic speed given input 1D vector of primitive
+ *   variables and Bx -- NEWTONIAN PHYSICS ONLY.
+ */
+
+Real cfast_prim(const Prim1DS *W, const Real *Bx)
+{
+  Real asq;
+#ifndef ISOTHERMAL
+  Real p,pb=0.0;
+#endif
+#ifdef MHD
+  Real ctsq,casq,tmp,cfsq;
+#endif
+
+#ifdef ISOTHERMAL
+  asq = Iso_csound2;
+#else
+#ifdef MHD
+  pb = 0.5*(SQR(*Bx) + SQR(W->By) + SQR(W->Bz));
+#endif /* MHD */
+  asq = Gamma*W->P/W->d;
+#endif /* ISOTHERMAL */
+
+#ifndef MHD
+  return sqrt(asq);
+#else
+  ctsq = (SQR(W->By) + SQR(W->Bz))/W->d;
+  casq = SQR(*Bx)/W->d;
+  tmp = casq + ctsq - asq;
+  cfsq = 0.5*((asq+ctsq+casq) + sqrt(tmp*tmp + 4.0*asq*ctsq));
+  return sqrt(cfsq);
+#endif
+}
+
+/*----------------------------------------------------------------------------*/
 /*! \fn Real cfast(const Cons1DS *U, const Real *Bx)
  *
  *  \brief Returns fast magnetosonic speed given input 1D vector of conserved

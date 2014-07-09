@@ -68,7 +68,6 @@ static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static ConsS **Uhalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
-extern Real etah;
 #ifdef H_CORRECTION
 static Real **eta1=NULL, **eta2=NULL;
 #endif
@@ -677,10 +676,10 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef MHD
       Bx = B1_x1Face[j][i];
 #endif
-      cfr = cfast(&(Ur_x1Face[j][i]),&Bx);
-      cfl = cfast(&(Ul_x1Face[j][i]),&Bx);
-      lambdar = Ur_x1Face[j][i].Mx/Ur_x1Face[j][i].d + cfr;
-      lambdal = Ul_x1Face[j][i].Mx/Ul_x1Face[j][i].d - cfl;
+      cfr = cfast_prim(&(Wr_x1Face[j][i]),&Bx);
+      cfl = cfast_prim(&(Wl_x1Face[j][i]),&Bx);
+      lambdar = Wr_x1Face[j][i].Vx + cfr;
+      lambdal = Wl_x1Face[j][i].Vx - cfl;
       eta1[j][i] = 0.5*fabs(lambdar - lambdal);
     }
   }
@@ -690,10 +689,10 @@ void integrate_2d_vl(DomainS *pD)
 #ifdef MHD
       Bx = B2_x2Face[j][i];
 #endif
-      cfr = cfast(&(Ur_x2Face[j][i]),&Bx);
-      cfl = cfast(&(Ul_x2Face[j][i]),&Bx);
-      lambdar = Ur_x2Face[j][i].Mx/Ur_x2Face[j][i].d + cfr;
-      lambdal = Ul_x2Face[j][i].Mx/Ul_x2Face[j][i].d - cfl;
+      cfr = cfast_prim(&(Wr_x2Face[j][i]),&Bx);
+      cfl = cfast_prim(&(Wl_x2Face[j][i]),&Bx);
+      lambdar = Wr_x2Face[j][i].Vx + cfr;
+      lambdal = Wl_x2Face[j][i].Vx - cfl;
       eta2[j][i] = 0.5*fabs(lambdar - lambdal);
     }
   }

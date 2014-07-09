@@ -66,7 +66,6 @@ static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static Real **dhalf = NULL,**phalf = NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
-extern Real etah;
 #ifdef H_CORRECTION
 static Real **eta1=NULL, **eta2=NULL;
 #endif

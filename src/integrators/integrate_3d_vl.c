@@ -73,7 +73,6 @@ static Cons1DS *U1d=NULL, *Ul=NULL, *Ur=NULL;
 static ConsS ***Uhalf=NULL;
 
 /* variables needed for H-correction of Sanders et al (1998) */
-extern Real etah;
 #ifdef H_CORRECTION
 static Real ***eta1=NULL, ***eta2=NULL, ***eta3=NULL;
 #endif
@@ -954,10 +953,10 @@ void integrate_3d_vl(DomainS *pD)
 #ifdef MHD
         Bx = B1_x1Face[k][j][i];
 #endif
-        cfr = cfast(&(Ur_x1Face[k][j][i]),&Bx);
-        cfl = cfast(&(Ul_x1Face[k][j][i]),&Bx);
-        lambdar = Ur_x1Face[k][j][i].Mx/Ur_x1Face[k][j][i].d + cfr;
-        lambdal = Ul_x1Face[k][j][i].Mx/Ul_x1Face[k][j][i].d - cfl;
+        cfr = cfast_prim(&(Wr_x1Face[k][j][i]),&Bx);
+        cfl = cfast_prim(&(Wl_x1Face[k][j][i]),&Bx);
+        lambdar = Wr_x1Face[k][j][i].Vx + cfr;
+        lambdal = Wl_x1Face[k][j][i].Vx - cfl;
         eta1[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
@@ -969,10 +968,10 @@ void integrate_3d_vl(DomainS *pD)
 #ifdef MHD
         Bx = B2_x2Face[k][j][i];
 #endif
-        cfr = cfast(&(Ur_x2Face[k][j][i]),&Bx);
-        cfl = cfast(&(Ul_x2Face[k][j][i]),&Bx);
-        lambdar = Ur_x2Face[k][j][i].Mx/Ur_x2Face[k][j][i].d + cfr;
-        lambdal = Ul_x2Face[k][j][i].Mx/Ul_x2Face[k][j][i].d - cfl;
+        cfr = cfast_prim(&(Wr_x2Face[k][j][i]),&Bx);
+        cfl = cfast_prim(&(Wl_x2Face[k][j][i]),&Bx);
+        lambdar = Wr_x2Face[k][j][i].Vx + cfr;
+        lambdal = Wl_x2Face[k][j][i].Vx - cfl;
         eta2[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }
@@ -984,10 +983,10 @@ void integrate_3d_vl(DomainS *pD)
 #ifdef MHD
         Bx = B3_x3Face[k][j][i];
 #endif
-        cfr = cfast(&(Ur_x3Face[k][j][i]),&Bx);
-        cfl = cfast(&(Ul_x3Face[k][j][i]),&Bx);
-        lambdar = Ur_x3Face[k][j][i].Mx/Ur_x3Face[k][j][i].d + cfr;
-        lambdal = Ul_x3Face[k][j][i].Mx/Ul_x3Face[k][j][i].d - cfl;
+        cfr = cfast_prim(&(Wr_x3Face[k][j][i]),&Bx);
+        cfl = cfast_prim(&(Wl_x3Face[k][j][i]),&Bx);
+        lambdar = Wr_x3Face[k][j][i].Vx + cfr;
+        lambdal = Wl_x3Face[k][j][i].Vx - cfl;
         eta3[k][j][i] = 0.5*fabs(lambdar - lambdal);
       }
     }

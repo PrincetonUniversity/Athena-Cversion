@@ -132,6 +132,7 @@ ConsS Prim_to_Cons(const PrimS *pW);
 Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx);
 Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx);
 #ifndef SPECIAL_RELATIVITY
+Real cfast_prim(const Prim1DS *W, const Real *Bx);
 Real cfast(const Cons1DS *U, const Real *Bx);
 #endif
 #ifdef SPECIAL_RELATIVITY

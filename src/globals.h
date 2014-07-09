@@ -69,6 +69,8 @@ ShearFun_t ShearProfile = NULL;
 #endif
 #endif
 
+Real etah=0.0;
+
 /*----------------------------------------------------------------------------*/
 /* definitions included everywhere except main.c  */
 
@@ -130,5 +132,6 @@ extern ShearFun_t ShearProfile;
 #endif
 #endif
 
+extern Real etah;
 #endif /* MAIN_C */
 #endif /* GLOBALS_H */
