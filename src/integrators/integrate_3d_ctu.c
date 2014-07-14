@@ -2706,13 +2706,14 @@ void integrate_3d_ctu(DomainS *pD)
         }
 		  
 		/* Add radiation source term */
+/*
 #ifdef FULL_RADIATION_TRANSFER
 		M1h += (0.5 * pG->Frsource[k][j][i][0]);  
 		M2h += (0.5 * pG->Frsource[k][j][i][1]); 
 		M3h += (0.5 * pG->Frsource[k][j][i][2]);   
 		  
 #endif
-
+*/
         /* Add source terms due to self-gravity  */
 #ifdef SELF_GRAVITY
         phir = 0.5*(pG->Phi[k][j][i] + pG->Phi[k][j][i+1]);

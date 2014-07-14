@@ -336,11 +336,9 @@ void RadSsource(const int i, const int j, const int k, const int N, RadGridS *pR
 
 /* Distribute the Compton scattering contribution to each rays in the lab frame */
 /* There is no moment change to first order of v/c due to Compton scattering */
-void ComptIntensity(DomainS *pD)
+void ComptIntensity(GridS *pG, RadGridS *pRG)
 {
 
-  RadGridS *pRG=(pD->RadGrid);
-  GridS *pG = (pD->Grid);
 
   int i, j, k, ig, jg, kg;
   int il = pRG->is, iu = pRG->ie;
@@ -349,7 +347,7 @@ void ComptIntensity(DomainS *pD)
   int koff = 0, joff = 0, ioff = 0;
   int nDim;
   int nf = pRG->nf, nelements, noct, nang;
-  int ifr, n;
+  int ifr, n, Mi;
   
   Real Tgas, Er, Ernew, Tr, Ersource;
   Real coefA, coefK, coefB,coef1,coef2,coef3,coef4;
@@ -401,7 +399,15 @@ void ComptIntensity(DomainS *pD)
           if(Comptflag){
               /* First, update zeroth moment J due to Compton process */
             
-            Er = 4.0 * PI * pRG->R[k][j][i][ifr].J;
+            /* calculated Jold from imu as J may not up to date */
+            Er = 0.0;
+            for(n=0; n<nelements; n++){
+              Er += pRG->wmu[k][j][i][n] * pRG->imu[k][j][i][ifr][n];
+            }
+            
+            
+            Er *= (4.0 * PI);
+            
             dtsigmas = pG->dt * pRG->R[k][j][i][ifr].Sigma[2];
 
             Tr = sqrt(Er);
@@ -427,15 +433,16 @@ void ComptIntensity(DomainS *pD)
 
             pRG->Ercompt[k][j][i][ifr] = (Ernew - Er)/(4.0*PI);
             Ersource += (pRG->wnu[ifr] * (Ernew - Er));
-          
-            Jnew = pRG->R[k][j][i][ifr].J + pRG->Ercompt[k][j][i][ifr];
-            
+/*
+            Jnew = Er/(4.0 * PI) + pRG->Ercompt[k][j][i][ifr];
+*/
             /* Use the actual velocity, not need to use guess velocity for Compton scattering */
-            
+
+/*
             Vel[0] = pG->Velguess[k+koff][j+joff][i+ioff][0];
             Vel[1] = pG->Velguess[k+koff][j+joff][i+ioff][1];
             Vel[2] = pG->Velguess[k+koff][j+joff][i+ioff][2];
-      
+*/
       
 
             
@@ -445,18 +452,22 @@ void ComptIntensity(DomainS *pD)
   /*        for(n=0; n<3; n++)
                 MomSource[n] += (pRG->wnu[ifr] * (Hnew[n] - pRG->R[k][j][i][ifr].H[n]));
     */
+/*
             for(n=0; n<3; n++){
-                Hnew[n] = pRG->R[k][j][i][ifr].H[n];
+                Hnew[n] = 0.0;
+                for(Mi=0; Mi<nelements; Mi++){
+                    Hnew[n] += pRG->wmu[k][j][i][n] * pRG->imu[k][j][i][ifr][n] * pRG->mu * miu[n];
+                }
             }
             
-              
+*/
             /* update K due to Compton terms */
-            UpdateKcomp(&(Knew[0]), pRG->R[k][j][i][ifr].K, Hnew, Vel, Jnew, dtsigmas, pRG->Ercompt[k][j][i][ifr]);
-            
+/*            UpdateKcomp(&(Knew[0]), pRG->R[k][j][i][ifr].K, Hnew, Vel, Jnew, dtsigmas, pRG->Ercompt[k][j][i][ifr]);
+*/
             
             /* With the updated J, H and K, we can update intensity due to Compton terms */
             for(n=0; n<nelements; n++){
-
+/*
 #ifdef CYLINDRICAL
                 miux = pRG->Rphimu[k][j][i][n][0];
                 miuy = pRG->Rphimu[k][j][i][n][1];
@@ -472,7 +483,7 @@ void ComptIntensity(DomainS *pD)
                 Hdotn = (Hnew[0] * miux + Hnew[1] * miuy + Hnew[2] * miuz);
                 nnK = miux * miux * Knew[0] + 2.0 * miux * miuy * Knew[1] + miuy * miuy * Knew[2] + 2.0 * miux * miuz * Knew[3] + 2.0 * miuy * miuz * Knew[4] + miuz * miuz * Knew[5];
                 vnK = Vel[0] * miux * Knew[0] + (Vel[0] * miuy + Vel[1] * miux) * Knew[1] + Vel[1] * miuy * Knew[2] + (Vel[0] * miuz + Vel[2] * miux) * Knew[3] + (Vel[1] * miuz + Vel[2] * miuy) * Knew[4] + Vel[2] * miuz * Knew[5];
-              
+   */
       /*  Do not include (v/c)^2 terms right now */
           /*
                 pRG->imu[k][j][i][ifr][Mi] = pRG->imu[k][j][i][ifr][Mi] + pRG->Ercompt[k][j][i][ifr] + dtsigmas * (-0.75 * vdotn + 5.25 * vdotn * vdotn/Crat - 1.75 * vsquar/Crat) * Jnew
@@ -481,9 +492,10 @@ void ComptIntensity(DomainS *pD)
           */
         
                 /* Include the J and K terms, the first moment is not zero numerically, although it should be */
-                pRG->ComptI[k][j][i][ifr][n] = pRG->Ercompt[k][j][i][ifr] + 0.0 * dtsigmas * (0.5 * vdotH - 1.5 * vdotn * Hdotn)
+                pRG->imu[k][j][i][ifr][n] += pRG->Ercompt[k][j][i][ifr];
+/*                 + 0.0 * dtsigmas * (0.5 * vdotH - 1.5 * vdotn * Hdotn)
                                           + 0.0 * (dtsigmas * (3.75 * vdotn * nnK - 1.5 * vnK) - dtsigmas * 0.75 * vdotn * Jnew);
-
+*/
 
             }/* End nelements */
             
@@ -500,20 +512,15 @@ void ComptIntensity(DomainS *pD)
         }/* End ifr */
   
         /* Add Compton energy source to gas end pressure source */
+        /* Update tgas and total energy, velocity is unchanged during this step */
         pG->U[kg][jg][ig].E += -Prat * Ersource;
-
+        pG->tgas[kg][jg][ig] += (-Prat * Ersource) * (Gamma - 1.0)/(pG->U[kg][jg][ig].d * R_ideal);
 
       }/* end i */
     }/* End j */
   }/* End k */
   
-  
-  /* Update boundary condition for gas quantity, as gas energy is changed */
-  bvals_mhd(pD);
-  /* Because gas temperature is updated here, we need to update opacity and tgas */
-  /* scattering opaicty usually does not depends on temperature, otherwise we cannot update them here as *
-   * we need to use the same opacity in Compton scattering and the other terms in scattering */
-  hydro_to_fullrad(pD);
+
 
   return;
 

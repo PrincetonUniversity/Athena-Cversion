@@ -32,7 +32,7 @@ void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
 void EstimateVel(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, const int flag, RadGridS *pRG, GridS *pG);
 void GetSpeedfactor(DomainS *pD);
-void ComptIntensity(DomainS *pD);
+void ComptIntensity(GridS *pG, RadGridS *pRG);
 void UpdateHcomp(Real *Hnew, Real Hold[3], const Real dtsigma, Real Vel[3]);
 void UpdateKcomp(Real *Knew, Real Kold[6], Real Hnew[3], Real Vel[3], const Real Jnew, const Real dtsigma, const Real Source);
 

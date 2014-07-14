@@ -700,17 +700,7 @@ int main(int argc, char *argv[])
 /* Also get the reduce factor for speed of light */
           GetSpeedfactor(&(Mesh.Domain[nl][nd]));
 
-          /* Compton Scattering */
-          
-          
-          if(Comptflag){
-            /* With Compton scattering, first, need to update the moments */
-            /* hydro_to_fullrad is also called once inside compton, as gas temperature is updated there */
-            ComptIntensity(&(Mesh.Domain[nl][nd]));
-            
-            /* gas boundary condition is updated inside Compton scattering routine */
-          }
-
+               
           FullRT(&(Mesh.Domain[nl][nd]));
           
           /* Also needs to update gas boundary condition, as energy and moment are updated inside FullRT */

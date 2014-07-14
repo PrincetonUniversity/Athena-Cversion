@@ -520,6 +520,9 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
 
 
 /*--------------------------------------------------------------------------------------------------------------*/
+    /* Calculate the Compton Scattering Term */
+    /* All imu and gas temperautre is update to date */
+    ComptIntensity(pG, pRG);
 
 
 /*--------------------------------------------------------------------------------------------------------------*/

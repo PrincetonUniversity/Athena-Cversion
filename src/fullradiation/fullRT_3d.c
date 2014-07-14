@@ -621,7 +621,9 @@ void Sourceloop3D(RadGridS *pRG, GridS *pG)
     /* Finish the whole grid */
         
 /*--------------------------------------------------------------------------------------------------------------*/
-
+    /* Calculate the Compton Scattering Term */
+    /* All imu and gas temperautre is update to date */
+    ComptIntensity(pG, pRG);
 
 /*--------------------------------------------------------------------------------------------------------------*/
     /* Update the moments with the new Specific intensity, do not need the boundary condition */
