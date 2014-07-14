@@ -473,7 +473,8 @@ int main(int argc, char *argv[])
         UpdateRT(&(Mesh.Domain[nl][nd]));
 
 /* Update the opacity for the whole grid */
-        UpdateOpacity(&(Mesh.Domain[nl][nd]));
+        /* update Opacity and tgas */
+        hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
 #endif
       }
     }
@@ -691,9 +692,10 @@ int main(int argc, char *argv[])
     for (nl=0; nl<(Mesh.NLevels); nl++){
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-/* Get the gas temperature */
-          hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
-/* get the estimate velocity at half time step */
+        /* get the estimate velocity at half time step */
+        /* This is before the full-rt loop */
+        /* Only include scattering opacity when velocity is estimated */
+        /* Velocity will be updated before absorption opacity source terms */
           GetVelguess(&(Mesh.Domain[nl][nd]));
 /* Also get the reduce factor for speed of light */
           GetSpeedfactor(&(Mesh.Domain[nl][nd]));
@@ -703,6 +705,7 @@ int main(int argc, char *argv[])
           
           if(Comptflag){
             /* With Compton scattering, first, need to update the moments */
+            /* hydro_to_fullrad is also called once inside compton, as gas temperature is updated there */
             ComptIntensity(&(Mesh.Domain[nl][nd]));
             
             /* gas boundary condition is updated inside Compton scattering routine */
@@ -710,15 +713,14 @@ int main(int argc, char *argv[])
 
           FullRT(&(Mesh.Domain[nl][nd]));
           
-          /* Add radiation source terms to gas, no need to update boundary condition here, if Compton is used */
-          /* gas boundary condition is also updated inside this routine */
-          
-          FullRTsource(&(Mesh.Domain[nl][nd]));
+          /* Also needs to update gas boundary condition, as energy and moment are updated inside FullRT */
+          bvals_mhd(&(Mesh.Domain[nl][nd]));
           
           /* update boundary condition */
           bvals_fullrad(&(Mesh.Domain[nl][nd]));
 /* Update the moments with the new specific intensities */
           UpdateRT(&(Mesh.Domain[nl][nd]));
+
 
         }/* end if grid is not null */
       }/* end Domain nd */
@@ -882,7 +884,8 @@ int main(int argc, char *argv[])
 /* update the opacity after the gas quantities are updated, including the ghost
  * zones */
 #ifdef FULL_RADIATION_TRANSFER
-          UpdateOpacity(&(Mesh.Domain[nl][nd]));
+          /* Update tgas and opacity to be self-consistent */
+          hydro_to_fullrad(&(Mesh.Domain[nl][nd]));
 #endif
         }
       }

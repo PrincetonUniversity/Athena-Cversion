@@ -22,8 +22,8 @@
 
 
 static Real ****Divi = NULL;    /* temporary array to store flux for each array */
-static Real ***FullAngleV = NULL;       /* temporary array to store vn */
-static Real ***MatrixAngleV2 = NULL;    /* temporary array to store vKr/I */
+static Real *FullAngleV = NULL;       /* temporary array to store vn */
+static Real *MatrixAngleV2 = NULL;    /* temporary array to store vKr/I */
 
 
 static Real ***flux = NULL;
@@ -43,11 +43,11 @@ static Real ***Ma = NULL; /* The special diagonal elements for each angle (each 
 /*static Real ***Mc = NULL; */ /* Matrix elements for the second special matrix */
 /*static Real ***Mb = NULL;*/ /* The common elements for each angle */
 
-static Real **Mdcoef = NULL;
 static Real *Md = NULL;
-static Real **inisol = NULL;
+static Real **ABCm = NULL;
+
 static Real **sol = NULL; /* temporary solution used for Newton-Raphon iteration */
-static Real **Tcoef = NULL;  /* This is rho R/Gamma_1 for each cell [j][i] */
+
 /*static Real **T4coef = NULL; *//* This is dt P C Sigma_a for each cell [j][i] */
 /* prepare the coefficients required to calculate the momentums */
 static Real **Coefn = NULL; /* the miux, miuy, miuz for each [j][i][Mi][] */
@@ -110,13 +110,6 @@ void fullRT_2d(DomainS *pD)
 /* first set the gas energy and momentum source terms to be zero, this should be frequency averaged in principle */
 /* Including the ghost zone */
 /* ghost zones for absorption opacity source terms are set with boundary condition function */
-  for(j=js-nghost; j<=je+nghost; j++){
-    for(i=is-nghost; i<=ie+nghost; i++){
-      pG->Radheat[ks][j][i] = 0.0;
-      for(l=0; l<3; l++)
-        pG->Frsource[ks][j][i][l] = 0.0;
-    }
-  }
 
 
 /****************************************************************/
@@ -175,50 +168,6 @@ void Fluxloop2D(RadGridS *pRG, GridS *pG)
   lsf = 1.0;
 
 
-/* First, prepare the data for AngleV, AngleV2 and Vsource3 */
-  for(j=0; j<=je+Radghost; j++){
-    for(i=0; i<=ie+Radghost; i++){
-
-
-/* velocity is independent of the angles */
-/*
-  vx = pG->U[k+offset][j+offset][i+offset].M1 / pG->U[k+offset][j+offset][i+offset].d;
-  vy = pG->U[k+offset][j+offset][i+offset].M2 / pG->U[k+offset][j+offset][i+offset].d;
-  vz = pG->U[k+offset][j+offset][i+offset].M3 / pG->U[k+offset][j+offset][i+offset].d;
-*/
-
-      vx = pG->Velguess[0][j+offset][i+offset][0];
-      vy = pG->Velguess[0][j+offset][i+offset][1];
-      vz = pG->Velguess[0][j+offset][i+offset][2];
-
-
-
-
-      for(Mi=0; Mi<nelements; Mi++){
-/* First, prepare the array */
-#ifdef CYLINDRICAL
-
-        miux = pRG->Rphimu[ks][j][i][Mi][0];
-        miuy = pRG->Rphimu[ks][j][i][Mi][1];
-        miuz = pRG->Rphimu[ks][j][i][Mi][2];
-#else
-        miux = pRG->mu[ks][j][i][Mi][0];
-        miuy = pRG->mu[ks][j][i][Mi][1];
-        miuz = pRG->mu[ks][j][i][Mi][2];
-#endif
-
-        FullAngleV[j][i][Mi] = miux * vx + miuy * vy + miuz * vz;
-
-        MatrixAngleV2[j][i][Mi] = vx * vx * miux * miux + 2.0 * vx * vy * miux * miuy
-          + 2.0 * vx * vz * miux * miuz + vy * vy * miuy * miuy
-          + 2.0 * vy * vz * miuy * miuz + vz * vz * miuz * miuz;
-
-
-      }/* end Mi */
-
-    }/* end i */
-  }/* end j */
-
 
 
 /* Now calculate the x flux */
@@ -266,7 +215,7 @@ void Fluxloop2D(RadGridS *pRG, GridS *pG)
 #endif
 
 
-          AngleV = FullAngleV[j][i][Mi];
+          AngleV = vx * miux + vy * miuy + vz * miuz;
 
 
           if((sigmas + sigmaa) > TINY_NUMBER){
@@ -374,7 +323,7 @@ void Fluxloop2D(RadGridS *pRG, GridS *pG)
 
 
 
-          AngleV = FullAngleV[j][i][Mi];
+          AngleV = vx * miux + vy * miuy + vz * miuz;
 
 
 
@@ -449,30 +398,29 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
   js = pRG->js; je = pRG->je;
   ks = pRG->ks;
 
-  int offset, ifr, Mi, flag;
+  int offset, ifr, Mi, flag, m;
 
   offset = nghost - Radghost;
 
-  Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, AngleVN, Jnew;
-  Real sigmaa, sigmaaI, sigmas;
-  Real Tgas4;
+  Real vx, vy, vz, vel2, AngleV, AngleV2, miux, miuy, miuz, Jnew;
+  Real sigmaa, sigmas;
+  Real wimu, Tnew, Tcoef;
 
-/* The flux term Divi[][] needs to be added in the source term matrix,
- * To account for the optical depth effect,
- * Add the flux term with the source term with the shortest time scale
- * Judge the opacity in each cell
- */
-  int Absflag, Scatflag;
-  Absflag = 0;
-  Scatflag = 1;
 
 
   for(j=js; j<=je; j++){
     for(i=is; i<=ie; i++){
 
-/* First, set the coefficient for gas temperature */
-/* This coefficients are needed for both RHS and Jacobi coefficient */
-/* We need Planck mean absorption opacity here */
+
+      /* first, apply the flux term */
+        /* No need to update the moments, we do need them with scattering opacity, which is solved first */
+     for(ifr=0; ifr<pRG->nf; ifr++){
+        for(Mi=0; Mi<nelements; Mi++){
+            pRG->imu[ks][j][i][ifr][Mi] -= Divi[j][i][ifr][Mi];
+        
+        }
+      }
+
 
 /*
   vx = pG->U[0][j+offset][i+offset].M1 / pG->U[0][j+offset][i+offset].d;
@@ -485,43 +433,23 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
 
 
       vel2 = vx * vx + vy * vy + vz * vz;
-/* Prepare the matrix coefficient */
-/* First, calculate the last element */
 
-      AngleVN = FullAngleV[j][i][nelements-1];
 
-/* judge the frequency integrated opacity */
-      sigmaaI = 0.0;
-      sigmas = 0.0;
+/*--------------------------------------------------------------------------------------------------------------*/
+/* To be compatible with Compton Scattering, we need to add scattering opacity first and update I and the moments */
+/* With Compton scattering, the gas temperature is already updated */
+      
 
+
+/*--------------------------------------------------------------------------------------------------------------*/
+/* Now the scattering opacity */
       for(ifr=0; ifr<pRG->nf; ifr++){
-        sigmaaI += (pRG->wnu[ifr] * pRG->R[ks][j][i][ifr].Sigma[1]);
-        sigmas += (pRG->wnu[ifr] * pRG->R[ks][j][i][ifr].Sigma[2]);
-      }
-      if(sigmaaI > sigmas){
-        Absflag = 1;
-        Scatflag = 0;
-      }
-      else{
-        Absflag = 0;
-        Scatflag = 1;
-      }
 
-
-/*-----------------------------------------------------------------------------*/
-/* First, the absorption opacity */
-
-
-      for(ifr=0; ifr<pRG->nf; ifr++){
-/* Matrix coefficient for absorption opacity */
-        sigmaa = pRG->R[ks][j][i][ifr].Sigma[0];
-        sigmaaI = pRG->R[ks][j][i][ifr].Sigma[1];
-
-        Tcoef[ifr][0] = pG->U[0][j+offset][i+offset].d * R_ideal/Gamma_1;
-        Tcoef[ifr][1] = dt * Prat * (Crat-vel2 * InvCrat) * sigmaa;
-/* save the current gas temperature */
+        sigmas = pRG->R[ks][j][i][ifr].Sigma[2];
+        
 
         for(Mi=0; Mi<nelements; Mi++){
+        
 #ifdef CYLINDRICAL
 
           miux = pRG->Rphimu[ks][j][i][Mi][0];
@@ -538,142 +466,17 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
           Coefn[Mi][0] = miux;
           Coefn[Mi][1] = miuy;
           Coefn[Mi][2] = miuz;
-          Coefn[Mi][3] = miux * miux;
-          Coefn[Mi][4] = miux * miuy;
-          Coefn[Mi][5] = miuy * miuy;
-          Coefn[Mi][6] = miux * miuz;
-          Coefn[Mi][7] = miuy * miuz;
-          Coefn[Mi][8] = miuz * miuz;
 
-
-          AngleV = FullAngleV[j][i][Mi];
-          AngleV2 = MatrixAngleV2[j][i][Mi];
-
-
-          Ma[ifr][Mi][0] = (1.0 + dt * sigmaaI * (Crat - AngleV));
-          Ma[ifr][Mi][1] = dt * sigmaaI * (vel2 + AngleV2) * pRG->wmu[ks][j][i][Mi] * InvCrat;
-          Ma[ifr][Mi][2] = -4.0 * PI * Prat * dt * sigmaaI * (Crat - vel2 * InvCrat - 2.0 * AngleV) * pRG->wmu[ks][j][i][Mi] - Prat * 4.0 * PI * 2.0 * Ma[ifr][Mi][1];
-/* The Mdcoef is for the original equations, not for the Jacobi matrix */
-/* subtract line nelement from each line so that it becomes diagonal matrix */
-          if(Mi < nelements-1)
-            Mdcoef[ifr][Mi] = -dt * sigmaa * 3.0 * (AngleV - AngleVN) * QuaPI;
-          else {
-            Mdcoef[ifr][Mi] = -dt * sigmaa * (Crat + 3.0 * AngleV) * QuaPI;
-          }
-
-
-/* set the initial condition */
-          inisol[ifr][Mi] = pRG->imu[ks][j][i][ifr][Mi];
-
-/* The absorption part is I itself, no weight */
-          sol[ifr][Mi] = inisol[ifr][Mi];
-
-        }/* end Mi */
-
-
-        inisol[ifr][nelements] = pG->tgas[0][j+offset][i+offset];
-
-/* Also set the first guess solution */
-/* set the solution to be the one from last time step */
-        sol[ifr][nelements] = inisol[ifr][nelements];
-
-      }/* end ifr */
-
-
-/* Solve the absorption opacity related terms */
-/* Borrow the memory RHS */
-/* The energy and momentum source terms are already initialized */
-      Absorption(pRG->nf, nelements, Absflag, sol, inisol, Ma, Mdcoef, Tcoef, Md, RHS[0], Divi[j][i], &flag);
-
-
-/**********************************************************************/
-/* This part is only calculated in special cases */
-/* If the non-linear matrix does not converge, fix the temperature and invert a linear
- * matrix as a rough estimate */
-      if(flag == 0){
-        for(ifr=0; ifr<pRG->nf; ifr++){
-          sigmaa = pRG->R[ks][j][i][ifr].Sigma[0];
-          sigmaaI = pRG->R[ks][j][i][ifr].Sigma[1];
-
-          Tgas4 = pG->tgas[ks][j+offset][i+offset];
-          Tgas4 = SQR(Tgas4);
-          Tgas4 = SQR(Tgas4);
-/* save the current gas temperature */
-
-          AngleV = FullAngleV[j][i][nelements-1];
-
-          RHS[0][nelements-1] = pRG->imu[ks][j][i][ifr][nelements-1] + (Crat + 3.0 * AngleV) * Tgas4 * QuaPI * sigmaa * dt - Absflag * Divi[j][i][ifr][nelements-1];
-
-          for(Mi=0; Mi<nelements; Mi++){
-
-
-            AngleV = FullAngleV[j][i][Mi];
-            AngleV2 = MatrixAngleV2[j][i][Mi];
-
-            Ma[0][Mi][0] = (1.0 + dt * sigmaaI * (Crat - AngleV));
-            Ma[0][Mi][1] = dt * sigmaaI * (vel2 + AngleV2) * pRG->wmu[ks][j][i][Mi] * InvCrat;
-
-            if(Mi < nelements - 1){
-              RHS[0][Mi] = pRG->imu[ks][j][i][ifr][Mi] + (Crat + 3.0 * AngleV) * Tgas4 * QuaPI * sigmaa * dt - Absflag * Divi[j][i][ifr][Mi];
-              RHS[0][Mi] -= RHS[0][nelements-1];
-            }
-
-          }/* end Mi */
-
-/* Now solve the linear matrix */
-          LinearAbsorptionMatrix(nelements, Ma[0], RHS[0]);
-
-/* set the solution */
-          for(Mi=0; Mi<nelements; Mi++){
-            sol[ifr][Mi] = RHS[0][Mi];
-          }
-
-          sol[ifr][nelements] = pG->tgas[ks][j+offset][i+offset];
-
-
-        }/* end ifr */
-
-      }/* end flag */
-
-
-/* Because the absorption opacity related terms are updated implicitly,
- * use the update quantities to calculate the energy and momentum source terms
- * for the gas
- * The solution is in sol, no weight
- */
-/* first, borrow the space of inisol to get the weighted sol */
-
-      for(ifr=0; ifr<pRG->nf; ifr++){
-        for(Mi=0; Mi<nelements; Mi++){
-          inisol[ifr][Mi] = pRG->wmu[ks][j][i][Mi] * sol[ifr][Mi];
-        }/* end nelement */
-
-/* The last one is the gas temperature */
-        inisol[ifr][nelements] = sol[ifr][nelements];
-      }/* end ifr */
-
-
-/* Now call the solution to add the energy and momentum source term */
-/* Only do this if absorption matrix is converged properly */
-      if(flag > 0)
-        RadAsource(i, j, ks, nelements, Absflag, pRG, pG, Tcoef, Coefn, inisol, Divi[j][i]);
-
-
-
-/*--------------------------------------------------------------------------------------------------------------*/
-/* Now the scattering opacity */
-      for(ifr=0; ifr<pRG->nf; ifr++){
-
-        sigmas = pRG->R[ks][j][i][ifr].Sigma[2];
-
-
-        for(Mi=0; Mi<nelements; Mi++){
-
+        
+        
+          sol[ifr][Mi] = pRG->imu[ks][j][i][ifr][Mi];
 /* Set RHS */
-          RHS[ifr][Mi] = sol[ifr][Mi] - Scatflag * Divi[j][i][ifr][Mi];
+          RHS[ifr][Mi] = sol[ifr][Mi] + Comptflag * pRG->ComptI[ks][j][i][ifr][Mi];
 
-          AngleV = FullAngleV[j][i][Mi];
-          AngleV2 = MatrixAngleV2[j][i][Mi];
+          AngleV = vx * miux + vy * miuy + vz * miuz;
+          AngleV2 = vx * vx * miux * miux + 2.0 * vx * vy * miux * miuy
+            + 2.0 * vx * vz * miux * miuz + vy * vy * miuy * miuy
+            + 2.0 * vy * vz * miuy * miuz + vz * vz * miuz * miuz;
 
           Ma[ifr][Mi][0] = (1.0 + dt * sigmas * (Crat - AngleV))/pRG->wmu[ks][j][i][Mi];
           Ma[ifr][Mi][1] = dt * sigmas * (2.0 * AngleV - (vel2 + AngleV2) * InvCrat);
@@ -703,17 +506,89 @@ void Sourceloop2D(RadGridS *pRG, GridS *pG)
             pRG->imu[ks][j][i][ifr][Mi] = (RHS[ifr][Mi] + dt * sigmas * Crat * Jnew)/(1.0 + dt * sigmas * Crat);
           }
         }/* end vel2 */
-
+        
+        
       }/* end ifr */
-
-
-
 
 
 /*--------------------------------------------------------------------------------------------------------------*/
 /* Add the scattering energy and momentum source term */
-      RadSsource(i, j, ks, nelements, Scatflag, pRG, pG, Coefn, sol, Divi[j][i]);
+      RadSsource(i, j, ks, nelements, pRG, pG, Coefn, sol);
+      
+      }/* end i */
+    }/* end j */
 
+
+/*--------------------------------------------------------------------------------------------------------------*/
+
+
+/*--------------------------------------------------------------------------------------------------------------*/
+
+/* Update the moments with the new Specific intensity, do not need the boundary condition */
+    /* from is to ie, js to je, ks to ke */
+    CalMoment(is, ie, js, je, ks, ks, pRG);
+  
+    /* Estimate the guess velocity for absorption opacity as fluid velocity is updated */
+    EstimateVel(is, ie, js, je, ks, ks, 0, pRG, pG);
+  
+/*-----------------------------------------------------------------------------*/
+/* The absorption opacity */
+  
+/*--------------------------------------------------------------------------------------------------------------*/
+    /* After velocity is updated, we need to update Vdotn and Vdotnn */
+    /* First, prepare the data for AngleV, AngleV2 and Vsource3 */
+      for(j=js; j<=je; j++){
+        for(i=is; i<=ie; i++){
+
+
+            vx = pG->Velguess[ks][j+offset][i+offset][0];
+            vy = pG->Velguess[ks][j+offset][i+offset][1];
+            vz = pG->Velguess[ks][j+offset][i+offset][2];
+
+        for(Mi=0; Mi<nelements; Mi++){
+/* First, prepare the array */
+#ifdef CYLINDRICAL
+
+            miux = pRG->Rphimu[ks][j][i][Mi][0];
+            miuy = pRG->Rphimu[ks][j][i][Mi][1];
+            miuz = pRG->Rphimu[ks][j][i][Mi][2];
+#else
+            miux = pRG->mu[ks][j][i][Mi][0];
+            miuy = pRG->mu[ks][j][i][Mi][1];
+            miuz = pRG->mu[ks][j][i][Mi][2];
+#endif
+
+            FullAngleV[Mi] = miux * vx + miuy * vy + miuz * vz;
+
+            MatrixAngleV2[Mi] = vx * vx * miux * miux + 2.0 * vx * vy * miux * miuy
+              + 2.0 * vx * vz * miux * miuz + vy * vy * miuy * miuy
+              + 2.0 * vy * vz * miuy * miuz + vz * vz * miuz * miuz;
+          
+            Coefn[Mi][0] = miux;
+            Coefn[Mi][1] = miuy;
+            Coefn[Mi][2] = miuz;
+
+          }/* end Mi */
+
+  
+        Tcoef = pG->U[ks][j+offset][i+offset].d * R_ideal/(Gamma - 1.0);
+
+        for(ifr=0; ifr<pRG->nf; ifr++){
+/* Matrix coefficient for absorption opacity */
+          sigmaa = pRG->R[ks][j][i][ifr].Sigma[0];
+          
+          for(Mi=0; Mi<nelements; Mi++){
+              sol[ifr][Mi] = pRG->imu[ks][j][i][ifr][Mi];
+          }
+          
+          Absorption(nelements, pG->U[ks][j+offset][i+offset].d, dt * sigmaa, pG->tgas[ks][j+offset][i+offset], pRG->R[ks][j][i][ifr].J, pG->Velguess[ks][j+offset][i+offset], FullAngleV,  MatrixAngleV2, pRG->wmu[ks][j][i], pRG->imu[ks][j][i][ifr], ABCm, &Tnew);
+          
+
+        }
+        
+        RadAsource(i, j, ks, nelements, Tcoef, Tnew, pRG, pG, Coefn, sol);
+
+      
 
     }/* end i */
   }/* End j */
@@ -730,9 +605,9 @@ void fullRT_2d_destruct(void)
 {
 
   if(Divi != NULL) free_4d_array(Divi);
-  if(FullAngleV != NULL) free_3d_array(FullAngleV);
+  if(FullAngleV != NULL) free_1d_array(FullAngleV);
 
-  if(MatrixAngleV2 != NULL) free_3d_array(MatrixAngleV2);
+  if(MatrixAngleV2 != NULL) free_1d_array(MatrixAngleV2);
 
   if(flux != NULL) free_3d_array(flux);
   if(tempimu != NULL) free_3d_array(tempimu);
@@ -754,12 +629,11 @@ void fullRT_2d_destruct(void)
 
     if(CoefW != NULL) free_3d_array(CoefW);
 */
-  if(Mdcoef != NULL) free_2d_array(Mdcoef);
+
   if(sol != NULL) free_2d_array(sol);
-  if(inisol != NULL) free_2d_array(inisol);
-  if(Tcoef != NULL) free_2d_array(Tcoef);
-/*  if(T4coef != NULL) free_2d_array(T4coef);
- */
+  if(ABCm != NULL) free_2d_array(ABCm);
+
+
   if(lN1 != NULL) free_1d_array(lN1);
   if(lN2 != NULL) free_1d_array(lN2);
   if(lN3 != NULL) free_1d_array(lN3);
@@ -800,11 +674,11 @@ void fullRT_2d_init(RadGridS *pRG)
   if ((Divi = (Real ****)calloc_4d_array(nx2+2*Radghost, nx1+2*Radghost, nfr, nelements, sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((FullAngleV = (Real ***)calloc_3d_array(nx2+2*Radghost, nx1+2*Radghost, nelements, sizeof(Real))) == NULL)
+  if ((FullAngleV = (Real *)calloc_1d_array(nelements, sizeof(Real))) == NULL)
     goto on_error;
 
 
-  if ((MatrixAngleV2 = (Real ***)calloc_3d_array(nx2+2*Radghost, nx1+2*Radghost, nelements, sizeof(Real))) == NULL)
+  if ((MatrixAngleV2 = (Real *)calloc_1d_array(nelements, sizeof(Real))) == NULL)
     goto on_error;
 
 
@@ -841,7 +715,7 @@ void fullRT_2d_init(RadGridS *pRG)
         goto on_error;
 */
 
-  if ((Coefn = (Real **)calloc_2d_array(noct*nang, 9, sizeof(Real))) == NULL)
+  if ((Coefn = (Real **)calloc_2d_array(noct*nang, 3, sizeof(Real))) == NULL)
     goto on_error;
 /*
   if ((Coefnn = (Real ****)calloc_4d_array(nx2+2*Radghost,nx1+2*Radghost,noct*nang+1, 6, sizeof(Real))) == NULL)
@@ -850,25 +724,18 @@ void fullRT_2d_init(RadGridS *pRG)
 
 
 
-  if ((Tcoef = (Real **)calloc_2d_array(nfr, 2, sizeof(Real))) == NULL)
-    goto on_error;
 
-/*      if ((T4coef = (Real **)calloc_2d_array(nx2+2*Radghost,nx1+2*Radghost, sizeof(Real))) == NULL)
-        goto on_error;
-*/
 
   if ((Md = (Real *)calloc_1d_array(noct*nang+1, sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((Mdcoef = (Real **)calloc_2d_array(nfr,noct*nang+1, sizeof(Real))) == NULL)
-    goto on_error;
+
 
   if ((sol = (Real **)calloc_2d_array(nfr, noct*nang+1, sizeof(Real))) == NULL)
     goto on_error;
 
-  if ((inisol = (Real **)calloc_2d_array(nfr, noct*nang+1, sizeof(Real))) == NULL)
+  if ((ABCm = (Real **)calloc_2d_array(3, noct*nang, sizeof(Real))) == NULL)
     goto on_error;
-
 
 
   if ((lN1 = (Real *)calloc_1d_array(noct*nang, sizeof(Real))) == NULL)

@@ -1881,67 +1881,6 @@ void GetTguess(MeshS *pM)
   } /* end loop each level */
 }
 
-/* This function solve the equations: *
- * rho R dT/dt  /(gamma-1) = -Prat * Crat * (Sigma_aP T^4 - Sigma_aE * Er);
- * dEr/dt = Crat * (Sigma_aP * T^4 - Sigma_aE * Er)
- * Sigma_aP and Sigma_aE are assumed to be a constant, for first order accurate
- */
-
-void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er)
-{
-
-  Real coef1, coef2, coef3, coef4, Ersum, pressure, TEr;
-  Real kappaP, kappaE;
-  Real Tnew, Ernew;
-
-  if(Prat < TINY_NUMBER){
-    if(Tg != NULL)
-      *Tg = Tg0;
-    if(Er != NULL)
-      *Er = Er0;
-    return;
-  }
-
-  pressure = Tg0 * density * R_ideal;
-  Ersum = pressure / (Gamma - 1.0) + Prat * Er0;
-  TEr = pow(Er0, 0.25);
-
-/* Here assume input gas temperature and Er0 is positive */
-  if((Tg0 < 0.0) || (Er0 < 0.0))
-    ath_error("[ThemralRelaxation]: Negative gas temperature: %e or Radiation energy density: %e!n\n",Tg0,Er0);
-
-
-
-  coef1 = dt * Prat * Crat * Sigma_aP;
-  coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat) / (Gamma - 1.0);
-  coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * Ersum;
-  coef4 = 0.0;
-
-  if(coef1 < 1.e-20){
-    Tnew = -coef3 / coef2;
-  }
-  else{
-
-
-    if(Tg0 > TEr){
-      Tnew = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Tg0 * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3,coef4);
-    }
-    else{
-      Tnew = rtsafe(Tequilibrium, Tg0 * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3, coef4);
-    }
-  }
-
-  Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) / Prat;
-
-  if(Tg != NULL)
-    *Tg = Tnew;
-  if(Er != NULL)
-    *Er = Ernew;
-
-  return;
-
-
-}
 
 
 /* Function to get the thermal equilibrium radiation
@@ -2968,6 +2907,69 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double coe
 
   return;
 }
+
+/* This function solve the equations: *
+ * rho R dT/dt  /(gamma-1) = -Prat * Crat * (Sigma_aP T^4 - Sigma_aE * Er);
+ * dEr/dt = Crat * (Sigma_aP * T^4 - Sigma_aE * Er)
+ * Sigma_aP and Sigma_aE are assumed to be a constant, for first order accurate
+ */
+
+void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er)
+{
+
+  Real coef1, coef2, coef3, coef4, Ersum, pressure, TEr;
+  Real kappaP, kappaE;
+  Real Tnew, Ernew;
+
+  if(Prat < TINY_NUMBER){
+    if(Tg != NULL)
+      *Tg = Tg0;
+    if(Er != NULL)
+      *Er = Er0;
+    return;
+  }
+
+  pressure = Tg0 * density * R_ideal;
+  Ersum = pressure / (Gamma - 1.0) + Prat * Er0;
+  TEr = pow(Er0, 0.25);
+
+/* Here assume input gas temperature and Er0 is positive */
+  if((Tg0 < 0.0) || (Er0 < 0.0))
+    ath_error("[ThemralRelaxation]: Negative gas temperature: %e or Radiation energy density: %e!n\n",Tg0,Er0);
+
+
+
+  coef1 = dt * Prat * Crat * Sigma_aP;
+  coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat) / (Gamma - 1.0);
+  coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * Ersum;
+  coef4 = 0.0;
+
+  if(coef1 < 1.e-20){
+    Tnew = -coef3 / coef2;
+  }
+  else{
+
+
+    if(Tg0 > TEr){
+      Tnew = rtsafe(Tequilibrium, TEr * (1.0 - 0.01), Tg0 * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3,coef4);
+    }
+    else{
+      Tnew = rtsafe(Tequilibrium, Tg0 * (1.0 - 0.01), TEr * (1.0 + 0.01), 1.e-12, coef1, coef2, coef3, coef4);
+    }
+  }
+
+  Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) / Prat;
+
+  if(Tg != NULL)
+    *Tg = Tnew;
+  if(Er != NULL)
+    *Er = Ernew;
+
+  return;
+
+
+}
+
 
 
 

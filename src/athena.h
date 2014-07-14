@@ -516,8 +516,6 @@ MPI_Comm Comm_Domain;
 #endif
 	
 #ifdef FULL_RADIATION_TRANSFER
-  Real ***Radheat; /* Total heating and cooling rate due to absorption opacity, or the energy source term */
-  Real ****Frsource; /* The momentum source term from radiation, frequency and angle integrated */	
   Real ****Velguess;  /* The estimated velocity to reduce momentum error */
 #endif
 	

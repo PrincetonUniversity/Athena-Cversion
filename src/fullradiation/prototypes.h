@@ -24,14 +24,15 @@ void fullradiation_destruct(MeshS *pM);
 
 void hydro_to_fullrad(DomainS *pD);
 
-void Absorption(const int nf, const int N, const int Absflag, Real **sol, Real **inisol, Real ***Ma, Real **Mdcoef, Real **Tcoef, Real *Md, Real *RHS, Real **Divi, int *flag);
-void RadAsource(const int i, const int j, const int k, const int N, const int Absflag, RadGridS *pRG, GridS *pG, Real **Tcoef, Real **Coefn, Real **inisol, Real **Divi);
-void RadSsource(const int i, const int j, const int k, const int N, const int Scatflag, RadGridS *pRG, GridS *pG, Real **Coefn, Real **sol, Real **Divi);
+
+void Absorption(const int nelements, const Real rho, const Real dtsigma, const Real Told, const Real Jold, Real Vel[3], Real vdotn[], Real vvdotnn[], Real wmu[], Real imu[], Real **ABCm, Real *Tnew);
+void RadAsource(const int i, const int j, const int k, const int N, const Real Tcoef, const Real Tnew, RadGridS *pRG, GridS *pG,  Real **Coefn, Real **sol);
+void RadSsource(const int i, const int j, const int k, const int N, RadGridS *pRG, GridS *pG, Real **Coefn, Real **sol);
 void UpdateOpacity(DomainS *pD);
 void GetVelguess(DomainS *pD);
+void EstimateVel(const int il, const int iu, const int jl, const int ju, const int kl, const int ku, const int flag, RadGridS *pRG, GridS *pG);
 void GetSpeedfactor(DomainS *pD);
 void ComptIntensity(DomainS *pD);
-void FullRTsource(DomainS *pD);
 void UpdateHcomp(Real *Hnew, Real Hold[3], const Real dtsigma, Real Vel[3]);
 void UpdateKcomp(Real *Knew, Real Kold[6], Real Hnew[3], Real Vel[3], const Real Jnew, const Real dtsigma, const Real Source);
 

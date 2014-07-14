@@ -139,7 +139,6 @@ void CalMoment(const int il, const int iu, const int jl, const int ju, const int
 
 
 
-
 /* use LU decomposition to solve a special matrix,
  * resulting from the coupling between different angles
  * due to scattering opacity
