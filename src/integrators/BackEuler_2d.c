@@ -211,9 +211,9 @@ void BackEuler_2d(MeshS *pM)
 
       Rad_Advection_Flux2D(pD, i, j, ks, 1.0, AdvFx, AdvFy);
 
-      pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]));
-      pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_x / Crat;
-      pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_y / Crat;
+      pMat->RHS[Matk][Matj][Mati][0] = pG->U[ks][j][i].Er + dt * Sigma_aP * T4 * ReduceC * Crat * Eratio +  (1.0 - Eratio) * pG->Ersource[ks][j][i] + ((AdvFx[1] - AdvFx[0]) + (AdvFy[1] - AdvFy[0]));
+      pMat->RHS[Matk][Matj][Mati][1] = pG->U[ks][j][i].Fr1 + ReduceC * Eratio * dt * Sigma_aP * T4 * velocity_x + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_x / Crat;
+      pMat->RHS[Matk][Matj][Mati][2] = pG->U[ks][j][i].Fr2 + ReduceC * Eratio * dt * Sigma_aP * T4 * velocity_y + (1.0 - Eratio) * pG->Ersource[ks][j][i] * velocity_y / Crat;
 
 
 
@@ -333,7 +333,7 @@ void BackEuler_2d(MeshS *pM)
 /* Estimate the added energy source term */
       if(Prat > 0.0){
 
-        pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
+        pG->U[ks][j][i].Er += (pG->Eulersource[ks][j][i] - ReduceC * dt * (pG->U[ks][j][i].Sigma[1] -  pG->U[ks][j][i].Sigma[0]) * (velocity_x * Fr0x + velocity_y * Fr0y));
 
 
       }

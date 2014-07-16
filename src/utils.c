@@ -1814,7 +1814,7 @@ void GetTguess(MeshS *pM)
                   pG->Tguess[k][j][i] = pow(temperature, 4.0);
                   pG->Ersource[k][j][i] = 0.0;
                 }
-                else    if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
+                else if(fabs(Ern - pow(temperature, 4.0)) < TINY_NUMBER){
 
                   pG->Tguess[k][j][i] = Ern;
                   pG->Ersource[k][j][i] = 0.0;
@@ -1826,38 +1826,37 @@ void GetTguess(MeshS *pM)
                 }
                 else{
 
-
+/*
 
                   ETsource = Crat * (Sigma_aP * pow(temperature,4.0) - Sigma_aE * Ern);
 
                   Det = 1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(temperature,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
-                  Erguess = Ern + dt * ETsource / Det;
+                  Erguess = Ern + dt * ReduceC * ETsource / Det;
 
-                  Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
+                  Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( ReduceC * pG->U[k][j][i].d * R_ideal);
 
 
-                  Ererr = Ern + dt * 0.5 * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess)) - Erguess;
+                  Ererr = Ern + dt * 0.5 * (ETsource + ReduceC * Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess)) - Erguess;
                   Terr = temperature - 0.5 * dt * (Gamma - 1.0) * Prat * (ETsource + Crat * (Sigma_aP * pow(Tguess,4.0) - Sigma_aE * Erguess))/( pG->U[k][j][i].d * R_ideal) - Tguess;
 
                   Det =  1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal) + dt * Crat * Sigma_aE;
                   Ern =  (1.0 + 4.0 * (Gamma - 1.0) * dt * Prat * Crat * Sigma_aP * pow(Tguess,3.0) / ( pG->U[k][j][i].d * R_ideal)) * Ererr / Det
-                    + 4.0 * Crat * Sigma_aP * pow(Tguess,3.0) * dt * Terr / Det;
+                    + 4.0 * ReduceC * Crat * Sigma_aP * pow(Tguess,3.0) * dt * Terr / Det;
                   Erguess += Ern;
 
-                  Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( pG->U[k][j][i].d * R_ideal);
+                  Tguess = temperature - (Erguess -  pG->U[k][j][i].Er) * Prat * (Gamma - 1.0)/( ReduceC * pG->U[k][j][i].d * R_ideal);
 
                   sign1 =  pG->U[k][j][i].Er - pow(temperature,4.0);
                   sign2 = Erguess - pow(Tguess, 4.0);
 
+*/
 
-                  if(sign1 * sign2 < 0.0){
-/* use backward Euler to get the Tguess */
 
 
                     if( pG->U[k][j][i].Er < 0.0) pG->U[k][j][i].Er = 0.0;
 
                     ThermalRelaxation(temperature, pG->U[k][j][i].Er, pG->U[k][j][i].d, Sigma_aP, Sigma_aE, pG->dt, &Tguess, &Erguess);
-                  }
+                
 
 
 
@@ -1869,6 +1868,8 @@ void GetTguess(MeshS *pM)
 
 /*      pG->Tguess[k][j][i] = pow(temperature, 4.0);
  */
+              /* The Ersource = dt * ReduceC * Crat * sigma_a(T^4-E_r) */
+ 
                   pG->Ersource[k][j][i] = Erguess - pG->U[k][j][i].Er;
 
                 }
@@ -2417,81 +2418,81 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 /* Assuming the velocity is already the original velocity in case of FARGO */
 /* k - 1*/
 
-    theta[0] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
-    theta[1] = -Crat * hdtodx1 * (1.0 + Ci0);
-    theta[2] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
-      + Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
-      + dt * (Sigma_aF - Sigma_sF) * vx * vFxFull
-      + Eratio * Crat * dt * Sigma_aE;
-    theta[3] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;
-    theta[4] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
-    theta[5] = Crat * hdtodx1 * (1.0 - Ci1);
+    theta[0] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - ReduceC * hdtodx1 * vFxi0;
+    theta[1] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0);
+    theta[2] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
+      + ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
+      + ReduceC * dt * (Sigma_aF - Sigma_sF) * vx * vFxFull
+      + Eratio * ReduceC * Crat * dt * Sigma_aE;
+    theta[3] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vx;
+    theta[4] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + ReduceC * hdtodx1 * vFxi1;
+    theta[5] = ReduceC * Crat * hdtodx1 * (1.0 - Ci1);
 
 
-    phi[0] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
-    phi[1] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    phi[2] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
-      + Eratio * dt * Sigma_aE * vx;
-    phi[3] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    phi[4] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
-    phi[5] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    phi[0] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+    phi[1] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    phi[2] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f11
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
+      + Eratio * ReduceC * dt * Sigma_aE * vx;
+    phi[3] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    phi[4] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+    phi[5] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
 
 
   }
   else if(DIM == 2){
 
 
-    theta[0] = -Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - hdtodx2 * vFyj0;
-    theta[1] = -Crat * hdtodx2 * (1.0 + Cj0);
-    theta[2] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
-    theta[3] = -Crat * hdtodx1 * (1.0 + Ci0);
-    theta[4] = 1.0  + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
-      + Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
-      + Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
-      + Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)
-      + dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull)
-      + Eratio * Crat * dt * Sigma_aE;
-    theta[5] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;
-    theta[6] = Crat * hdtodx2 * (Cj0 + Cj1) - dt * (Sigma_aF - Sigma_sF) * vy;
-    theta[7] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
-    theta[8] = Crat * hdtodx1 * (1.0 - Ci1);
-    theta[9] = -Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + hdtodx2 * vFyj1;
-    theta[10] = Crat * hdtodx2 * (1.0 - Cj1);
+    theta[0] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - ReduceC * hdtodx2 * vFyj0;
+    theta[1] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0);
+    theta[2] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - ReduceC * hdtodx1 * vFxi0;
+    theta[3] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0);
+    theta[4] = 1.0  + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
+      + ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
+      + ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)
+      + ReduceC * dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull)
+      + Eratio * ReduceC * Crat * dt * Sigma_aE;
+    theta[5] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vx;
+    theta[6] = ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vy;
+    theta[7] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + ReduceC * hdtodx1 * vFxi1;
+    theta[8] = ReduceC * Crat * hdtodx1 * (1.0 - Ci1);
+    theta[9] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + ReduceC * hdtodx2 * vFyj1;
+    theta[10] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1);
 
-    phi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
-    phi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
-    phi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
-    phi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    phi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
-      + Crat * hdtodx2 * (Cj0 + Cj1) * f21
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
-      + Eratio * dt * Sigma_aE * vx;
-    phi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    phi[6] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
-    phi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-    phi[8] = Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
-    phi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+    phi[0] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
+    phi[1] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+    phi[2] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+    phi[3] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    phi[4] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f11
+      + ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) * f21
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
+      + Eratio * ReduceC * dt * Sigma_aE * vx;
+    phi[5] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    phi[6] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+    phi[7] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    phi[8] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
+    phi[9] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 
 
-    psi[0] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
-    psi[1] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
-    psi[2] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
-    psi[3] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    psi[4] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
-      + Crat * hdtodx2 * (Cj0 + Cj1) * f22
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull
-      + Eratio * dt * Sigma_aE * vy;
-    psi[5] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    psi[6] =  Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
-    psi[7] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-    psi[8] =  Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
-    psi[9] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+    psi[0] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
+    psi[1] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+    psi[2] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
+    psi[3] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    psi[4] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f21
+      + ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) * f22
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull
+      + Eratio * ReduceC * dt * Sigma_aE * vy;
+    psi[5] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    psi[6] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
+    psi[7] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    psi[8] =  ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
+    psi[9] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
 
 
 
@@ -2502,95 +2503,95 @@ void matrix_coef(const MatrixS *pMat, const GridS *pG, const int DIM, const int 
 /* k - 1*/
 
 
-    theta[0] = -Crat * hdtodx3 * (1.0 + Ck0) * (alphak0 - vFzk0Full) - hdtodx3 * vFzk0;
-    theta[1] = -Crat * hdtodx3 * (1.0 + Ck0);
-    theta[2] = -Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - hdtodx2 * vFyj0;
-    theta[3] = -Crat * hdtodx2 * (1.0 + Cj0);
-    theta[4] = -Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - hdtodx1 * vFxi0;
-    theta[5] = -Crat * hdtodx1 * (1.0 + Ci0);
-    theta[6] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
-      + Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
-      + Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
-      + Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)
-      + Crat * hdtodx3 * (1.0 + Ck1) * (alphak - vFzFull)
-      + Crat * hdtodx3 * (1.0 - Ck0) * (alphakmax + vFzFull)
-      + dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull + vz * vFzFull)
-      + Eratio * Crat * dt * Sigma_aE;
-    theta[7] = Crat * hdtodx1 * (Ci0 + Ci1) - dt * (Sigma_aF - Sigma_sF) * vx;
-    theta[8] = Crat * hdtodx2 * (Cj0 + Cj1) - dt * (Sigma_aF - Sigma_sF) * vy;
-    theta[9] = Crat * hdtodx3 * (Ck0 + Ck1) - dt * (Sigma_aF - Sigma_sF) * vz;
-    theta[10] = -Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + hdtodx1 * vFxi1;
-    theta[11] = Crat * hdtodx1 * (1.0 - Ci1);
-    theta[12] = -Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + hdtodx2 * vFyj1;
-    theta[13] = Crat * hdtodx2 * (1.0 - Cj1);
-    theta[14] = -Crat * hdtodx3 * (1.0 - Ck1) * (alphak1max + vFzk1Full) + hdtodx3 * vFzk1;
-    theta[15] = Crat * hdtodx3 * (1.0 - Ck1);
+    theta[0] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * (alphak0 - vFzk0Full) - ReduceC * hdtodx3 * vFzk0;
+    theta[1] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0);
+    theta[2] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * (alphaj0 - vFyj0Full) - ReduceC * hdtodx2 * vFyj0;
+    theta[3] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0);
+    theta[4] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * (alphai0 - vFxi0Full) - ReduceC * hdtodx1 * vFxi0;
+    theta[5] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0);
+    theta[6] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * (alphai - vFxFull)
+      + ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * (alphaimax + vFxFull)
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * (alphaj - vFyFull)
+      + ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * (alphajmax + vFyFull)
+      + ReduceC * Crat * hdtodx3 * (1.0 + Ck1) * (alphak - vFzFull)
+      + ReduceC * Crat * hdtodx3 * (1.0 - Ck0) * (alphakmax + vFzFull)
+      + ReduceC * dt * (Sigma_aF - Sigma_sF) * (vx * vFxFull + vy * vFyFull + vz * vFzFull)
+      + Eratio * ReduceC * Crat * dt * Sigma_aE;
+    theta[7] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vx;
+    theta[8] = ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vy;
+    theta[9] = ReduceC * Crat * hdtodx3 * (Ck0 + Ck1) - ReduceC * dt * (Sigma_aF - Sigma_sF) * vz;
+    theta[10] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * (alphai1max + vFxi1Full) + ReduceC * hdtodx1 * vFxi1;
+    theta[11] = ReduceC * Crat * hdtodx1 * (1.0 - Ci1);
+    theta[12] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * (alphaj1max + vFyj1Full) + ReduceC * hdtodx2 * vFyj1;
+    theta[13] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1);
+    theta[14] = -ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * (alphak1max + vFzk1Full) + ReduceC * hdtodx3 * vFzk1;
+    theta[15] = ReduceC * Crat * hdtodx3 * (1.0 - Ck1);
 
-    phi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f31k0;
-    phi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
-    phi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
-    phi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
-    phi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
-    phi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    phi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f11
-      + Crat * hdtodx2 * (Cj0 + Cj1) * f21
-      + Crat * hdtodx3 * (Ck0 + Ck1) * f31
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
-      + Eratio * dt * Sigma_aE * vx;
-    phi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-      + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    phi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
-    phi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-    phi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
-    phi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
-    phi[12] =  Crat * hdtodx3 * (1.0 - Ck1) * f31k1;
-    phi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+    phi[0] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * f31k0;
+    phi[1] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+    phi[2] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * f21j0;
+    phi[3] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+    phi[4] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f11i0;
+    phi[5] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    phi[6] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f11
+      + ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) * f21
+      + ReduceC * Crat * hdtodx3 * (Ck0 + Ck1) * f31
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFxFull
+      + Eratio * ReduceC * dt * Sigma_aE * vx;
+    phi[7] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+      + ReduceC * Crat * hdtodx3 * (1.0 + Ck1) * alphak +  ReduceC * Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    phi[8] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f11i1;
+    phi[9] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    phi[10] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * f21j1;
+    phi[11] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+    phi[12] =  ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * f31k1;
+    phi[13] = -ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
 
-    psi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f32k0;
-    psi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
-    psi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
-    psi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
-    psi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
-    psi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    psi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f21
-      + Crat * hdtodx2 * (Cj0 + Cj1) * f22
-      + Crat * hdtodx3 * (Ck0 + Ck1) * f32
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull
-      + Eratio * dt * Sigma_aE * vy;
-    psi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-      + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    psi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
-    psi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-    psi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
-    psi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
-    psi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f32k1;
-    psi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+    psi[0] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * f32k0;
+    psi[1] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+    psi[2] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * f22j0;
+    psi[3] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+    psi[4] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f21i0;
+    psi[5] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    psi[6] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f21
+      + ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) * f22
+      + ReduceC * Crat * hdtodx3 * (Ck0 + Ck1) * f32
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFyFull
+      + Eratio * ReduceC * dt * Sigma_aE * vy;
+    psi[7] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+      + ReduceC * Crat * hdtodx3 * (1.0 + Ck1) * alphak +  ReduceC * Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    psi[8] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f21i1;
+    psi[9] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    psi[10] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * f22j1;
+    psi[11] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+    psi[12] = ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * f32k1;
+    psi[13] = -ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
 
-    varphi[0] = -Crat * hdtodx3 * (1.0 + Ck0) * f33k0;
-    varphi[1] = -Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
-    varphi[2] = -Crat * hdtodx2 * (1.0 + Cj0) * f32j0;
-    varphi[3] = -Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
-    varphi[4] = -Crat * hdtodx1 * (1.0 + Ci0) * f31i0;
-    varphi[5] = -Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
-    varphi[6] = Crat * hdtodx1 * (Ci0 + Ci1) * f31
-      + Crat * hdtodx2 * (Cj0 + Cj1) * f32
-      + Crat * hdtodx3 * (Ck0 + Ck1) * f33
-      - Crat * dt * (Sigma_aF + Sigma_sF) * vFzFull
-      + Eratio * dt * Sigma_aE * vz;
-    varphi[7] = 1.0 + Crat * hdtodx1 * (1.0 + Ci1) * alphai +  Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
-      + Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
-      + Crat * hdtodx3 * (1.0 + Ck1) * alphak +  Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
-      + Crat * dt * (Sigma_aF + Sigma_sF);
-    varphi[8] =  Crat * hdtodx1 * (1.0 - Ci1) * f31i1;
-    varphi[9] = -Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
-    varphi[10] = Crat * hdtodx2 * (1.0 - Cj1) * f32j1;
-    varphi[11] = -Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
-    varphi[12] = Crat * hdtodx3 * (1.0 - Ck1) * f33k1;
-    varphi[13] = -Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
+    varphi[0] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * f33k0;
+    varphi[1] = -ReduceC * Crat * hdtodx3 * (1.0 + Ck0) * alphak0;
+    varphi[2] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * f32j0;
+    varphi[3] = -ReduceC * Crat * hdtodx2 * (1.0 + Cj0) * alphaj0;
+    varphi[4] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * f31i0;
+    varphi[5] = -ReduceC * Crat * hdtodx1 * (1.0 + Ci0) * alphai0;
+    varphi[6] = ReduceC * Crat * hdtodx1 * (Ci0 + Ci1) * f31
+      + ReduceC * Crat * hdtodx2 * (Cj0 + Cj1) * f32
+      + ReduceC * Crat * hdtodx3 * (Ck0 + Ck1) * f33
+      - ReduceC * Crat * dt * (Sigma_aF + Sigma_sF) * vFzFull
+      + Eratio * ReduceC * dt * Sigma_aE * vz;
+    varphi[7] = 1.0 + ReduceC * Crat * hdtodx1 * (1.0 + Ci1) * alphai +  ReduceC * Crat * hdtodx1 * (1.0 - Ci0) * alphaimax
+      + ReduceC * Crat * hdtodx2 * (1.0 + Cj1) * alphaj +  ReduceC * Crat * hdtodx2 * (1.0 - Cj0) * alphajmax
+      + ReduceC * Crat * hdtodx3 * (1.0 + Ck1) * alphak +  ReduceC * Crat * hdtodx3 * (1.0 - Ck0) * alphakmax
+      + ReduceC * Crat * dt * (Sigma_aF + Sigma_sF);
+    varphi[8] =  ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * f31i1;
+    varphi[9] = -ReduceC * Crat * hdtodx1 * (1.0 - Ci1) * alphai1max;
+    varphi[10] = ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * f32j1;
+    varphi[11] = -ReduceC * Crat * hdtodx2 * (1.0 - Cj1) * alphaj1max;
+    varphi[12] = ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * f33k1;
+    varphi[13] = -ReduceC * Crat * hdtodx3 * (1.0 - Ck1) * alphak1max;
 
   }
   else{
@@ -2808,8 +2809,10 @@ void matrix_alpha(const Real direction, const Real *Sigma, const Real dt, const 
 /*      if(dl * Sigma_t < 0.1)
         taucell = dl * Sigma_t;
 */
-
+/* Use optical depth per cell, so reduced speed of light does not affect tau anymore */
+/*
   tau = dt * Crat * Sigma_t;
+*/
 /*
   if(tau > taucell)
   tau = taucell;
@@ -2913,6 +2916,7 @@ void Tequilibrium(double T, double coef1, double coef2, double coef3, double coe
  * dEr/dt = Crat * (Sigma_aP * T^4 - Sigma_aE * Er)
  * Sigma_aP and Sigma_aE are assumed to be a constant, for first order accurate
  */
+ /* The reduced speed factor only appear in radiation equation */
 
 void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const Real Sigma_aP, const Real Sigma_aE, const Real dt, Real *Tg, Real *Er)
 {
@@ -2930,7 +2934,7 @@ void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const
   }
 
   pressure = Tg0 * density * R_ideal;
-  Ersum = pressure / (Gamma - 1.0) + Prat * Er0;
+  Ersum = pressure / (Gamma - 1.0) + Prat * Er0 / ReduceC;
   TEr = pow(Er0, 0.25);
 
 /* Here assume input gas temperature and Er0 is positive */
@@ -2940,8 +2944,8 @@ void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const
 
 
   coef1 = dt * Prat * Crat * Sigma_aP;
-  coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat) / (Gamma - 1.0);
-  coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * Ersum;
+  coef2 = density * R_ideal * (1.0 + dt * Sigma_aE * Crat * ReduceC) / (Gamma - 1.0);
+  coef3 = -pressure / (Gamma - 1.0) - dt * Sigma_aE * Crat * ReduceC * Ersum;
   coef4 = 0.0;
 
   if(coef1 < 1.e-20){
@@ -2958,7 +2962,7 @@ void ThermalRelaxation(const Real Tg0, const Real Er0, const Real density, const
     }
   }
 
-  Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) / Prat;
+  Ernew = (Ersum - density * R_ideal * Tnew / (Gamma - 1.0)) * ReduceC / Prat;
 
   if(Tg != NULL)
     *Tg = Tnew;

@@ -689,7 +689,8 @@ void integrate_1d_radMHD(DomainS *pD)
 
 
         pG->Ersource[ks][js][i] /= -Prat;
-
+        
+        pG->Ersource[ks][js][i] *= ReduceC;
 
 
       }
@@ -700,7 +701,7 @@ void integrate_1d_radMHD(DomainS *pD)
       }
     }
 
-    pG->Eulersource[ks][js][i] = -Prworksource/Prat;
+    pG->Eulersource[ks][js][i] = -ReduceC * Prworksource/Prat;
 
 
 
@@ -711,7 +712,7 @@ void integrate_1d_radMHD(DomainS *pD)
     for(m=0; m<5; m++) pUguess[m] = pU1d[m];
 
     if(!Erflag){
-      pG->U[ks][js][i].E += -Prat * pG->Ersource[ks][js][i];
+      pG->U[ks][js][i].E += -Prat * pG->Ersource[ks][js][i]/ReduceC;
     }
 
 #ifdef RADIATION_MHD

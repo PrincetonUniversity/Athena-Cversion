@@ -1957,7 +1957,7 @@ void integrate_2d_radMHD(DomainS *pD)
       }
 
       if(!Erflag){
-        tempguess[4] += -Prat * pG->Ersource[ks][j][i];
+        tempguess[4] += -Prat * pG->Ersource[ks][j][i]/ReduceC;
 
       }
 
@@ -2210,7 +2210,7 @@ void integrate_2d_radMHD(DomainS *pD)
 #ifdef FLD
       pG->U[ks][j][i].Er += (1.0 - Eratio) * (0.5 * (Ersource + pG->Ersource[ks][j][i])) ;
 
-      Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[ks][j][i]));
+      Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[ks][j][i])/ReduceC);
 
       pG->U[ks][j][i].d  = Uguess[0];
       pG->U[ks][j][i].M1 = Uguess[1];
@@ -2258,7 +2258,7 @@ void integrate_2d_radMHD(DomainS *pD)
       tempguess[4] = Source_Invnew[4][4] * Errort[4];
 
       if(!Erflag){
-        tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[ks][j][i]);
+        tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[ks][j][i])/ReduceC;
       }
 
 
@@ -2287,6 +2287,7 @@ void integrate_2d_radMHD(DomainS *pD)
           pG->Ersource[ks][j][i] -= Prworksource;
 
           pG->Ersource[ks][j][i] /= -Prat;
+          pG->Ersource[ks][j][i] *= ReduceC;
 
         }
         else{
@@ -2299,7 +2300,7 @@ void integrate_2d_radMHD(DomainS *pD)
         pG->Ersource[ks][j][i] = 0.5 * (pG->Ersource[ks][j][i] + Ersource);
       }
 
-      pG->Eulersource[ks][j][i] = -Prworksource/Prat;
+      pG->Eulersource[ks][j][i] = -ReduceC * Prworksource/Prat;
 
       if(badcellflag){
 

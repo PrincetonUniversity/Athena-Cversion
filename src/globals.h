@@ -80,6 +80,8 @@ ShearFun_t ShearProfile = NULL;
 Real Prat;		/* Pratio=a_rT^4/rho a^2; The ratio between the pressure unit for radiation and gas */ 
 Real Crat;		/* Cratio=c/a; The ratio between speed of light and velocity unit */
 Real Taufactor = 20.0;
+/* The reduced speed of light factor */
+Real ReduceC = 1.0;
 #endif
 
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
@@ -188,6 +190,7 @@ extern ShearFun_t ShearProfile;
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(FULL_RADIATION_TRANSFER) 
 extern Real Prat;
 extern Real Crat;
+extern Real ReduceC;
 extern Real Taufactor;
 #endif
 

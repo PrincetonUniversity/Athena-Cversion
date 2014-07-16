@@ -75,6 +75,10 @@ static double *send_buf = NULL, *recv_buf = NULL;
 #endif /* RadFARGO */
 
 /* Advection flux only include the vE term, vP_r term is not included here */
+/* With reduced speed of light, the advective flux is ReduceC * V * E_r, the 
+ * conserved energy is ReduceC * E_r */
+
+
 void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int k, const Real AdvFlag, Real *x1Flux)
 {
 /* The returned flux is Er^{n+1} = Er^{n} - x1Flux - x2Flux*/
@@ -82,9 +86,11 @@ void Rad_Advection_Flux1D(const DomainS *pD, const int i, const int j, const int
   GridS *pG = pD->Grid;
   Real dt = pG->dt;
   Real dtodx1 = dt/pG->dx1;
-
-
+  
   int m;
+  /* Reduced speed of light factor should always stay with dt together */
+  dt *= ReduceC;
+  dtodx1 *= ReduceC;
 
 /* temporary variables for the velocity terms */
   Real vx, vxi0;
@@ -140,8 +146,13 @@ void Rad_Advection_Flux2D(const DomainS *pD, const int i, const int j, const int
   Real dtodx1 = dt/pG->dx1;
   Real dtodx2 = dt/pG->dx2;
 
-
   int m;
+
+  /* Reduced speed of light factor should always stay with dt together */
+  dt *= ReduceC;
+  dtodx1 *= ReduceC;
+  dtodx2 *= ReduceC;
+
 #ifdef SHEARING_BOX
   int jj;
 #ifndef RADFARGO
@@ -260,6 +271,12 @@ void Rad_Advection_Flux3D(const DomainS *pD, const int i, const int j, const int
   Real dtodx1 = dt/pG->dx1;
   Real dtodx2 = dt/pG->dx2;
   Real dtodx3 = dt/pG->dx3;
+  
+    /* Reduced speed of light factor should always stay with dt together */
+  dt *= ReduceC;
+  dtodx1 *= ReduceC;
+  dtodx2 *= ReduceC;
+  dtodx3 *= ReduceC;
 
 
   int m;
@@ -528,7 +545,8 @@ void Rad_Fargo_Pre(DomainS *pD)
       cc_pos(pG, i, js, ks, &x1,&x2,&x3);
 
 /* rad fargo only solve the vEr part, vPr part is not included */
-      yshear = -qshear*Omega_0*x1*pG->dt;
+/* With reduced speed of light, the advective flux is ReduceC V E_r */
+      yshear = -qshear*Omega_0*x1*pG->dt*ReduceC;
 
 
       joffset = (int)(yshear/pG->dx2);

@@ -4548,7 +4548,7 @@ void integrate_3d_radMHD(DomainS *pD)
         }
 
         if((!Erflag) || (!Sourceflag)){
-          tempguess[4] += -Prat * pG->Ersource[k][j][i];
+          tempguess[4] += -Prat * pG->Ersource[k][j][i]/ReduceC;
 
         }
 
@@ -4774,7 +4774,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
         pG->U[k][j][i].Er += (1.0 - Eratio) * (0.5 * (Ersource + pG->Ersource[k][j][i])) ;
 
-        Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[k][j][i]));
+        Uguess[4] += (-0.5 * Prat * (Ersource - pG->Ersource[k][j][i])/ReduceC);
 
 
         pG->U[k][j][i].d  = Uguess[0];
@@ -4848,13 +4848,13 @@ void integrate_3d_radMHD(DomainS *pD)
 
         if(Erflag){
           if((Sourceflag) && (!Sourceflag2)){
-            tempguess[4] += -0.5 * Prat * Ersource;
+            tempguess[4] += -0.5 * Prat * Ersource/ReduceC;
           }
           else if((!Sourceflag) && (!Sourceflag2)){
-            tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i]);
+            tempguess[4] += -0.5 * Prat * (Ersource - pG->Ersource[k][j][i])/ReduceC;
           }
           else if((!Sourceflag) && (Sourceflag2)){
-            tempguess[4] += 0.5 * Prat * pG->Ersource[k][j][i];
+            tempguess[4] += 0.5 * Prat * pG->Ersource[k][j][i]/ReduceC;
           }
 
         }
@@ -4893,7 +4893,8 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
             pG->Ersource[k][j][i] /= -Prat;
-
+            
+            pG->Ersource[k][j][i] *= ReduceC;
 
 
           }
@@ -4909,6 +4910,7 @@ void integrate_3d_radMHD(DomainS *pD)
 
 
         pG->Eulersource[k][j][i] = -Prworksource/Prat;
+        pG->Eulersource[k][j][i] *= ReduceC;
 
         if(badcellflag){
 
@@ -5374,8 +5376,8 @@ void integrate_3d_radMHD(DomainS *pD)
          else{
          if(temperature > TINY_NUMBER){
          Tr = pow(pG->U[k][j][i].Er, 0.25);
-         coefA = 4.0 * dt * Crat * pG->U[k][j][i].Sigma[0] / (T_e/Tunit);
-         coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d);
+         coefA = 4.0 * dt * ReduceC * Crat * pG->U[k][j][i].Sigma[0] / (T_e/Tunit);
+         coefK = (Gamma - 1.0) * Prat / (R_ideal * pG->U[k][j][i].d * ReduceC);
          coefB = temperature + coefK * pG->U[k][j][i].Er;
          coef1 = coefA * coefK;
          coef2 = coefA;
@@ -6446,10 +6448,12 @@ void updatesource(GridS *pG)
           Beta[k][j][i][2] = betaz;
 
 /* In gas pressure dominated case, do something special */
+/* The Ersource is dt * ReduceC * Crat * sigma_a(T^4 - E_r */
+/* The gas source term should be dt * Prat * Crat * sigma_a (T^4 - E_r) */
           if((4.0 * (Gamma - 1.0) * Prat * temperature * temperature * temperature / (density * R_ideal)) < 1.0){
 /* Source term for energy */
             Source[k][j][i][4] = -Prat * (Sigma_aF - Sigma_sF) * (velocity_x * Fr0x + velocity_y * Fr0y + velocity_z * Fr0z)
-              -Prat * pG->Ersource[k][j][i] / (dt * alpha);
+              -Prat * pG->Ersource[k][j][i] / (ReduceC * dt * alpha);
           }
 
         }
