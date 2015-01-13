@@ -2515,6 +2515,71 @@ static void FixCell(GridS *pG, Int3Vect ix)
 #endif
   Real rsf=1.0,lsf=1.0;
 
+/* Do not fix cells in the ghost region. By doing so, it makes a difference
+ * in face-centered B field of the last face in one Grid to that of the first
+ * face in the next Grid, which should be identical. */
+
+  if (ix.i == pG->is){
+    x1FluxP[ix.k  ][ix.j  ][ix.i  ] = x1Flux[ix.k  ][ix.j  ][ix.i  ];
+#ifdef MHD
+    emf2P[ix.k  ][ix.j  ][ix.i  ] = emf2[ix.k  ][ix.j  ][ix.i  ];
+    emf2P[ix.k+1][ix.j  ][ix.i  ] = emf2[ix.k+1][ix.j  ][ix.i  ];
+    emf3P[ix.k  ][ix.j  ][ix.i  ] = emf3[ix.k  ][ix.j  ][ix.i  ];
+    emf3P[ix.k  ][ix.j+1][ix.i  ] = emf3[ix.k  ][ix.j+1][ix.i  ];
+#endif
+  }
+
+
+  if (ix.i == pG->ie){
+    x1FluxP[ix.k  ][ix.j  ][ix.i+1] = x1Flux[ix.k  ][ix.j  ][ix.i+1];
+#ifdef MHD
+    emf2P[ix.k  ][ix.j  ][ix.i+1] = emf2[ix.k  ][ix.j  ][ix.i+1];
+    emf2P[ix.k+1][ix.j  ][ix.i+1] = emf2[ix.k+1][ix.j  ][ix.i+1];
+    emf3P[ix.k  ][ix.j  ][ix.i+1] = emf3[ix.k  ][ix.j  ][ix.i+1];
+    emf3P[ix.k  ][ix.j+1][ix.i+1] = emf3[ix.k  ][ix.j+1][ix.i+1];
+#endif
+  }
+
+  if (ix.j == pG->js){
+    x2FluxP[ix.k  ][ix.j  ][ix.i  ] = x2Flux[ix.k  ][ix.j  ][ix.i  ];
+#ifdef MHD
+    emf1P[ix.k  ][ix.j  ][ix.i  ] = emf1[ix.k  ][ix.j  ][ix.i  ];
+    emf1P[ix.k+1][ix.j  ][ix.i  ] = emf1[ix.k+1][ix.j  ][ix.i  ];
+    emf3P[ix.k  ][ix.j  ][ix.i  ] = emf3[ix.k  ][ix.j  ][ix.i  ];
+    emf3P[ix.k  ][ix.j  ][ix.i+1] = emf3[ix.k  ][ix.j  ][ix.i+1];
+#endif
+  }
+
+  if (ix.j == pG->je){
+    x2FluxP[ix.k  ][ix.j+1][ix.i  ] = x2Flux[ix.k  ][ix.j+1][ix.i  ];
+#ifdef MHD
+    emf1P[ix.k  ][ix.j+1][ix.i  ] = emf1[ix.k  ][ix.j+1][ix.i  ];
+    emf1P[ix.k+1][ix.j+1][ix.i  ] = emf1[ix.k+1][ix.j+1][ix.i  ];
+    emf3P[ix.k  ][ix.j+1][ix.i  ] = emf3[ix.k  ][ix.j+1][ix.i  ];
+    emf3P[ix.k  ][ix.j+1][ix.i+1] = emf3[ix.k  ][ix.j+1][ix.i+1];
+#endif
+  }
+
+  if (ix.k == pG->ks){
+    x3FluxP[ix.k  ][ix.j  ][ix.i  ] = x3Flux[ix.k  ][ix.j  ][ix.i  ];
+#ifdef MHD
+    emf1P[ix.k  ][ix.j  ][ix.i  ] = emf1[ix.k  ][ix.j  ][ix.i  ];
+    emf1P[ix.k  ][ix.j+1][ix.i  ] = emf1[ix.k  ][ix.j+1][ix.i  ];
+    emf2P[ix.k  ][ix.j  ][ix.i  ] = emf2[ix.k  ][ix.j  ][ix.i  ];
+    emf2P[ix.k  ][ix.j  ][ix.i+1] = emf2[ix.k  ][ix.j  ][ix.i+1];
+#endif
+  }
+
+  if (ix.k == pG->ke){
+    x3FluxP[ix.k+1][ix.j  ][ix.i  ] = x3Flux[ix.k+1][ix.j  ][ix.i  ];
+#ifdef MHD
+    emf1P[ix.k+1][ix.j  ][ix.i  ] = emf1[ix.k+1][ix.j  ][ix.i  ];
+    emf1P[ix.k+1][ix.j+1][ix.i  ] = emf1[ix.k+1][ix.j+1][ix.i  ];
+    emf2P[ix.k+1][ix.j  ][ix.i  ] = emf2[ix.k+1][ix.j  ][ix.i  ];
+    emf2P[ix.k+1][ix.j  ][ix.i+1] = emf2[ix.k+1][ix.j  ][ix.i+1];
+#endif
+  }
+
 /* Compute difference of predictor and corrector fluxes at cell faces */
 
   x1FD_i.d = x1Flux[ix.k][ix.j][ix.i].d - x1FluxP[ix.k][ix.j][ix.i].d;
