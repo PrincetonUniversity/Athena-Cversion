@@ -936,7 +936,7 @@ void Remap_exchange_ix1(DomainS *pD)
 
       for (k=kb; k<=kt; k++) {
        for(i=0; i<NExc+NOfst; i++){
-	for (j=js; j<=je-joverlap; j++) {
+	for (j=js+joverlap; j<=je; j++) {
 	  for (n=0; n<NVar; n++) {
             *(pSnd++) = TempZns[k][i][j].U[n];
 	  }

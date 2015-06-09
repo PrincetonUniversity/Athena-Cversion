@@ -5304,6 +5304,8 @@ void Fargo(DomainS *pD)
           pG->B2i[k][j][i] += (pG->dx2/pG->dx1)*
                     (ri[i+1]*FargoFlx[k][i+1][jj].U[NFARGO-1] - ri[i]*FargoFlx[k][i][jj].U[NFARGO-1]);
 #endif
+          pG->B3i[k][j][i] +=
+            (FargoFlx[k][i][jj+1].U[NFARGO-2] - FargoFlx[k][i][jj].U[NFARGO-2]);
         }
         pG->B1i[k][j][ie+1] -=
           (FargoFlx[k][ie+1][jj+1].U[NFARGO-1]-FargoFlx[k][ie+1][jj].U[NFARGO-1]);
