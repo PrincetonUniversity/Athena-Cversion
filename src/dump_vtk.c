@@ -39,6 +39,9 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
   int ndata0,ndata1,ndata2;
   float *data;   /* points to 3*ndata0 allocated floats */
   double x1, x2, x3;
+#ifdef POINT_SOURCE
+  int ipf;
+#endif
 #if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
   RadGridS *pRG;
   int ifr,nf;
@@ -743,9 +746,68 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
               }
             }
 #endif /* RAY_TRACING */
+
 #endif /* WRITE_GHOST_CELLS */
           } /* ( (radt_mode == 0) || (radt_mode == 2) */
 #endif /* RADIATION_TRANSFER */
+
+#ifdef POINT_SOURCE
+/* Write frequency integrated flux from point source ray tracing */
+	  for(ipf=0; ipf<pGrid->npf; ipf++) {
+	    if (ipf == 0) 
+	      fprintf(pfile,"\nSCALARS point_source_J float\n");
+	    else
+	      fprintf(pfile,"\nSCALARS point_source_J%d float\n",ipf);
+            fprintf(pfile,"LOOKUP_TABLE default\n");
+            for (k=kl; k<=ku; k++) {
+              for (j=jl; j<=ju; j++) {
+                for (i=il; i<=iu; i++) {
+                  data[i-il] = (float)(pGrid->Jps[ipf][k][j][i]);
+                }
+                if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+                fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+              }
+            }
+	  }
+/* Write components of 1st moment integrated over frequency */
+	  for(ipf=0; ipf<pGrid->npf; ipf++) {
+	    if (ipf == 0)
+	      fprintf(pfile,"\nVECTORS point_source_H float\n");
+	    else
+	      fprintf(pfile,"\nVECTORS point_source_H%d float\n",ipf);
+	    for (k=kl; k<=ku; k++) {
+	      for (j=jl; j<=ju; j++) {
+		for (i=il; i<=iu; i++) {
+		  data[3*(i-il)  ] = (float)(pGrid->Hps[ipf][k][j][i][0]);
+		  data[3*(i-il)+1] = (float)(pGrid->Hps[ipf][k][j][i][1]);
+		  data[3*(i-il)+2] = (float)(pGrid->Hps[ipf][k][j][i][2]);
+		}
+		if(!big_end) ath_bswap(data,sizeof(float),3*(iu-il+1));
+		fwrite(data,sizeof(float),(size_t)(3*ndata0),pfile);
+	      }
+	    }
+	  }
+/* Write components of 2nd moment integrated over frequency */
+	  /*         fprintf(pfile,"\nTENSORS point_source_K float\n");
+          for (k=kl; k<=ku; k++) {
+            for (j=jl; j<=ju; j++) {
+              for (i=il; i<=iu; i++) {
+                data[9*(i-il)  ] = (float)(pGrid->Kps[k][j][i][0]);
+                data[9*(i-il)+1] = (float)(pGrid->Kps[k][j][i][1]);
+                data[9*(i-il)+2] = (float)(pGrid->Kps[k][j][i][3]);
+                data[9*(i-il)+3] = (float)(pGrid->Kps[k][j][i][1]);
+                data[9*(i-il)+4] = (float)(pGrid->Kps[k][j][i][2]);
+                data[9*(i-il)+5] = (float)(pGrid->Kps[k][j][i][4]);
+                data[9*(i-il)+6] = (float)(pGrid->Kps[k][j][i][3]);
+                data[9*(i-il)+7] = (float)(pGrid->Kps[k][j][i][4]);
+                data[9*(i-il)+8] = (float)(pGrid->Kps[k][j][i][5]);                
+              }
+              if(!big_end) ath_bswap(data,sizeof(float),9*(iu-il+1));
+              fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
+            }
+          }*/
+#endif /* POINT_SOURCE */
+
 
 /* Write passive scalars */
 

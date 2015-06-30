@@ -81,6 +81,9 @@ void init_grid(MeshS *pM)
 
 #endif
 
+#ifdef POINT_SOURCE
+  int nsource, npf;
+#endif
 
 #ifdef RADFARGO
   Real xmin, xmax;
@@ -335,6 +338,21 @@ void init_grid(MeshS *pM)
 
 
 #endif
+
+#ifdef POINT_SOURCE
+	nsource = par_geti("pointsource", "nsource");
+	npf = par_geti_def("pointsource", "nf",1);
+	pG->npf = npf;
+        pG->Jps = (Real****)calloc_4d_array(npf,n3z,n2z,n1z,sizeof(Real));
+        if (pG->Jps == NULL) goto on_error32;
+	// pG->Kps = (Real****)calloc_4d_array(n3z,n2z,n1z,6,sizeof(Real));
+        //if (pG->Kps == NULL) goto on_error33;
+        pG->ray_weight = (Real****)calloc_4d_array(nsource,n3z,n2z,n1z,sizeof(Real));
+        if (pG->ray_weight == NULL) goto on_error34;
+        pG->Hps = (Real*****)calloc_5d_array(npf,n3z,n2z,n1z,3,sizeof(Real));
+        if (pG->Hps == NULL) goto on_error35;
+
+#endif /* POINT_SOURCE */
 
 /*-- Get IDs of neighboring Grids in Domain communicator ---------------------*/
 /* If Grid is at the edge of the Domain (so it is either a physical boundary,
@@ -1520,6 +1538,18 @@ G3.ijkl[2],G3.ijkr[2]);
   return;
 
 /*--- Error messages ---------------------------------------------------------*/
+
+#ifdef POINT_SOURCE
+
+ on_error35:
+  free_5d_array(pG->Hps);
+ on_error34:
+  free_4d_array(pG->ray_weight);
+  //on_error33:
+  //free_4d_array(pG->Kps);
+ on_error32:
+  free_4d_array(pG->Jps);
+#endif
 
 #ifdef FULL_RADIATION_TRANSFER
 

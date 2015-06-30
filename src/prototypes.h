@@ -24,6 +24,7 @@
 #include "rsolvers/prototypes.h"
 #include "radiation/prototypes.h"
 #include "fullradiation/prototypes.h"
+#include "point_source/prototypes.h"
 
 /*----------------------------------------------------------------------------*/
 /* main.c */

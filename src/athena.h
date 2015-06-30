@@ -361,13 +361,13 @@ typedef struct RadGrid_s {
   Real *****Ghstr3i;   /* Ghost zone on R side in x3-dir  */
   Real *****Ghstl3i;   /* Ghost zone on L side in x3-dir  */
 #else
-  Real *****imu;     /* specific intensity  for  cell k, j, i, frequency nf, for octant * angle,*/
-  Real *****Speedfactor; /* The factor to reduce the speed of light due to opacity */
+  Real *****imu;    /* specific intensity  for  cell k, j, i, frequency nf,
+                     * for octant * angle,*/
+  Real *****Speedfactor; /* The factor to reduce the speed of light due to
+                          * opacity */
   Real ****Ercompt; /* Store the source due to Compton scattering */
   Real *****ComptI; /* Source for each specific intensity due to Compton Scattering */
 #endif
-
-
 #ifdef RAY_TRACING
   int nf_rt;          /* # of frequencies */
   Real *nu_rt;        /* array of frequencies */
@@ -375,13 +375,12 @@ typedef struct RadGrid_s {
   Real ****H;         /* array of radiation flux */
   Real ****S_rt;      /* scattering source term */
 #endif
-
   Real MinX[3];         /* min(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real MaxX[3];         /* max(x) in each dir on this Grid [0,1,2]=[x1,x2,x3] */
   Real dx1,dx2,dx3;     /* cell size on this Grid */
-  int is,ie;		/* start/end cell index in x1 direction */
-  int js,je;		/* start/end cell index in x2 direction */
-  int ks,ke;		/* start/end cell index in x3 direction */
+  int is,ie;            /* start/end cell index in x1 direction */
+  int js,je;            /* start/end cell index in x2 direction */
+  int ks,ke;            /* start/end cell index in x3 direction */
   int Nx[3];       /* # of zones in each dir on Grid [0,1,2]=[x1,x2,x3] */
   int Disp[3];     /* i,j,k displacements of Grid from origin [0,1,2]=[i,j,k] */
 
@@ -402,6 +401,58 @@ typedef struct RadGrid_s {
 } RadGridS;
 
 #endif /* RADIATION_TRANSFER or FULL_RADIATION_TRANSFER */
+
+#ifdef POINT_SOURCE
+/* Radiator objects */
+typedef struct Radiator_s {
+  Real x1, x2, x3;           /* Physical position of radiator */
+  Real s;                    /* Luminosity of source */
+} RadiatorS;
+
+/* Ray objects */
+typedef struct Ray_s {
+  Real n1, n2, n3;         /* Unit vector specifying ray direction */
+  Real x1_0, x2_0, x3_0;   /* Physical position of ray origin */
+  Real x1_1, x2_1, x3_1;   /* Physical position of ray end */
+#ifdef MPI_PARALLEL
+  int nproc;               /* Number of processor domains the ray intersects */
+  int *proc_list;          /* List of processor domains through which the ray
+                            * passes */
+  Real *x1_dom;            /* Coordinates where ray enters and exits
+                            * processor domains */
+  Real *x2_dom;
+  Real *x3_dom;
+  Real *proc_length_list;  /* Length of ray passing through proc domain */
+  int *ncell;
+  int **i_list;            /* List of cells through which this ray passes,
+                            * indexed by processor, then by cell number */
+  int **j_list;
+  int **k_list;
+  Real **cell_length_list; /* Length of ray passing through cell */
+  Real ***etau_list;        /* List of e^(-tau) factors */
+#endif
+#ifndef MPI_PARALLEL
+  int ncell;
+  int *i_list;             /* List of cells through which this ray passes, 
+                            * indexed by cell number */
+  int *j_list;
+  int *k_list;
+  Real *cell_length_list;  /* Length of ray passing through cell */
+  Real **etau_list;        /* List of e^(-tau) factors */
+#endif
+  Real *flux;               /* flux */
+  int leaf;                /* Is this ray a leaf? */
+  Real length;             /* Length of this ray segment, start to end */
+  Real cum_length;         /* Length of ray up to this point from tree base */
+} Ray;
+
+typedef struct RayTree_s {
+  Real x1, x2, x3;        /* Physical position of tree center */
+  int max_level;          /* Maximum level of the tree */
+  Ray *rays;              /* List of rays */
+} RayTreeS;
+
+#endif /* POINT_SOURCE */
 
 /*----------------------------------------------------------------------------*/
 /* GridOvrlpS: contains information about Grid overlaps, used for SMR
@@ -514,11 +565,10 @@ MPI_Comm Comm_Domain;
   Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
                   /* In Full_RADIATION_TRANSFER, this is used to store gas temperature in intermediate step */
 #endif
-	
+
 #ifdef FULL_RADIATION_TRANSFER
   Real ****Velguess;  /* The estimated velocity to reduce momentum error */
 #endif
-	
 
 #ifdef STATIC_MESH_REFINEMENT
   int NCGrid;        /*!< # of child  Grids that overlap this Grid */
@@ -536,13 +586,24 @@ MPI_Comm Comm_Domain;
   Real *r,*ri;                  /*!< cylindrical scaling factors */ 
 #endif /* CYLINDRICAL */
 
+#ifdef POINT_SOURCE
+  int nsource, npf;                     /* number of radiatiors, frequencies */
+  RadiatorS *sourcelist;            /* list of radiators */
+  Real ****ray_weight;  /* total lengths summed over all arrays */
+  Real ****Jps; /* 0th moment: mean intensity */ 
+  Real *****Hps; /* 1st moment */
+  //Real ****Kps; /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
+#endif /* POINT_SOURCE */
 
 }GridS;
 
 /*! \fn void (*VGFun_t)(GridS *pG)
  *  \brief Generic void function of Grid. */
 typedef void (*VGFun_t)(GridS *pG);    /* generic void function of Grid */
-
+#ifdef POINT_SOURCE
+typedef Real (*PSOpacFun_t)(const GridS *pG, const int ifr, const int i,
+			   const int j, const int k);
+#endif
 #ifdef RADIATION_TRANSFER
 /* function template for opacities, epsilon, planck, etc */
 typedef Real (*RadInitFun_t)(const GridS *pG, const int ifr, const int i,
@@ -713,7 +774,7 @@ typedef struct Domain_s{
   RadGridS *RadGrid; /* pointer to RadGrid in this Dom updated on this proc   */
 #endif /* RADIATION_TRANSFER and FULL radiation transfer */
 #ifdef RADIATION_TRANSFER
-  RadGridS *RadOutGrid; /* pointer to RadOutGrid in this Dom updated on this proc   */
+  RadGridS *RadOutGrid; /* ptr to RadOutGrid in this Dom updated on this proc */
 #endif
 }DomainS;
 

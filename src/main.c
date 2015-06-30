@@ -355,7 +355,9 @@ int main(int argc, char *argv[])
 #ifdef RADIATION_TRANSFER
   init_radiation(&Mesh);
 #endif
-
+#ifdef POINT_SOURCE
+  init_point_source(&Mesh);
+#endif
 #ifdef FULL_RADIATION_TRANSFER
   FullRT = init_fullradiation(&Mesh);
 #endif
@@ -564,6 +566,11 @@ int main(int argc, char *argv[])
   integrate_diff_init(&Mesh);
 #endif
 
+#ifdef POINT_SOURCE
+/* Build trees for point sources.  Initial positions of sources is set in
+ * problem generator */
+  build_source_trees(&Mesh);
+#endif
 
 /*--- Step 8. ----------------------------------------------------------------*/
 /* Setup complete, output initial conditions */
@@ -660,30 +667,46 @@ int main(int argc, char *argv[])
       for (nl=0; nl<(Mesh.NLevels); nl++){
         for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
           if (Mesh.Domain[nl][nd].RadGrid != NULL) {
+#ifdef POINT_SOURCE
+/* Compute contribution from point sources */
+            point_source_transfer(&(Mesh.Domain[nl][nd]));
+#endif
 /* compute radiation variables from conserved variables */
             hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
 /* solve radiative transfer */
             formal_solution(&(Mesh.Domain[nl][nd]),0,0);
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+/* Compute Eddington tensor for rad hydro */
             Eddington_FUN(&(Mesh.Domain[nl][nd]));
-            //    Eddington_FUN(Mesh.Domain[nl][nd].Grid, Mesh.Domain[nl][nd].RadGrid);
 #else
 /* modify timestep if necessary */
             dt_rad = radtrans_dt(&(Mesh.Domain[nl][nd]));
             Mesh.dt = MIN(Mesh.dt, dt_rad);
             Mesh.Domain[nl][nd].Grid->dt = Mesh.dt;
-            /* operator split update of total energy equation */
+/* operator split update of total energy equation */
             rad_to_hydro(&(Mesh.Domain[nl][nd]));
             bvals_mhd(&(Mesh.Domain[nl][nd]));
 #endif
-/* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal energy in this way. */
-
+/* If RADIATION_HYDRO OR MHD is defined, we do not need to update internal 
+ * energy in this way. */
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
             bvals_radMHD(&(Mesh.Domain[nl][nd]));
 #endif
           }
         }}
     }
+#else /* RADIATION_TRANSFER */
+#ifdef POINT_SOURCE
+    for (nl=0; nl<(Mesh.NLevels); nl++){
+      for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
+/* Compute contribution from point sources */
+        point_source_transfer(&(Mesh.Domain[nl][nd]));
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
+/* Compute Eddington tensor for rad hydro */
+        Eddington_FUN(&(Mesh.Domain[nl][nd]));
+#endif
+      }}
+#endif /* POINT_SOURCE */
 #endif /* RADIATION_TRANSFER */
 
 /* Do the full radiation transfer step */

@@ -93,7 +93,7 @@ int Erflag = 1; /* Flag to do backward Euler first or later. If 1, do it later. 
 
 #endif
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER) || defined (POINT_SOURCE)
 Real R_ideal;		/* Value of ideal gas constant under current unit. Used to calculate the temperature */
 Real Tunit = 1.e7; /* the temperature unit used in this simulation */
 Real T_e = 5.94065e9; /* The effective electron temperature */
@@ -112,7 +112,9 @@ RadInitFun_t get_raytrace_opacity = NULL;
 RRGIIFun_t raytrace_to_radtrans = NULL;
 #endif
 #endif
-
+#ifdef POINT_SOURCE
+PSOpacFun_t PSOpacity = NULL;
+#endif
 #ifdef FULL_RADIATION_TRANSFER
 FullRadOpacity_t get_full_opacity = NULL;
 int Vguessflag = 1;
@@ -202,7 +204,7 @@ extern Real Eratio;
 extern int Erflag;
 #endif
 
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER) || defined(RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD) || defined(RADIATION_TRANSFER) || defined(RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER) || defined(POINT_SOURCE)
 extern Real R_ideal;
 extern Real Tunit;
 extern Real T_e;
@@ -221,8 +223,9 @@ extern RadInitFun_t get_raytrace_opacity;
 extern RRGIIFun_t raytrace_to_radtrans;
 #endif
 #endif
-
-
+#ifdef POINT_SOURCE
+extern PSOpacFun_t PSOpacity;
+#endif
 #ifdef FULL_RADIATION_TRANSFER
 extern FullRadOpacity_t get_full_opacity;
 extern int Vguessflag;

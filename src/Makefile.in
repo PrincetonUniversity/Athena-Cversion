@@ -156,6 +156,8 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/ray_tracing.o\
 		radiation/angles.o
 
+POINTSOURCE_OBJ = point_source/point_source.o
+
 FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/hydro_to_fullrad.o\
 		fullradiation/utils_fullrad.o\
@@ -189,7 +191,7 @@ RSOLVERS_OBJ = rsolvers/esystem_roe.o \
 	       rsolvers/two_shock.o 
 	      
 
-ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${FULLRADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${HYPRE_OBJ} ${LIS_OBJ}
+ALL_OBJ = ${CORE_OBJ} ${FFT_OBJ} ${GRAVITY_OBJ} ${INTEGRATORS_OBJ} ${MICROPHYS_OBJ} ${PARTICLES_OBJ} ${RADIATION_OBJ} ${POINTSOURCE_OBJ} ${FULLRADIATION_OBJ} ${RECONSTRUCTION_OBJ} ${RSOLVERS_OBJ} ${HYPRE_OBJ} ${LIS_OBJ}
 
 #-------------------  macro definitions  ---------------------------------------
 

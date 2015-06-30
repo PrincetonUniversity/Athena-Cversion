@@ -133,7 +133,9 @@ static Real Tfloor = 1.e-20;
 #ifndef RADIATION_MHD
 #ifndef RADIATION_TRANSFER
 #ifndef FULL_RADIATION_TRANSFER 
+#ifndef POINT_SOURCE
 static Real R_ideal = 1.0;
+#endif
 #endif
 #endif
 #endif

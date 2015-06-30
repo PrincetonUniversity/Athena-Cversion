@@ -1523,17 +1523,21 @@ void Eddington_FUN (DomainS *pD)
  * Only work for 1 frequency now
  */
 
-void Eddington_FUN (DomainS *pD)
+void Eddington_FUN(DomainS *pD)
 {
   RadGridS *pRG=(pD->RadGrid);
   GridS *pG=(pD->Grid);
-  int i, j, k, DIM;
+  int i, j, k, n, DIM;
   int is, ie, js, je, ks, ke;
   int ri, rj, rk;
   int ioff, joff, koff;
   int ifr = 0;
   Real J, Hrt = 0.0;
+  Real Jps=0.0, Kps[6];
 
+  for(i=0;i<6;i++)
+    Kps[i]=0.0;
+  
   DIM = 0;
   is = pG->is;
   ie = pG->ie;
@@ -1570,25 +1574,32 @@ void Eddington_FUN (DomainS *pD)
 #ifdef RAY_TRACING
         Hrt = pRG->H[ifr][rk][rj][ri];
 #endif
-        J = pRG->R[ifr][rk][rj][ri].J + Hrt;
+	
+#ifdef POINT_SOURCE
+	/*        Jps = pG->Jps[k][j][i];
+        for(n=0;n<6;n++)
+          Kps[n] = pG->Kps[k][j][i][n];
+	*/
+#endif
+        J = pRG->R[ifr][rk][rj][ri].J + Hrt + Jps;
 
         if(fabs(J) < TINY_NUMBER)
-          ath_error("[Eddington_FUN]: Zeroth momentum of specific intensity is zero at i: %d  j:  %d  k:  %d\n",i,j,k);
+          ath_error("[Eddington_FUN]: Zeroth moment of specific intensity is zero at i: %d  j:  %d  k:  %d\n",i,j,k);
 
         if(DIM == 1)
-          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Hrt)/J;
+          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Kps[0] + Hrt)/J;
         else if(DIM == 2){
-          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Hrt)/J;
-          pG->U[k][j][i].Edd_21 = pRG->R[ifr][rk][rj][ri].K[1]/J;
-          pG->U[k][j][i].Edd_22 = pRG->R[ifr][rk][rj][ri].K[2]/J;
+          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Kps[0] + Hrt)/J;
+          pG->U[k][j][i].Edd_21 = (pRG->R[ifr][rk][rj][ri].K[1] + Kps[1])/J;
+          pG->U[k][j][i].Edd_22 = (pRG->R[ifr][rk][rj][ri].K[2] + Kps[2])/J;
         }
         else if(DIM == 3){
-          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Hrt)/J;
-          pG->U[k][j][i].Edd_21 = pRG->R[ifr][rk][rj][ri].K[1]/J;
-          pG->U[k][j][i].Edd_22 = pRG->R[ifr][rk][rj][ri].K[2]/J;
-          pG->U[k][j][i].Edd_31 = pRG->R[ifr][rk][rj][ri].K[3]/J;
-          pG->U[k][j][i].Edd_32 = pRG->R[ifr][rk][rj][ri].K[4]/J;
-          pG->U[k][j][i].Edd_33 = pRG->R[ifr][rk][rj][ri].K[5]/J;
+          pG->U[k][j][i].Edd_11 = (pRG->R[ifr][rk][rj][ri].K[0] + Kps[0] + Hrt)/J;
+          pG->U[k][j][i].Edd_21 = (pRG->R[ifr][rk][rj][ri].K[1] + Kps[1])/J;
+          pG->U[k][j][i].Edd_22 = (pRG->R[ifr][rk][rj][ri].K[2] + Kps[2])/J;
+          pG->U[k][j][i].Edd_31 = (pRG->R[ifr][rk][rj][ri].K[3] + Kps[3])/J;
+          pG->U[k][j][i].Edd_32 = (pRG->R[ifr][rk][rj][ri].K[4] + Kps[4])/J;
+          pG->U[k][j][i].Edd_33 = (pRG->R[ifr][rk][rj][ri].K[5] + Kps[5])/J;
         }
         else
           ath_error("Dimension is not right!\n");

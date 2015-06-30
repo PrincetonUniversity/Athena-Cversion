@@ -70,12 +70,14 @@
 /* Ray tracing */
 #define @RAY_TRACING_MODE@
 
-
 /* Time Dependent Radiation Transfer */
 #define @FULL_RADIATION_TRANSFER_MODE@
 
 /* FLD */
 #define @FLD_MODE@
+
+/* Point source transfer */
+#define @POINT_SOURCE_MODE@
 
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
@@ -237,6 +239,9 @@ enum {LtoR_tag,
       shearing_sheet_grav_ix1_tag,
       shearing_sheet_grav_ox1_tag,
       remapvar_tag,
+#endif
+#ifdef POINT_SOURCE
+      flux_tag,
 #endif
       remapFlx_tag,
       remapEx_tag,

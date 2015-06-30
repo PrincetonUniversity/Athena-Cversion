@@ -31,7 +31,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 {
 
   RadGridS *pRG;
-  int niter, ndim, nf;
+  int niter, ndim, nf, itermin;
   int i, ifr, nfc = 0;
   Real *dSmaxa, dSmax = 0.0, dsm, dSmin, dSrmax;
   Real dScnv;
@@ -50,6 +50,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
       niter = par_geti_def("radiation","niter0",niter);
       dScnv = par_getd_def("radiation","dScnv0",dScnv);
     }
+    itermin = par_geti_def("radiation","itermin",0);
   } else {
     pRG = pD->RadOutGrid; /* set ptr to RadOutGrid */
     niter = par_geti("radiation_output","niter");
@@ -64,8 +65,8 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 /* allocate memory for convergence arrays */
   nf = pRG->nf;
   if ((dSmaxa = (Real *)calloc(nf,sizeof(Real))) == NULL) {
-     ath_error("[formal_solution]: Error allocating memory\n");
-   }
+    ath_error("[formal_solution]: Error allocating memory\n");
+  }
 
   if ((iconv = (int *)calloc(nf,sizeof(int))) == NULL) {
     ath_error("[formal_solution]: Error allocating memory\n");
@@ -115,7 +116,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 #endif
           dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
-          if(dSrmax <= dScnv) {
+          if((dSrmax <= dScnv) && (i >= itermin)) {
             i++;
             nfc++;
             iconv[ifr] = 1;
@@ -143,7 +144,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
 #endif
           dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
-          if(dSrmax <= dScnv) {
+          if((dSrmax <= dScnv) && (i >= itermin)) {
             i++;
             nfc++;
             iconv[ifr] = 1;
@@ -174,7 +175,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
           if (myID_Comm_world == 0) printf("iter: %d %g\n",i,dSrmax);
           dSmaxa[ifr] = dSrmax;
 /* Check whether convergence criterion is met. */
-          if(dSrmax <= dScnv) {
+          if((dSrmax <= dScnv) && (i >= itermin)) {
             i++;
             nfc++;
             iconv[ifr] = 1;
@@ -195,7 +196,7 @@ void formal_solution(DomainS *pD, const int outflag, const int fstflag)
       printf("output grid: ");
     printf("iterations=%d, dSmax=%g\n",i,dSmax);
   }
-  /* free up memory */
+/* free up memory */
   free(iconv);
   free(dSmaxa);
 

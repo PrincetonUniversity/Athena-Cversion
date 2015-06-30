@@ -53,9 +53,10 @@ ifeq (@FFT_MODE@,FFT_ENABLED)
   FFTWINC = -I/Users/YanFei/Tools/FFTW/include
 endif
 
-
-
-
+ifeq (@POINT_SOURCE_MODE@,POINT_SOURCE)
+  HPIXLIB = -L/opt/Healpix_3.20/lib -lchealpix -L/opt/cfitsio/3.370/lib -lcfitsio
+  HPIXINC = -I/opt/Healpix_3.20/include -L/opt/cfitsio/3.370/include
+endif
 
 
 ifeq (@MPI_MODE@,MPI_PARALLEL)
@@ -142,7 +143,10 @@ ifeq ($(MACHINE),sunnyvale)
   MPIINC = 
   MPILIB = -lmpi
 else
+ifeq ($(MACHINE),default)
+else
   abort Unsupported MACHINE=$(MACHINE)
+endif
 endif
 endif
 endif
@@ -163,5 +167,5 @@ ifeq (@FFT_MODE@,NO_FFT)
   FFTWLIB = 
 endif
 
-CFLAGS = $(OPT) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(MATRIXINC) $(HYPREINC)
-LIB = $(MATRIXLIB) $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) $(HYPRELIB)
+CFLAGS = $(OPT) $(HPIXINC) $(BLOCKINC) $(MPIINC) $(FFTWINC) $(MATRIXINC) $(HYPREINC)
+LIB = $(HPIXLIB) $(MATRIXLIB) $(BLOCKLIB) $(MPILIB) $(FFTWLIB) $(CUSTLIBS) $(HYPRELIB)
