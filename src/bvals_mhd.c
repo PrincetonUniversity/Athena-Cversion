@@ -920,23 +920,40 @@ void bvals_mhd_init(MeshS *pM)
       ath_error("[bvals_init]: Failed to allocate recv buffer\n");
 #endif
 
-#ifdef CONS_GRAVITY
+/*  The following preprocessor code is horrible and should be changed -- SWD */
+#ifdef PHOTOIONIZATION
 
+#ifdef CONS_GRAVITY
+#if defined(MHD) || defined(RADIATION_MHD)
+    size *= nghost*((NVAR)+3+1+1);
+#else
+    size *= nghost*(NVAR+1+1);
+#endif
+#else /* CONS_GRAVITY */
+#if defined(MHD) || defined(RADIATION_MHD)
+  size *= nghost*((NVAR)+3+1);
+#else
+  size *= nghost*(NVAR+1);
+#endif
+#endif /* CONS_GRAVITY */
+
+#else /* PHOTOIONIZATION */
+
+#ifdef CONS_GRAVITY
 #if defined(MHD) || defined(RADIATION_MHD)
     size *= nghost*((NVAR)+3+1);
 #else
     size *= nghost*(NVAR+1);
 #endif
-    
-#else
-    
+#else /* CONS_GRAVITY */
 #if defined(MHD) || defined(RADIATION_MHD)
   size *= nghost*((NVAR)+3);
 #else
   size *= nghost*(NVAR);
 #endif
+#endif /* CONS_GRAVITY */
 
-#endif
+#endif /* PHOTOIONIZATION */
 
   if (size > 0) {
     if((send_buf = (double**)calloc_2d_array(2,size,sizeof(double))) == NULL)
@@ -2957,7 +2974,9 @@ static void pack_ix1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-          
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif       
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3034,7 +3053,9 @@ static void pack_ox1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-  
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif  
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3111,7 +3132,9 @@ static void pack_ix2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-          
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif  
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3189,7 +3212,9 @@ static void pack_ox2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-          
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif  
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3264,7 +3289,9 @@ static void pack_ix3(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-    
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif  
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3339,7 +3366,9 @@ static void pack_ox3(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) *(pSnd++) = pG->U[k][j][i].s[n];
 #endif
-        
+#ifdef PHOTOIONIZATION
+	*(pSnd++) = pG->U[k][j][i].dn;
+#endif  
 #ifdef CONS_GRAVITY
         *(pSnd++) = pG->dphidtsource[k][j][i];
 #endif
@@ -3417,7 +3446,9 @@ static void unpack_ix1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-          
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
@@ -3495,7 +3526,9 @@ static void unpack_ox1(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-    
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
@@ -3573,7 +3606,9 @@ static void unpack_ix2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
@@ -3651,7 +3686,9 @@ static void unpack_ox2(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-          
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
@@ -3726,7 +3763,9 @@ static void unpack_ix3(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif
@@ -3801,7 +3840,9 @@ static void unpack_ox3(GridS *pG)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) pG->U[k][j][i].s[n] = *(pRcv++);
 #endif
-          
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn = *(pRcv++);
+#endif
 #ifdef CONS_GRAVITY
         pG->dphidtsource[k][j][i] = *(pRcv++);
 #endif

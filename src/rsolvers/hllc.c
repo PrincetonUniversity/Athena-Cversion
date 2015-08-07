@@ -225,6 +225,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Fr.s[n] = Fr.d*Wr.r[n];
   }
 #endif
+#ifdef PHOTOIONIZATION
+  Fl.dn = Fl.d*Wl.xn;
+  Fr.dn = Fr.d*Wr.xn;
+#endif
 
 /*--- Step 7. ------------------------------------------------------------------
  * Compute flux weights or scales
@@ -261,6 +265,13 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wl.r[n];
   } else {
     for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
+  }
+#endif
+#ifdef PHOTOIONIZATION
+  if (pFlux->d >= 0.0) {
+    pFlux->dn = pFlux->d*Wl.xn;
+  } else {
+    pFlux->dn = pFlux->d*Wr.xn;
   }
 #endif
 

@@ -156,7 +156,8 @@ RADIATION_OBJ = radiation/init_radiation.o\
 		radiation/ray_tracing.o\
 		radiation/angles.o
 
-POINTSOURCE_OBJ = point_source/point_source.o
+POINTSOURCE_OBJ = point_source/point_source.o\
+		  point_source/photoionization.o
 
 FULLRADIATION_OBJ = fullradiation/init_fullradiation.o\
 		fullradiation/hydro_to_fullrad.o\

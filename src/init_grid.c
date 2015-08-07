@@ -351,6 +351,10 @@ void init_grid(MeshS *pM)
         if (pG->ray_weight == NULL) goto on_error34;
         pG->Hps = (Real*****)calloc_5d_array(npf,n3z,n2z,n1z,3,sizeof(Real));
         if (pG->Hps == NULL) goto on_error35;
+#ifdef PHOTOIONIZATION
+        pG->phrate = (Real***)calloc_3d_array(n3z,n2z,n1z,sizeof(Real));
+        if (pG->phrate == NULL) goto on_error36;
+#endif
 
 #endif /* POINT_SOURCE */
 
@@ -1541,6 +1545,11 @@ G3.ijkl[2],G3.ijkr[2]);
 
 #ifdef POINT_SOURCE
 
+#ifdef PHOTOIONIZATION
+ on_error36:
+  free_3d_array(pG->phrate);
+#endif
+
  on_error35:
   free_5d_array(pG->Hps);
  on_error34:
@@ -1557,7 +1566,7 @@ G3.ijkl[2],G3.ijkr[2]);
   free_4d_array(pG->Velguess);
 
 #endif
-#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER)
+#if defined (RADIATION_TRANSFER) || defined (FULL_RADIATION_TRANSFER) || defined(POINT_SOURCE)
  on_error17:
   free_3d_array(pG->tgas);
 #endif

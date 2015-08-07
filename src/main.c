@@ -357,7 +357,11 @@ int main(int argc, char *argv[])
 #endif
 #ifdef POINT_SOURCE
   init_point_source(&Mesh);
+#ifdef PHOTOIONIZATION
+  init_photoionization(&Mesh);
 #endif
+#endif
+
 #ifdef FULL_RADIATION_TRANSFER
   FullRT = init_fullradiation(&Mesh);
 #endif
@@ -400,7 +404,6 @@ int main(int argc, char *argv[])
       }
     }
   }
-
 
 /* restrict initial solution so grid hierarchy is consistent */
 /* If RSTSMR, we use INI_prolongate function to prolongate data from root level to fine levels */
@@ -566,6 +569,7 @@ int main(int argc, char *argv[])
   integrate_diff_init(&Mesh);
 #endif
 
+
 #ifdef POINT_SOURCE
 /* Build trees for point sources.  Initial positions of sources is set in
  * problem generator */
@@ -667,10 +671,10 @@ int main(int argc, char *argv[])
       for (nl=0; nl<(Mesh.NLevels); nl++){
         for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
           if (Mesh.Domain[nl][nd].RadGrid != NULL) {
-#ifdef POINT_SOURCE
-/* Compute contribution from point sources */
-            point_source_transfer(&(Mesh.Domain[nl][nd]));
-#endif
+	    //#ifdef POINT_SOURCE
+	    ///* Compute contribution from point sources */
+            //point_source_transfer(&(Mesh.Domain[nl][nd]));
+	    //#endif
 /* compute radiation variables from conserved variables */
             hydro_to_rad(&(Mesh.Domain[nl][nd]),0);
 /* solve radiative transfer */
@@ -695,19 +699,20 @@ int main(int argc, char *argv[])
           }
         }}
     }
-#else /* RADIATION_TRANSFER */
-#ifdef POINT_SOURCE
+#endif /* RADIATION_TRANSFER */
+
+#if defined(POINT_SOURCE) && !defined(PHOTOIONIZATION)
     for (nl=0; nl<(Mesh.NLevels); nl++){
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
 /* Compute contribution from point sources */
         point_source_transfer(&(Mesh.Domain[nl][nd]));
-#if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
-/* Compute Eddington tensor for rad hydro */
-        Eddington_FUN(&(Mesh.Domain[nl][nd]));
-#endif
       }}
 #endif /* POINT_SOURCE */
-#endif /* RADIATION_TRANSFER */
+
+#ifdef PHOTOIONIZATION
+/* Compute photoionization from point sources */
+    photoionization(&Mesh);
+#endif /* PHOTOIONIZATION */
 
 /* Do the full radiation transfer step */
 /* If momentum equations are used, Eddington tensor also needs to be updated */
@@ -775,7 +780,7 @@ int main(int argc, char *argv[])
       for (nd=0; nd<(Mesh.DomainsPerLevel[nl]); nd++){
         if (Mesh.Domain[nl][nd].Grid != NULL){
 
-          (*Integrate)(&(Mesh.Domain[nl][nd]));
+	  (*Integrate)(&(Mesh.Domain[nl][nd]));
 #ifdef FARGO
           Fargo(&(Mesh.Domain[nl][nd]));
 #ifdef PARTICLES

@@ -6,7 +6,7 @@
  *          calculations of point source radiation.  Based on original
  *          implementation by Mark Krumholz of the algorithm of Abel &
  *          Wandelt (2002).  Reimplemented in the reivsed Athena framework
- *          by Shane Davis.
+ *          by S. Davis.
  *          Current implementation follows Krumholz and includes all
  *          functions in single file.
  *
@@ -55,9 +55,9 @@ static Real x1hi, x2hi, x3hi;      /* Physical upper corner of grid */
 static int ray_number;             /* Ray refinement factor */
 static int min_tree_level;         /* Minimum level for ray tree */
 
-/* Physical constants and parameters read from inputs file */
-//static Real sigma_ph;              /* Photoionization cross section */
-
+#ifdef PHOTOIONIZATION
+static Real mH;
+#endif
 
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
@@ -98,6 +98,9 @@ void init_point_source(MeshS *pM) {
   Real area1, area2, area3;
   GridS *pGrid;
 
+#ifdef PHOTOIONIZATION
+  mH = par_getd("problem","mH");
+#endif
 /* Are we in periodic geometry? */
   if (pM->BCFlag_ix1 == 4) is_periodic1 = 1; else is_periodic1 = 0;
   if (pM->BCFlag_ix2 == 4) is_periodic2 = 1; else is_periodic2 = 0;
@@ -129,7 +132,7 @@ void init_point_source(MeshS *pM) {
 /* Read input values */
   ray_number = par_geti("pointsource", "ray_number");
   min_tree_level = par_geti("pointsource", "min_tree_level");
-  //sigma_ph = par_getd("pointsource", "sigma_ph");
+
   nsource = par_geti("pointsource", "nsource");
 
 /* Allocate memory for Source list on each grid */
@@ -243,25 +246,35 @@ void point_source_transfer(DomainS *pD)
 	    }*/
 	  }}}}
 
+#ifdef PHOTOIONIZATION
+/* Initialize photoionization rates */
+    for (k=pGrid->ks; k<=pGrid->ke; k++) {
+      for (j=pGrid->js; j<=pGrid->je; j++) {
+	for (i=pGrid->is; i<=pGrid->ie; i++) {
+	  pGrid->phrate[k][j][i] = 0.0;
+	}}}
+#endif
+
 /* Compute radiation transfer for all sources */
     for (n=0; n<n_tree; n++) {
       update_tree_radiation(n, pGrid );
     }
   
-
-/* Compute radiation forces */
+#ifndef PHOTOIONIZATION
+/* Compute radiation forces -- currently not done with photoionzation */
     dt = pGrid->dt;
     for (ipf=0; ipf < pGrid->npf; ipf++) { 
       for (k=pGrid->ks; k<=pGrid->ke; k++) {
 	for (j=pGrid->js; j<=pGrid->je; j++) {
 	  for (i=pGrid->is; i<=pGrid->ie; i++) {
-	    opac = pGrid->U[k][j][i].d * PSOpacity(pGrid,ipf,i,j,k);						   
+	    opac = PSOpacity(pGrid,ipf,i,j,k);						   
 	    pGrid->U[k][j][i].M1 += dt * opac * pGrid->Hps[ipf][k][j][i][0];
 	    pGrid->U[k][j][i].M2 += dt * opac * pGrid->Hps[ipf][k][j][i][1];
 	    pGrid->U[k][j][i].M3 += dt * opac * pGrid->Hps[ipf][k][j][i][2];
-	    //printf("%d %d %d %g %g %g\n",k,j,i,opac,Prat,pGrid->Hps[k][j][i][0]);
+	   
 	  }}}}
-  }
+#endif
+  } /* pD-pGrid != NULL */
 }
 
 /* ------------------------------------------------------------
@@ -1018,7 +1031,6 @@ void fill_tree_cell_list(int n, GridS *pGrid)
     lev = ray_level(rayptr);
     nray = 12*(1<<(2*lev));
     ray_sa = 4 * PI / nray;
-    //ray_sa = 1.0 / nray;
 
 /* Set pointer to this ray */
     this_ray = &(trees[n].rays[rayptr]);
@@ -1294,36 +1306,42 @@ void update_tree_radiation(int n, GridS *pGrid)
   int rayptr, lev, l;
   int proc, err;
   Ray *this_ray, *parent;
-  Real kph, cum_length, last_length;
-  Real dummy_r, flux_frac, max_frac, max_frac_glob;
-  Real density;
+  Real cum_length, last_length;
+  Real dummy_r, flux_frac, max_frac, max_flux, max_frac_glob;
   MPI_Status stat;
   int p;
   int i,j,k,ipf;
   Real Jray, ray_sa;
   int nray;
   Real x1c,x2c,x3c,rcell2;
-  int MPI_counter=0;
+#ifdef PHOTOIONIZATION
+  int m;
+  Real kph, ray_area, cell_vol;
+  Real theta0, midp, dxedge[3], dedge, cov_fac;
+#endif
+
+#ifdef PHOTOIONIZATION
+/* Compute cell volume */
+  cell_vol = pGrid->dx1 * pGrid->dx2 * pGrid->dx3;
+#endif
 
 /* Dummy radius, used in initializing fluxes. Its value doesn't
  * matter, it is just used for coding convenience.
  */
   dummy_r = 1.0e-6 * pGrid->dx1;
-  //printf("i: %d %p %p\n",myID_Comm_world,&max_frac,&max_frac_glob);
+
 /* Traverse the tree. Note that we traverse it by level, so that we
  * do all the level 0 rays before any of the level 1 rays, etc. This
  * facilitates parallelism.
  */
+
   for (lev = min_tree_level; lev <= trees[n].max_level; lev++) {
 
-    nray = 12*(1<<(2*lev));
-    ray_sa = 4 * PI / nray;
-    //ray_sa = 1.0 / nray;
-
 /* Initialize fraction of flux left */
-    
+    max_frac = 0.0;
+
     for (rayptr = NRAYTOT(lev-1); rayptr < NRAYTOT(lev); rayptr++) {
-      max_frac = 0.0;
+  
 /* Pointer to this ray */
       this_ray = &(trees[n].rays[rayptr]);
 
@@ -1344,10 +1362,10 @@ void update_tree_radiation(int n, GridS *pGrid)
           k = this_ray->k_list[p][l];
 
 /* Compute exp of optical depth in cell */
-          density = pGrid->U[k][j][i].d;
+
 	  for(ipf=0; ipf < pGrid->npf; ipf++) {
-	    this_ray->etau_list[p][ipf][l] = exp(-PSOpacity(pGrid,ipf,i,j,k)*
-	      density * this_ray->cell_length_list[p][l]);
+	    this_ray->etau_list[p][ipf][l] = exp(-PSOpacity(pGrid,ipf,i,j,k) *
+	      this_ray->cell_length_list[p][l]);
 	  }
         }
       }
@@ -1355,6 +1373,13 @@ void update_tree_radiation(int n, GridS *pGrid)
 
 /* Now traverse rays on this level again, updating moments */
     for (rayptr = NRAYTOT(lev-1); rayptr < NRAYTOT(lev); rayptr++) {
+      
+/* Compute ray solid angle */
+      nray = 12*(1<<(2*lev));
+      ray_sa = 4 * PI / nray;
+#ifdef PHOTOIONIZATION
+      theta0 = sqrt(ray_sa);
+#endif
 
 /* Pointer to this ray and its parent*/
       this_ray = &(trees[n].rays[rayptr]);
@@ -1375,9 +1400,10 @@ void update_tree_radiation(int n, GridS *pGrid)
 
           if ((lev == min_tree_level) && (p == 0)) {
 /* We  are at source */
-	    for(ipf=0; ipf < pGrid->npf; ipf++)
-	      this_ray->flux[ipf] = 1.0;
-	
+	    for(ipf=0; ipf < pGrid->npf; ipf++) {
+	      //this_ray->flux[ipf] = 1.0; //SWD
+	      this_ray->flux[ipf] = 1.0 / (4*PI*SQR(cum_length));
+	    }
           } else {
 /* If we are the first processor on this ray, get the flux
  * from the parent. This may be on another processor. */
@@ -1428,25 +1454,56 @@ void update_tree_radiation(int n, GridS *pGrid)
 
 /* Walk along ray */
         for (l=0; l<this_ray->ncell[p]; l++) {
-          /* Step to next */
 
-          last_length = cum_length;
-          cum_length += this_ray->cell_length_list[p][l];
-
-/* Store moments */
+/* Get coordinates of this zone */
           i = this_ray->i_list[p][l];
           j = this_ray->j_list[p][l];
           k = this_ray->k_list[p][l];
 	  cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
 
-/* Used distance from source to cell center to evaluate solid angle fraction */
-          rcell2 = (SQR(x1c-trees[n].x1)+SQR(x2c-trees[n].x2)+SQR(x3c-trees[n].x3)) *
-	           4 * PI * pGrid->ray_weight[n][k][j][i];
 
+#ifdef PHOTOIONIZATION
+/* Wise et al. covering factor correction */ 
+      midp = cum_length + 0.5 * this_ray->cell_length_list[p][l];
+      dxedge[0] = 0.5 * pGrid->dx1 - fabs(trees[n].x1 + this_ray->n1 * midp - x1c);
+      dxedge[1] = 0.5 * pGrid->dx2 - fabs(trees[n].x2 + this_ray->n2 * midp - x2c);
+      dxedge[2] = 0.5 * pGrid->dx3 - fabs(trees[n].x3 + this_ray->n3 * midp - x3c);
+      dedge = dxedge[0];
+      for (m=1; m<3; m++) 
+	if (dxedge[m] < dedge) dedge = dxedge[m];
+
+      cov_fac = SQR(MIN(0.5+dedge/(theta0 * cum_length),1.0));
+      cov_fac = 1.0;
+/* Compute ray area */
+	ray_area = ray_sa * SQR(cum_length);
+
+/* Compute ionization rate coefficient */
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  //pGrid->phrate[k][j][i] = cov_fac;
+	  pGrid->phrate[k][j][i] += this_ray->flux[ipf] * (1.0 - this_ray->etau_list[p][ipf][l])
+	                            * ray_area * pGrid->sourcelist[n].s *cov_fac / 
+	                            (pGrid->U[k][j][i].dn / mH * cell_vol);
+	}
+
+#endif /* PHOTOIONIZATION */
+
+/* Compute next length */
+	  last_length = cum_length;
+          cum_length += this_ray->cell_length_list[p][l];
+/* Reduce the flux */
+	  for(ipf=0; ipf < pGrid->npf; ipf++) {	
+	    this_ray->flux[ipf] *=  SQR(last_length/cum_length) * this_ray->etau_list[p][ipf][l];
+	  }
+/* Used distance from source to cell center to evaluate solid angle fraction */
+          //rcell2 = (SQR(x1c-trees[n].x1)+SQR(x2c-trees[n].x2)+SQR(x3c-trees[n].x3)) *
+	  //         4 * PI * pGrid->ray_weight[n][k][j][i];
+
+/* Compute Moments*/
 /* For multiple rays in cell, weight by ray length and solid angle.  Must
-   normailze with ray_weight */
+   normalize with ray_weight */
 	  for(ipf=0; ipf < pGrid->npf; ipf++) {	    
-	    Jray = pGrid->sourcelist[n].s * this_ray->flux[ipf] * this_ray->cell_length_list[p][l] * ray_sa / rcell2;
+	    Jray = pGrid->sourcelist[n].l * this_ray->flux[ipf] * this_ray->cell_length_list[p][l] * 
+	           ray_sa / pGrid->ray_weight[n][k][j][i];
 	    pGrid->Jps[ipf][k][j][i] += Jray;
 	    pGrid->Hps[ipf][k][j][i][0] += Jray * this_ray->n1;
 	    pGrid->Hps[ipf][k][j][i][1] += Jray * this_ray->n2;
@@ -1458,20 +1515,22 @@ void update_tree_radiation(int n, GridS *pGrid)
 		      pGrid->Kps[k][j][i][4] += Jray * this_ray->n2 * this_ray->n3;
 		      pGrid->Kps[k][j][i][5] += Jray * SQR(this_ray->n3);*/
 /* Reduce the flux */
-	    if (last_length > dummy_r) {	   
-	      this_ray->flux[ipf] *= this_ray->etau_list[p][ipf][l];	
-	    }
-	  } /*end loop over frequencies */
-        } /* End walk along ray */
-      } /* End loop over processors /*
+	    //if (last_length > dummy_r) {	   
+	    //this_ray->flux[ipf] *= this_ray->etau_list[p][ipf][l];	
+	    //}
+	  } /* end loop over frequencies */
+        } /* end loop over zones on this processor */
+    } /* end loop over processors /*
 
-/* Record fraction of flux left */
-      for(ipf=0; ipf < pGrid->npf; ipf++) {
-	if(this_ray->flux !=NULL)
-	  flux_frac = this_ray->flux[ipf];
-	//	flux_frac = this_ray->flux[ipf] / pGrid->sourcelist[n].s;
-	if (flux_frac > max_frac) max_frac = flux_frac;
+/* Compute fraction of flux left */
+      if(this_ray->flux !=NULL) {
+	max_flux = 1.0/ (4*PI*cum_length*cum_length);
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  flux_frac = this_ray->flux[ipf] / max_flux;
+	  if (flux_frac > max_frac) max_frac = flux_frac;
+	}
       }
+      
   } /* End second loop over rays */
 
 /* See if we need to proceed to the next level. We only bother
@@ -1491,94 +1550,127 @@ void update_tree_radiation(int n, GridS *pGrid)
   int rayptr, lev, l;
   Ray *this_ray, *parent;
   Real tau, cum_length, last_length;
-  Real dummy_r, max_flux, flux_frac;
-  Real density;
+  Real dummy_r, max_flux, flux_frac, max_frac;
   int nray;
-  int i,j,k,m,ipf;
-  Real ray_area, ray_sa, proj;
+  int i,j,k,ipf;
+  Real ray_sa, proj;
   Real x1c,x2c,x3c, rcell2;
   Real Jray;
+#ifdef PHOTOIONIZATION
+  int m;
+  Real kph, ray_area, cell_vol;
+  Real theta0, midp, dxedge[3], dedge, cov_fac;
+#endif
+
+#ifdef PHOTOIONIZATION
+/* Compute cell volume */
+  cell_vol = pGrid->dx1 * pGrid->dx2 * pGrid->dx3;
+#endif
 
 /* Dummy radius, used in initializing fluxes. Its value doesn't
  * matter, it is just used for coding convenience.
  */
   dummy_r = 1.0e-6 * pGrid->dx1;
   
-/* Traverse tree */
-  rayptr=0;
-  while (rayptr >= 0) {
+/* Traverse tree, level by level */
 
-/* Level, number of rays, and ray solid angle */
-    lev = ray_level(rayptr);
+  for (lev = min_tree_level; lev <= trees[n].max_level; lev++) {
+    
+/* Initialize fraction of flux left */
+    max_frac = 0.0;
+
+/* Compute ray solid angle */
     nray = 12*(1<<(2*lev));
     ray_sa = 4 * PI / nray;
-    //ray_sa = 1.0 / nray;
-    //theta0 = sqrt(ray_sa);
+#ifdef PHOTOIONIZATION
+    theta0 = sqrt(ray_sa);
+#endif
 
+    for (rayptr = NRAYTOT(lev-1); rayptr < NRAYTOT(lev); rayptr++) {
+   
 /* Pointer to this ray and its parent*/
-    this_ray = &(trees[n].rays[rayptr]);
-    if (lev != 0) parent = &(trees[n].rays[PARENT(rayptr)]);
 
+      this_ray = &(trees[n].rays[rayptr]);
+      if (lev != 0) parent = &(trees[n].rays[PARENT(rayptr)]);
+ 
 /* Initialize ray length and flux */
-    if (lev == 0) {
-      cum_length = dummy_r;
-      //      this_ray->flux = pGrid->sourcelist[n].s / (4.0*PI*SQR(dummy_r));
-      for(ipf=0; ipf < pGrid->npf; ipf++) {
-	this_ray->flux[ipf] = 1.0;
+      if (lev == min_tree_level) {
+	cum_length = dummy_r;
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  this_ray->flux[ipf] = 1.0 / (4*PI*SQR(cum_length));
+	}
+      } else {
+	if(this_ray->ncell > 0) {
+	  cum_length = parent->cum_length;
+	  for(ipf=0; ipf < pGrid->npf; ipf++) {
+	    this_ray->flux[ipf] = parent->flux[ipf];
+	  }
+	}
       }
-    } else {
-      cum_length = parent->cum_length;
-      for(ipf=0; ipf < pGrid->npf; ipf++) {
-	this_ray->flux[ipf] = parent->flux[ipf];
-      }
-    }
+      flux_frac = 1.0;
 
-    flux_frac = 1.0;
 /* Walk ray */
-    for (l=0; l<this_ray->ncell; l++) {
+      for (l=0; l<this_ray->ncell; l++) {
 
-      i = this_ray->i_list[l];
-      j = this_ray->j_list[l];
-      k = this_ray->k_list[l];
-      cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
+/* Get coordinates of this zone */
+	i = this_ray->i_list[l];
+	j = this_ray->j_list[l];
+	k = this_ray->k_list[l];
+	cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
 
 /* Compute exp of optical depth in cell */
-      density = pGrid->U[k][j][i].d;
-      for(ipf=0; ipf < pGrid->npf; ipf++) {
-	this_ray->etau_list[ipf][l] =
-	  exp(-PSOpacity(pGrid,ipf,i,j,k) * density * this_ray->cell_length_list[l]);
-      }
-/* Wise et al. covering factor. Maybe useful for photoionization but
-   not currently used. */
-/*      last_length = cum_length;
-      cum_length += this_ray->cell_length_list[l];
-      lmax = this_ray->n1;
-      midp = last_length + 0.5 * this_ray->cell_length_list[l];
+
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  this_ray->etau_list[ipf][l] =
+	    exp(-PSOpacity(pGrid,ipf,i,j,k) * this_ray->cell_length_list[l]);
+	}
+
+#ifdef PHOTOIONIZATION
+/* Wise et al. covering factor correction */ 
+      midp = cum_length + 0.5 * this_ray->cell_length_list[l];
       dxedge[0] = 0.5 * pGrid->dx1 - fabs(trees[n].x1 + this_ray->n1 * midp - x1c);
       dxedge[1] = 0.5 * pGrid->dx2 - fabs(trees[n].x2 + this_ray->n2 * midp - x2c);
       dxedge[2] = 0.5 * pGrid->dx3 - fabs(trees[n].x3 + this_ray->n3 * midp - x3c);
       dedge = dxedge[0];
-      for (m=1;m<3;m++){
-        if (dxedge[m] < dedge) dedge = dxedge[m];
-      }
-      
-      cov_fac = MIN(0.5+dedge/(theta0 * last_length),1.0);*/
+      for (m=1; m<3; m++) 
+	if (dxedge[m] < dedge) dedge = dxedge[m];
 
+      cov_fac = SQR(MIN(0.5+dedge/(theta0 * cum_length),1.0));
 
-      last_length = cum_length;
-      cum_length += this_ray->cell_length_list[l];
+/* Compute ray area */
+	ray_area = ray_sa * SQR(cum_length);
 
-/* compute moments */  
-      cc_pos(pGrid,i,j,k,&x1c,&x2c,&x3c);
-      rcell2 = (SQR(x1c-trees[n].x1)+SQR(x2c-trees[n].x2)+SQR(x3c-trees[n].x3)) *
-	       4 * PI * pGrid->ray_weight[n][k][j][i];
-      //printf("%d %g\n",n,pGrid->sourcelist[n].s);
-      for(ipf=0; ipf < pGrid->npf; ipf++) {
-	Jray = pGrid->sourcelist[n].s * this_ray->flux[ipf] * this_ray->cell_length_list[l] * ray_sa / rcell2;
-	pGrid->Jps[ipf][k][j][i] += Jray;
-	pGrid->Hps[ipf][k][j][i][0] += Jray * this_ray->n1;
-	pGrid->Hps[ipf][k][j][i][1] += Jray * this_ray->n2;
-	pGrid->Hps[ipf][k][j][i][2] += Jray * this_ray->n3;
+/* Compute ionization rate coefficient */
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  //pGrid->phrate[k][j][i] = cov_fac;
+	  pGrid->phrate[k][j][i] += this_ray->flux[ipf] * (1.0 - this_ray->etau_list[ipf][l])
+	                            * ray_area * pGrid->sourcelist[n].s *cov_fac / 
+	                            (pGrid->U[k][j][i].dn / mH * cell_vol);
+	}
+
+#endif /* PHOTOIONIZATION */
+
+/* Compute next length */
+	last_length = cum_length;
+	cum_length += this_ray->cell_length_list[l];
+
+/* Reduce the flux */
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  this_ray->flux[ipf] *=  SQR(last_length/cum_length) * this_ray->etau_list[ipf][l];
+	}
+
+/* compute moments */
+/* For multiple rays in cell, weight by ray length and solid angle.  Must
+   normailze with ray_weight */
+      //rcell2 = (SQR(x1c-trees[n].x1)+SQR(x2c-trees[n].x2)+SQR(x3c-trees[n].x3)) *
+      //       4 * PI * pGrid->ray_weight[n][k][j][i];
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  Jray = pGrid->sourcelist[n].l * this_ray->flux[ipf] * this_ray->cell_length_list[l] * ray_sa / 
+	         pGrid->ray_weight[n][k][j][i];
+	  pGrid->Jps[ipf][k][j][i] += Jray;
+	  pGrid->Hps[ipf][k][j][i][0] += Jray * this_ray->n1;
+	  pGrid->Hps[ipf][k][j][i][1] += Jray * this_ray->n2;
+	  pGrid->Hps[ipf][k][j][i][2] += Jray * this_ray->n3;
 	/*pGrid->Kps[k][j][i][0] += Jray * SQR(this_ray->n1);
 	  pGrid->Kps[k][j][i][1] += Jray * this_ray->n1 * this_ray->n2;
 	  pGrid->Kps[k][j][i][2] += Jray * SQR(this_ray->n2);
@@ -1586,26 +1678,27 @@ void update_tree_radiation(int n, GridS *pGrid)
 	  pGrid->Kps[k][j][i][4] += Jray * this_ray->n2 * this_ray->n3;
 	  pGrid->Kps[k][j][i][5] += Jray * SQR(this_ray->n3);*/
 
-/* Reduce the flux */
-	if (last_length > dummy_r)
-	  this_ray->flux[ipf] *=  this_ray->etau_list[ipf][l];
+	}
+
+	//flux_frac = this_ray->flux[0] / pGrid->sourcelist[n].l;
+	//if (flux_frac < FRAC_FLUX) break;
+      } /* end loop over zones */
+
+/* Compute fraction of flux left */
+      if(this_ray->flux !=NULL) {
+	max_flux = 1.0/ (4*PI*cum_length*cum_length);
+	for(ipf=0; ipf < pGrid->npf; ipf++) {
+	  flux_frac = this_ray->flux[ipf] / max_flux;
+	  if (flux_frac > max_frac) max_frac = flux_frac;
+	}
       }
-/* Find flux left on this ray. If it's less than FRAC_FLUX of the
- * original, stop following this ray. */
 
-      flux_frac = this_ray->flux[0] / pGrid->sourcelist[n].s;
-      if (flux_frac < FRAC_FLUX) break;
-    }
+    }/* End loop over rays on this level */
+    if (max_frac < FRAC_FLUX) break;
 
-/* Go to next ray */
-    if (flux_frac >= FRAC_FLUX) rayptr = next_ray(n, rayptr);
-    else rayptr = next_non_child_ray(rayptr);
-
-  } /* End loop over rays */
+  } /* End loop over levels */
 }
 #endif /* End not MPI_PARALLEL */
-
-
 
 
 #endif /* POINT_SOURCE */

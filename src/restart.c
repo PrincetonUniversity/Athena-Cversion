@@ -515,6 +515,21 @@ void restart_grids(char *res_file, MeshS *pM)
           }
 #endif
 
+#ifdef PHOTOIONIZATION
+/* Read neutral densities */
+          fgets(line,MAXLEN,fp); /* Read the '\n' preceeding the next string */
+          fgets(line,MAXLEN,fp);
+          if(strncmp(line,"NEUTRAL_DENSITY",15) != 0)
+            ath_error("[restart_grids]: Expected NEUTRAL_DENSITY, found %s",line);
+          for (k=ks; k<=ke; k++) {
+            for (j=js; j<=je; j++) {
+              for (i=is; i<=ie; i++) {
+                fread(&(pG->U[k][j][i].dn),sizeof(Real),1,fp);
+              }
+            }
+          }
+#endif /* PHOTOIONIZATION */
+
 #ifdef PARTICLES
 /* Read particle properties and the complete particle list */
 
@@ -1296,6 +1311,26 @@ void restart_grids(char *res_file, MeshS *pM)
             }
           }
 #endif
+
+#ifdef PHOTOIONIZATION
+/* Read neutral densities */
+          fprintf(fp,"\nNEUTRAL_DENSITY\n");
+          for (k=ks; k<=ke; k++) {
+            for (j=js; j<=je; j++) {
+              for (i=is; i<=ie; i++) {
+                buf[nbuf++] = pG->U[k][j][i].dn;
+                if ((nbuf+1) > bufsize) {
+                  fwrite(buf,sizeof(Real),nbuf,fp);
+                  nbuf = 0;
+                }
+              }
+            }
+          }
+          if (nbuf > 0) {
+            fwrite(buf,sizeof(Real),nbuf,fp);
+            nbuf = 0;
+          }	
+#endif /* PHOTOIONIZATION */
 
 #ifdef PARTICLES
 /* Write out the number of particles */

@@ -7,7 +7,8 @@
 # Makefile will be created (overwriting the last) from this template.
 #
 #-------------------  object files  --------------------------------------------
-CORE_OBJ = point_source.o
+CORE_OBJ = point_source.o\
+	   photoionization.o
 
 OBJ = $(CORE_OBJ)
 

@@ -79,6 +79,9 @@
 /* Point source transfer */
 #define @POINT_SOURCE_MODE@
 
+/* Photoionization */
+#define @PHOTOIONIZATION_MODE@
+
 /* Matrix Solver Library */
 #define @MATRIX_LIBRARY@
 

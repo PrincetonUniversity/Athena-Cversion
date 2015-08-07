@@ -119,6 +119,9 @@ typedef struct Cons_s{
 /* Sigma[0]=flux mean scattering opacity; Sigma[1]=flux mean absorption opacity; 
 Sigma[2] = plank mean absorption opacity; Sigma[3] = Er mean absorption opacity */ 
 #endif
+#ifdef PHOTOIONIZATION
+  Real dn; /* neutral H density */
+#endif
 }ConsS;
 
 /*----------------------------------------------------------------------------*/
@@ -142,6 +145,7 @@ typedef struct Prim_s{
 #if (NSCALARS > 0)
   Real r[NSCALARS];             /*!< density-normalized advected scalars */
 #endif
+
 #if defined (RADIATION_HYDRO) || defined (RADIATION_MHD)
   Real Er;			/* Radiation Energy density */
   Real Fr1;			/* Radiation flux along 1, 2, 3 direction */
@@ -154,6 +158,9 @@ typedef struct Prim_s{
   Real Edd_32;
   Real Edd_33;
   Real Sigma[NOPACITY];	
+#endif
+#ifdef PHOTOIONIZATION
+  Real xn; /* neutral H fraction */
 #endif
 }PrimS;
 
@@ -193,6 +200,9 @@ typedef struct Cons1D_s{
   Real Edd_33;
   Real Sigma[NOPACITY];	
 #endif
+#ifdef PHOTOIONIZATION
+  Real dn; /* neutral H density */
+#endif
 }Cons1DS;
 
 /*----------------------------------------------------------------------------*/
@@ -227,6 +237,9 @@ typedef struct Prim1D_s{
   Real Edd_32;
   Real Edd_33;
   Real Sigma[NOPACITY];	
+#endif
+#ifdef PHOTOIONIZATION
+  Real xn;
 #endif
 }Prim1DS;
 
@@ -406,7 +419,8 @@ typedef struct RadGrid_s {
 /* Radiator objects */
 typedef struct Radiator_s {
   Real x1, x2, x3;           /* Physical position of radiator */
-  Real s;                    /* Luminosity of source */
+  Real l;                    /* Luminosity of source */
+  Real s;                    /* Ionizing photon emission rate */
 } RadiatorS;
 
 /* Ray objects */
@@ -561,7 +575,7 @@ MPI_Comm Comm_Domain;
   GPCouple ***Coup;          /*!< array of gas-particle coupling */
 #endif /* PARTICLES */
 
-#if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER)
+#if defined(RADIATION_TRANSFER) || defined(FULL_RADIATION_TRANSFER) || defined(POINT_SOURCE)
   Real ***tgas;   /* gas temp stored to prevent multiple recomp. in rad. transfer */
                   /* In Full_RADIATION_TRANSFER, this is used to store gas temperature in intermediate step */
 #endif
@@ -593,6 +607,9 @@ MPI_Comm Comm_Domain;
   Real ****Jps; /* 0th moment: mean intensity */ 
   Real *****Hps; /* 1st moment */
   //Real ****Kps; /* 2nd moment 0: 00, 1: 01, 2: 11, 3: 02, 4: 12, 5: 22*/
+#ifdef PHOTOIONIZATION
+  Real ***phrate;  /* Photionization rate */
+#endif /* PHOTOIONIZATION */
 #endif /* POINT_SOURCE */
 
 }GridS;

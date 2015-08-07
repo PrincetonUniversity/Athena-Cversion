@@ -34,6 +34,7 @@
 #   --enable-full-radiation-transfer	     (time dependent radiation transfer)
 #   --enable-fld					(flux limited diffusion)
 #   --enable-point-source                      (point source radiation transfer)
+#   --enable-photoionization		          (compute photoionzation rates)
 #
 # ALGORITHM "packages":
 #   --with-order=[1,2,3,2p,3p]        (order and type of spatial reconstruction)
@@ -453,6 +454,21 @@ else
   POINT_SOURCE_MODE_USER="OFF"
 fi
 
+#-------------------------------------------------------------------------------
+# PHYSICS FEATURE: photoionization
+#   --enable-photoionization
+
+AC_SUBST(PHOTOIONIZATION_MODE)
+AC_ARG_ENABLE(photoionization,
+        [--enable-photoionization  enable photoionization (default is no)],
+        ok=$enableval, ok=no)
+if test "$ok" = "yes"; then
+  PHOTOIONIZATION_MODE="PHOTOIONIZATION"
+  PHOTOIONIZATION_MODE_USER="ON"
+else
+  PHOTOIONIZATION_MODE="NO_PHOTOIONIZATION"
+  PHOTOIONIZATION_MODE_USER="OFF"
+fi
 
 #-------------------------------------------------------------------------------
 # ALGORITHM PACKAGE: set the order and type of the spatial reconstruction
@@ -968,6 +984,7 @@ echo "Time Dependent Radiation
 	  transfer:      $FULL_RADIATION_TRANSFER_MODE_USER"
 echo "FLD:      	       $FLD_MODE_USER"
 echo "Point source transfer:   $POINT_SOURCE_MODE_USER"
+echo "Photoionization:         $PHOTOIONIZATION_MODE_USER"
 echo "Special Relativity:      $SPECIAL_RELATIVITY_MODE_USER"
 echo ""
 echo "--- Algorithm Options ----"

@@ -177,6 +177,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Fr.s[n] = Fr.d*Wr.r[n];
   }
 #endif
+#ifdef PHOTOIONIZATION
+  Fl.dn = Fl.d*Wl.xn;
+  Fr.dn = Fr.d*Wr.xn;
+#endif
 
 /*--- Step 4. ------------------------------------------------------------------
  * Return upwind flux if flow is supersonic
@@ -434,7 +438,13 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
   }
 #endif
-
+#ifdef PHOTOIONIZATION
+  if (pFlux->d >= 0.0) {
+    pFlux->dn = pFlux->d*Wl.xn;
+  } else {
+    pFlux->dn = pFlux->d*Wr.xn;
+  }
+#endif
 #if defined(CYLINDRICAL) && !defined(BAROTROPIC)
   pFlux->Pflux = ptst;
 #endif
@@ -553,6 +563,10 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     Fl.s[n] = Fl.d*Wl.r[n];
     Fr.s[n] = Fr.d*Wr.r[n];
   }
+#endif
+#ifdef PHOTOIONIZATION
+  Fl.dn = Fl.d*Wl.xn;
+  Fr.dn = Fr.d*Wr.xn;
 #endif
 
 /*--- Step 4. ------------------------------------------------------------------
@@ -719,7 +733,13 @@ void fluxes(const Cons1DS Ul, const Cons1DS Ur,
     for (n=0; n<NSCALARS; n++) pFlux->s[n] = pFlux->d*Wr.r[n];
   }
 #endif
-
+#ifdef PHOTOIONIZATION
+  if (pFlux->d >= 0.0) {
+    pFlux->dn = pFlux->d*Wl.xn;
+  } else {
+    pFlux->dn = pFlux->d*Wr.xn;
+  }
+#endif
   return;
 }
 

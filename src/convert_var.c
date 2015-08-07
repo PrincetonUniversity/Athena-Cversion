@@ -141,7 +141,9 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   int m;
   for(m=0; m<NOPACITY; m++) U.Sigma[m] = pCons->Sigma[m];	
 #endif
-
+#ifdef PHOTOIONIZATION
+  U.dn = pCons->dn;
+#endif
 
   W = Cons1D_to_Prim1D(&U, &Bx);
 
@@ -172,6 +174,9 @@ PrimS Cons_to_Prim(const ConsS *pCons)
   Prim.Edd_32 = W.Edd_32;
   Prim.Edd_33 = W.Edd_33;
   for(m=0; m<NOPACITY; m++) Prim.Sigma[m] = W.Sigma[m];	
+#endif
+#ifdef PHOTOIONIZATION
+  Prim.xn = W.xn;
 #endif
 
   return Prim;
@@ -225,7 +230,10 @@ ConsS Prim_to_Cons (const PrimS *pW)
   int m;
   for(m=0; m<NOPACITY; m++) W.Sigma[m] = pW->Sigma[m];	
 #endif
- 
+#ifdef PHOTOIONIZATION
+  W.xn = pW->xn;
+#endif
+
   U = Prim1D_to_Cons1D(&W, &Bx);
 
   Cons.d  = U.d;
@@ -256,6 +264,9 @@ ConsS Prim_to_Cons (const PrimS *pW)
   Cons.Edd_32 = U.Edd_32;
   Cons.Edd_33 = U.Edd_33;
   for(m=0; m<NOPACITY; m++) Cons.Sigma[m] = U.Sigma[m];	
+#endif
+#ifdef PHOTOIONIZATION
+  Cons.dn = U.dn;
 #endif
 
   return Cons;
@@ -490,6 +501,10 @@ Prim1DS Cons1D_to_Prim1D(const Cons1DS *pU, const Real *pBx)
   for(m=0; m<NOPACITY; m++) Prim1D.Sigma[m] = pU->Sigma[m];	
 #endif
 
+#ifdef PHOTOIONIZATION
+  Prim1D.xn = pU->dn * di;
+#endif
+
   return Prim1D;
 }
 
@@ -546,6 +561,9 @@ Cons1DS Prim1D_to_Cons1D(const Prim1DS *pW, const Real *pBx)
   for(m=0; m<NOPACITY; m++) Cons1D.Sigma[m] = pW->Sigma[m];	
 #endif
 
+#ifdef PHOTOIONIZATION
+  Cons1D.dn = pW->xn*pW->d;
+#endif
 
   return Cons1D;
 }

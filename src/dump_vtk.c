@@ -806,6 +806,40 @@ void dump_vtk(MeshS *pM, OutputS *pOut)
               fwrite(data,sizeof(float),(size_t)(9*ndata0),pfile);
             }
           }*/
+#ifdef PHOTOIONIZATION
+/* Write photoionization rate for diagnostic purposes */
+       fprintf(pfile,"\nSCALARS phrate float\n");
+          fprintf(pfile,"LOOKUP_TABLE default\n");
+          for (k=kl; k<=ku; k++) {
+            for (j=jl; j<=ju; j++) {
+              for (i=il; i<=iu; i++) {
+		data[i-il] = (float)pGrid->phrate[k][j][i];
+              }
+              if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+              fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+            }
+	  }
+/* Write neutral density */
+	  if (strcmp(pOut->out,"cons") == 0){
+	    fprintf(pfile,"\nSCALARS neutral_density float\n");
+	  }else {
+	    fprintf(pfile,"\nSCALARS neutral_fraction float\n");
+	  }
+          fprintf(pfile,"LOOKUP_TABLE default\n");
+          for (k=kl; k<=ku; k++) {
+            for (j=jl; j<=ju; j++) {
+              for (i=il; i<=iu; i++) {
+                if (strcmp(pOut->out,"cons") == 0){
+		  data[i-il] = (float)pGrid->U[k][j][i].dn;
+		} else {
+		  data[i-il] = (float)(pGrid->U[k][j][i].dn / pGrid->U[k][j][i].d);
+		}
+              }
+              if(!big_end) ath_bswap(data,sizeof(float),iu-il+1);
+              fwrite(data,sizeof(float),(size_t)ndata0,pfile);
+            }
+	  }
+#endif
 #endif /* POINT_SOURCE */
 
 

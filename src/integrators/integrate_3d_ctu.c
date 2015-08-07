@@ -309,6 +309,9 @@ void integrate_3d_ctu(DomainS *pD)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) U1d[i].s[n] = pG->U[k][j][i].s[n];
 #endif
+#ifdef PHOTOIONIZATION
+	U1d[i].dn = pG->U[k][j][i].dn;
+#endif
       }
 
 /*--- Step 1b ------------------------------------------------------------------
@@ -752,6 +755,9 @@ void integrate_3d_ctu(DomainS *pD)
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) U1d[j].s[n] = pG->U[k][j][i].s[n];
 #endif
+#ifdef PHOTOIONIZATION
+	U1d[j].dn = pG->U[k][j][i].dn;
+#endif
       }
 
 /*--- Step 2b ------------------------------------------------------------------
@@ -1033,6 +1039,9 @@ void integrate_3d_ctu(DomainS *pD)
 #endif /* MHD */
 #if (NSCALARS > 0)
         for (n=0; n<NSCALARS; n++) U1d[k].s[n] = pG->U[k][j][i].s[n];
+#endif
+#ifdef PHOTOIONIZATION
+	U1d[k].dn = pG->U[k][j][i].dn;
 #endif
       }
 
@@ -1404,6 +1413,12 @@ void integrate_3d_ctu(DomainS *pD)
              q2*(x2Flux[k][j+1][i  ].s[n] - x2Flux[k][j][i  ].s[n]);
         }
 #endif
+#ifdef PHOTOIONIZATION
+	Ul_x1Face[k][j][i].dn -=
+	  q2*(x2Flux[k][j+1][i-1].dn - x2Flux[k][j][i-1].dn);
+	Ur_x1Face[k][j][i].dn -=
+	  q2*(x2Flux[k][j+1][i  ].dn - x2Flux[k][j][i  ].dn);
+#endif
 
 /*--- Step 5b ------------------------------------------------------------------
  * Correct x1-interface states using x3-fluxes computed in Step 3d.
@@ -1444,6 +1459,12 @@ void integrate_3d_ctu(DomainS *pD)
           Ur_x1Face[k][j][i].s[n] -=
              q3*(x3Flux[k+1][j][i  ].s[n] - x3Flux[k][j][i  ].s[n]);
         }
+#endif
+#ifdef PHOTOIONIZATION
+	Ul_x1Face[k][j][i].dn -=
+	  q3*(x3Flux[k+1][j][i-1].dn - x3Flux[k][j][i-1].dn);
+	Ur_x1Face[k][j][i].dn -=
+	  q3*(x3Flux[k+1][j][i  ].dn - x3Flux[k][j][i  ].dn);
 #endif
       }
     }
@@ -1711,6 +1732,12 @@ void integrate_3d_ctu(DomainS *pD)
              q1*(rsf*x1Flux[k][j  ][i+1].s[n] - lsf*x1Flux[k][j  ][i].s[n]);
         }
 #endif
+#ifdef PHOTOIONIZATION
+	Ul_x2Face[k][j][i].dn -=
+	  q1*(rsf*x1Flux[k][j-1][i+1].dn - lsf*x1Flux[k][j-1][i].dn);
+	Ur_x2Face[k][j][i].dn -=
+	  q1*(rsf*x1Flux[k][j  ][i+1].dn - lsf*x1Flux[k][j  ][i].dn);
+#endif
 
 /*--- Step 6b ------------------------------------------------------------------
  * Correct x2-interface states using x3-fluxes computed in Step 3d.
@@ -1751,6 +1778,12 @@ void integrate_3d_ctu(DomainS *pD)
           Ur_x2Face[k][j][i].s[n] -=
              q3*(x3Flux[k+1][j  ][i].s[n] - x3Flux[k][j  ][i].s[n]);
         }
+#endif
+#ifdef PHOTOIONIZATION
+	Ul_x2Face[k][j][i].dn -=
+	  q3*(x3Flux[k+1][j-1][i].dn - x3Flux[k][j-1][i].dn);
+	Ur_x2Face[k][j][i].dn -=
+	  q3*(x3Flux[k+1][j  ][i].dn - x3Flux[k][j  ][i].dn);
 #endif
       }
     }
@@ -2157,6 +2190,12 @@ void integrate_3d_ctu(DomainS *pD)
              q1*(rsf*x1Flux[k  ][j][i+1].s[n] - lsf*x1Flux[k  ][j][i].s[n]);
         }
 #endif
+#ifdef PHOTOIONIZATION
+	Ul_x3Face[k][j][i].dn -=
+	  q1*(rsf*x1Flux[k-1][j][i+1].dn - lsf*x1Flux[k-1][j][i].dn);
+	Ur_x3Face[k][j][i].dn -=
+	  q1*(rsf*x1Flux[k  ][j][i+1].dn - lsf*x1Flux[k  ][j][i].dn);
+#endif
 
 /*--- Step 7b ------------------------------------------------------------------
  * Correct x3-interface states using x2-fluxes computed in Step 2d.
@@ -2197,6 +2236,12 @@ void integrate_3d_ctu(DomainS *pD)
           Ur_x3Face[k][j][i].s[n] -=
              q2*(x2Flux[k  ][j+1][i].s[n] - x2Flux[k  ][j][i].s[n]);
         }
+#endif
+#ifdef PHOTOIONIZATION
+	Ul_x3Face[k][j][i].dn -=
+	  q2*(x2Flux[k-1][j+1][i].dn - x2Flux[k-1][j][i].dn);
+	Ur_x3Face[k][j][i].dn -=
+	  q2*(x2Flux[k  ][j+1][i].dn - x2Flux[k  ][j][i].dn);
 #endif
       }
     }
@@ -3164,6 +3209,10 @@ void integrate_3d_ctu(DomainS *pD)
           Flxoib[k][j].s[n] = x1Flux[k][j][ie+1].s[n];
         }
 #endif
+#ifdef PHOTOIONIZATION
+	Flxiib[k][j].dn = x1Flux[k][j][is].dn;
+	Flxoib[k][j].dn = x1Flux[k][j][ie+1].dn;
+#endif
       }
     }
 
@@ -3804,6 +3853,10 @@ void integrate_3d_ctu(DomainS *pD)
           pG->U[k][j][i].s[n] -= dtodx1*(rsf*x1Flux[k][j][i+1].s[n]
                                        - lsf*x1Flux[k][j][i  ].s[n]);
 #endif
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn -= dtodx1*(rsf*x1Flux[k][j][i+1].dn
+                                       - lsf*x1Flux[k][j][i  ].dn);
+#endif
       }
     }
   }
@@ -3830,6 +3883,10 @@ void integrate_3d_ctu(DomainS *pD)
           pG->U[k][j][i].s[n] -= dtodx2*(x2Flux[k][j+1][i].s[n]
                                        - x2Flux[k][j  ][i].s[n]);
 #endif
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn -= dtodx2*(x2Flux[k][j+1][i].dn
+                                       - x2Flux[k][j  ][i].dn);
+#endif
       }
     }
   }
@@ -3852,6 +3909,10 @@ void integrate_3d_ctu(DomainS *pD)
         for (n=0; n<NSCALARS; n++)
           pG->U[k][j][i].s[n] -= dtodx3*(x3Flux[k+1][j][i].s[n]
                                        - x3Flux[k  ][j][i].s[n]);
+#endif
+#ifdef PHOTOIONIZATION
+	pG->U[k][j][i].dn -= dtodx3*(x3Flux[k+1][j][i].dn
+                                       - x3Flux[k  ][j][i].dn);
 #endif
       }
     }
@@ -4042,6 +4103,9 @@ for(k=ks; k<=ke; k++){
 #if (NSCALARS > 0)
             for (n=0; n<NSCALARS; n++)
               pG->CGrid[ncg].myFlx[dim][kk][ii].s[n]  = x2Flux[k][j][i].s[n]; 
+#endif
+#ifdef PHOTOIONIZATION
+	    pG->CGrid[ncg].myFlx[dim][kk][ii].dn  = x2Flux[k][j][i].dn;
 #endif
           }
         }
