@@ -8,7 +8,7 @@ layout: page
 Much like binary dumps, vtk files contain an unformatted write of selected variables over all zones, with the data written
 in [VTK](http://www.vtk.org) legacy format.  Each file contains data
 at a single time.
-A new file is created whenever the integration time exceeds an integer multiple of <output>/dt.  At the end of execution, the lesser of
+A new file is created whenever the integration time exceeds an integer multiple of \<output\>/dt.  At the end of execution, the lesser of
 `tlim/dt` or `<time>/nlim`
 sequentially numbered files will be created.
 Since they are unformatted, the outputs are compact, and are most useful for 3D data.  The
@@ -37,7 +37,7 @@ header information.
 vtk Outputs
 ===========
 
-Single variables can also be output as vtk files.  In addition, new (user-defined) variables can be output as 
+Single variables can also be output as vtk files.  In addition, new (user-defined) variables can be output as
 vtk files by following the steps described in
 [User-defined Outputs]({{site.baseurl}}/AthenaDocsUGUserExpress).  For example,
 the following shows an <output> block in an input file that generates a vtk dump of a user defined variable:
