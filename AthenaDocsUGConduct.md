@@ -52,5 +52,5 @@ Units
 Note the kappa's are **diffusivities**, not **conductivities**.  Also note the current implementation
 uses "dimensionless units" in that the factor (mbar/k_B) is not
 included in calculating the temperature (instead, T=P/d is used).  For cgs
-units, kappa must be entered in units of [cm^2^/s], and the heat fluxes calculated in the counduction functions would
+units, kappa must be entered in units of (cm^2/s), and the heat fluxes calculated in the counduction functions would
 need to be multiplied by (k_B/mbar).
