@@ -7,8 +7,8 @@ layout: page
 
 Contain a formatted
 table of a variety of volume averaged values.  A new line in the
-table is created whenever the integration time exceeds an integer multiple of <output>/dt. At the end of execution, the history file will
-contain the lesser of tlim/dt or <time>/nlim lines, forming a time-history of these
+table is created whenever the integration time exceeds an integer multiple of `<output>/dt`. At the end of execution, the history file will
+contain the lesser of tlim/dt or `<time>/nlim` lines, forming a time-history of these
 quantities.
 
 The following example shows an `<output>` block in an

@@ -10,7 +10,7 @@ statistics are computed, including the mean and variance of the distribution, th
 kurtosis of the distribution.
 
 A new sequentially numbered
-file is created whenever the integration time exceeds an integer multiple of <output>/dt. At the end of execution, the lesser of tlim/dt or <time>/nlim 
+file is created whenever the integration time exceeds an integer multiple of `<output>/dt`. At the end of execution, the lesser of `tlim/dt` or `<time>/nlim`
 sequentially numbered files will be created. Also writes a 
 history-type file with name `prb_stat`.*id*, where *id* is the string identifier for this output, with each row in the file
 containing statistics of each .pdf output.
