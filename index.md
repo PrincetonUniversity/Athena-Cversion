@@ -38,9 +38,9 @@ standards.  Athena has been run on everything from a Mac laptop to a 25,000 proc
 
 Learn More
 ==========
-[Equations Solved:](/AthenaEqns) What system of equations does the code actually solve?
+[Equations Solved:]({{site.baseurl}}/AthenaEqns) What system of equations does the code actually solve?
 
-[Documentation:](/AthenaDocs) Tutorial, User Guide, Programmer Guide, and research
+[Documentation:]({{site.baseurl}}/AthenaDocs) Tutorial, User Guide, Programmer Guide, and research
 papers describing the numerical algorithms in Athena.
 
 [Gallery:](http://www.astro.princeton.edu/~jstone/Athena/athena-apps/index.html) Images and links to research papers that include results from Athena.
@@ -48,16 +48,16 @@ papers describing the numerical algorithms in Athena.
 [Tests:](http://www.astro.princeton.edu/~jstone/Athena/tests/index.html) Suite of 1D, 2D, and 3D hydrodynamic and MHD problems used to validate
 Athena.  Potentially useful to anyone developing algorithms for MHD.
 
-[Parallel Performance:](/AthenaDocsScaling) Results from strong and weak scaling tests of Athena, up to 10^5^ cores.
+[Parallel Performance:]({{site.baseurl}}/AthenaDocsScaling) Results from strong and weak scaling tests of Athena, up to 10^5^ cores.
 
-[People:](/AthenaDocsPeople) The list of collaborators developing Athena.
+[People:]({{site.baseurl}}/AthenaDocsPeople) The list of collaborators developing Athena.
 
-[Is Athena Galilean invariant?](/AthenaDocsGalileo)  Well, for resolved solutions, yes.
+[Is Athena Galilean invariant?]({{site.baseurl}}/AthenaDocsGalileo)  Well, for resolved solutions, yes.
 
 Download
 ========
 
-[Downloads:](/AthenaDocsDownLd) Get the complete source code distribution for the latest public version of Athena.
+[Downloads:]({{site.baseurl}}/AthenaDocsDownLd) Get the complete source code distribution for the latest public version of Athena.
 
 What's New?
 ===========
