@@ -10,4 +10,4 @@ To configure the particle code, simply add
 
 depending on the whether particle feedback is included.
 
-There are several other options in the particle code to be specified in the [<particle> block of the input file]({{site.baseurl}}/AthenaDocsParBlock).
+There are several other options in the particle code to be specified in the [\<particle\> block of the input file]({{site.baseurl}}/AthenaDocsParBlock).
