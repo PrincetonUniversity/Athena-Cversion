@@ -19,12 +19,12 @@ ppm images much larger than other formats.
 It is easy to post-process the image files created by Athena into other formats, including mpeg (or other format) animations, using
 image conversion software such as [ImageMagick](http://www.imagemagick.org).
 
-Both ppm and pgm image files contain a snapshot of the data at a particular time.  New files are created whenever the integration time exceeds an integer multiple of <output>/dt. At the end of execution, the lesser of tlim/dt or <time>/nlim sequentially numbered files will be created.
+Both ppm and pgm image files contain a snapshot of the data at a particular time.  New files are created whenever the integration time exceeds an integer multiple of \<output\>/dt. At the end of execution, the lesser of tlim/dt or \<time\>/nlim sequentially numbered files will be created.
 
 ppm image files
 ===============
 
-An example of an <output> block in an input file that generates ppm images of the pressure is given below:
+An example of an \<output\> block in an input file that generates ppm images of the pressure is given below:
 
 	<output3>
 	out_fmt = ppm
@@ -53,7 +53,7 @@ pgm image files
 ===============
 
 Grayscale images can be created using the pgm format, rather than specifying a grayscale palette in the ppm format.  An example of an
-<output> block which creates a pgm image of a 2D slice in a 3D calculation using a user-defined variable is given below.
+\<output\> block which creates a pgm image of a 2D slice in a 3D calculation using a user-defined variable is given below.
 
 	<output3>
 	out_fmt = pgm                # pgm image file

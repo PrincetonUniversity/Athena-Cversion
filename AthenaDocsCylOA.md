@@ -24,7 +24,7 @@ cylindrical radius are required, one representing the Keplerian angular
 velocity and the other representing the shearing parameter.  The shear
 parameter, $q$, is given as $q = -0.5 * dln(\Omega^2)/dlnR$, where $\Omega =
 \Omega(R)$ is the Keplerian angular velocity profile.  For example, given
-an unstratified Newtonian potential $Phi = -1/R$, $\Omega(R) = R^{-1.5}$
+an unstratified Newtonian potential $\Phi = -1/R$, $\Omega(R) = R^{-1.5}$
 and $q(R) = 1.5$.  These functions would be defined similarly to a static
 gravitational potential, for instance:
 
