@@ -10,9 +10,9 @@ The particle code integrates a number of Lagrangian particles in the gas that ar
 ![alt aerodynamic drag]({{site.baseurl}}/images/drag.png)
 -->
 
-$
+$$
 F_{drag}=m{ {v_g-v_p}\over{t_{stop} } }
-$
+$$
 
 where $m$ is the particle mass, $v_g$ and $v_p$ are the velocity of gas and particles, $t_{stop}$ is the stopping time, characterizing the coupling between gas and particles. Particles can either respond to the gas motion passively, or also provide back reaction to the gas as momentum and energy feedback. Two particle integrators are designed to deal with particles with any $t_{stop}$ from zero to infinity. A full description of the algorithms and test problems can be found in 'Particle-gas Dynamics with Athena: Method and Convergence' ([Bai & Stone, 2010](http://adsabs.harvard.edu/abs/2010ApJS..190..297B)). The particle integrators and the overall hybrid particle-gas scheme are both second order accurate in space and time.
 
