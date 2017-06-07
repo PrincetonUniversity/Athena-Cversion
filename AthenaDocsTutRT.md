@@ -21,7 +21,7 @@ To run an example 3D MHD problem, follow these steps.
         % athena -i ../tst/3D-mhd/athinput.rt domain1/Nx1=32 domain1/Nx2=32 domain1/Nx3=64 time/tlim=3.0
 
     Even at this reduced resolution, the run will take close to an hour to complete.  Doubling the resolution in each dimension increases the
-    run time in 3D by 2^4^=16 (a factor of 2 for each dimension, plus a factor of 2 for the smaller timestep), so if the default grid
+    run time in 3D by $2^4=16$ (a factor of 2 for each dimension, plus a factor of 2 for the smaller timestep), so if the default grid
     resolution specified in the input file is used, this test will take upwards of 12 hours to run (these numbers depend on the processor you are
     using of course).  At low resolution, the bubbles (fingers) tend to rise (sink) faster, so the run is terminated at t=3 before they hit
     the top and bottom of the domain.
