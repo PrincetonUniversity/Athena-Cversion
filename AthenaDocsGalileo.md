@@ -18,7 +18,7 @@ Initial Conditions
 One of the problems used to test for Galilean invariance is the growth of the Kelvin-Helmholtz instability between two fluids 
 of different densities.
 The interface between the fluids is an unresolved discontinuity (a *slip-surface*).  The total velocity difference
-is equal to the sound speed \\(C_s\\).  The test is based on the KH instability test in the 
+is equal to the sound speed $C_s$.  The test is based on the KH instability test in the 
 [Athena test suite](http://www.astro.princeton.edu/~jstone/tests/index.html); the figure below sketches the initial conditions.
 
 <a style="padding:0; border: none" href="{{site.baseurl}}/images/KH-Initial.png"><img width="25%" src="{{site.baseurl}}/images/KH-Initial.png"></a>
@@ -51,7 +51,7 @@ using uniform density, and
 in which the interface is spread out using a hyperbolic tangent function, with a characteristic scale *a* equal to
 twice the grid cell size.  This replaces the discontinuity at the interface by a very sharp but smooth profile, and introduces
 a minimum lengthscale *a* in the problem that can be resolved.  The images on the right are from a calculation in the rest
-frame, and on the left from a calculation moving at \\(100C_s\\).  *This is even more extreme than the test above! *
+frame, and on the left from a calculation moving at $100C_s$.  *This is even more extreme than the test above! *
 Despite this, the images look identical.
 
 An even more quantitative test is to measure the kinetic energy associated with motion in the spanwise (y-) direction.

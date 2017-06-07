@@ -42,7 +42,7 @@ quite a bit different than in Cartesian coordinates.  Currently, we have
 implemented modules for piecewise linear (2nd order) and quadratic (3rd
 order) reconstruction.  To use other reconstructions with the cylindrical
 integrators, one must rewrite them for the R-direction accordingly.
-(Note that we make use of the Cartesian implementation for the \\(\phi-\\)
+(Note that we make use of the Cartesian implementation for the $\phi-$
 and z-directions.)  These are configured in the usual way:
 
 	% configure --with-order=2
@@ -56,5 +56,5 @@ the R-direction.
 Limitatations
 -------------
 
- * Only a uniformally-spaced grid in all three coordinates \\((r, \phi, z)\\) is allowed.
+ * Only a uniformally-spaced grid in all three coordinates $(r, \phi, z)$ is allowed.
  * SMR is not currently implemented with cylindrical coordinates

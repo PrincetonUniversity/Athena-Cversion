@@ -23,8 +23,7 @@ url: "" # the base hostname & protocol for your site, e.g. http://example.com
 #github_username:  jekyll
 
 # Build settings
-#markdown: kramdown
-markdown: redcarpet
+markdown: kramdown
 theme: minima
 gems:
   - jekyll-feed
@@ -32,8 +31,8 @@ exclude:
   - Gemfile
   - Gemfile.lock
 
-redcarpet:
-    extensions: ["no_intra_emphasis", "tables", "autolink", "strikethrough", "with_toc_data"]
+#redcarpet:
+    #extensions: ["no_intra_emphasis", "tables", "autolink", "strikethrough", "with_toc_data"]
 
 header_pages:
  - AthenaDocs

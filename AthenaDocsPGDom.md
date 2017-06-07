@@ -7,7 +7,7 @@ layout: page
 The Root Domain
 ===============
 
-Every calculation must contain one *root Domain*.  This Domain has indices \\( (nl,nd)=(0,0) \\) in the 
+Every calculation must contain one *root Domain*.  This Domain has indices $(nl,nd)=(0,0)$ in the 
 [Mesh structure]({{site.baseurl}}/AthenaDocsPGMeshS), e.g. it can be referenced as `Mesh.Domain[0][0]`.
 
 The figure below shows the relationship between the physical coordinates (x1,x2) and the coordinates of the root Domain.

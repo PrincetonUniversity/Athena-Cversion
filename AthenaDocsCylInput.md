@@ -6,21 +6,21 @@ layout: page
 
 To use
 the cylindrical integrators, one must remember that the coordinate order
-is always \\((x1,x2,x3) = (R,\phi,z)\\).  Thus, in the level 0 domain, x1min
+is always $(x1,x2,x3) = (R,\phi,z)$.  Thus, in the level 0 domain, x1min
 and x1max specify the minimum and maximum values of R and so forth.  The
 current implementation of cylindrical coordinates expects the coordinate
 singularity at the origin to be excised from the computational domain
 and unexpected behavior may result from a lack of proper regularization
 if one uses a domain which includes it.  Also, note that in Athena,
-the \\(\phi\\) coordinate, hence also x2min and x2max, is measured in radians.
-The standard boundary conditions behave as one would expect in the \\(\phi-\\) and z-directions.  For example, a domain with
+the $\phi$ coordinate, hence also x2min and x2max, is measured in radians.
+The standard boundary conditions behave as one would expect in the $\phi-$ and z-directions.  For example, a domain with
 
 	x2min  = 0
 	x2max  = 3.141592653589793
 	bc_ix2 = 4
 	bc_ox2 = 4
 
-describes an annular region periodic in \\(\phi\\).
+describes an annular region periodic in $\phi$.
 
 The standard boundary conditions do not apply in the R-direction.
 Typically one must write and enroll their own function in a problem

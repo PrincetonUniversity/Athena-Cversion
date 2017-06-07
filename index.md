@@ -15,7 +15,7 @@ in the hope that others may find it useful.
 The current version (v4.2) implements algorithms for the following physics:
 * compressible hydrodynamics and MHD in 1D, 2D, and 3D,
 * special relativistic hydrodynamics and MHD,
-* ideal gas equation of state with arbitrary \\(γ\\) (including \\(γ = 1\\), an isothermal EOS),
+* ideal gas equation of state with arbitrary $γ$ (including $γ = 1$, an isothermal EOS),
 * an arbitrary number of passive scalars advected with the flow,
 * self-gravity, and/or a static gravitational potential,
 * Ohmic resistivity, ambipolar diffusion, and the Hall effect,
