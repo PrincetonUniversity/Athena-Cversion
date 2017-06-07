@@ -29,8 +29,8 @@ Below each block name is a list of parameters, with syntax
 
 	parameter-name = value [# comments]
 
-White space after the parameter name, after the `=', and before the
-# character is ignored.  Everything after (and including) the #
+White space after the parameter name, after the `=', and before the # character is ignored. 
+Everything after (and including) the #
 character is also ignored.  Only one parameter value can appear per
 line.  Comment lines (i.e. a line beginning with #) are allowed for
 documentation purposes.  A maximum number of 256 characters is permitted
