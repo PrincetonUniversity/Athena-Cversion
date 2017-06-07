@@ -41,7 +41,7 @@ where the arguments are
 **pDomain** pointer to the `DomainS` structure.  See [Programmer Guide]({{site.baseurl}}/AthenaDocsPG).
 
 **right_x1** specifies the boundary on which the special function is enrolled; use
-` left_x1` or `right_x1` for the inner or outer x1-boundary,
+`left_x1` or `right_x1` for the inner or outer x1-boundary,
 and similarly for the x2- and x3-boundaries.
 
 **bc_function_name** is the name of the special function written in step (1).
