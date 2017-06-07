@@ -41,7 +41,7 @@ This Mesh configuration can be initialized with the following two Domain blocks 
 
 The position of the level=1 Domain is determined by the `iDisp` and `jDisp` parameters in the 
 `<domain2>` block, and *these positions are measured in units of the grid cells at the level of
-the <domain> block that specifies them* (in this case level=1).
+the `<domain>` block that specifies them* (in this case level=1).
 
 Initializing Two level=1 Domains
 ================================
@@ -128,4 +128,4 @@ This Mesh configuration can be initialized with the following two Domain blocks 
 
 Once again, note that the `iDisp` and `jDisp` parameters in the 
 `<domain3>` block are measured in units of the grid cells at the level of
-the <domain> block that specifies them (in this case level=2).
+the `<domain>` block that specifies them (in this case level=2).

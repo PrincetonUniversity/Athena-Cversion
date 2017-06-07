@@ -6,7 +6,7 @@ layout: page
 [Documentation]({{site.baseurl}}/AthenaDocs)/[UserGuide]({{site.baseurl}}/AthenaDocsUG)/Input File with Particles
 
 
-For the particle code to be properly initialized (handled by the code), one needs to provide information in the block <particle> in the input file. The items of this block include
+For the particle code to be properly initialized (handled by the code), one needs to provide information in the block \<particle\> in the input file. The items of this block include
 
 
         <particle>

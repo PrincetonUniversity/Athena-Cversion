@@ -23,7 +23,7 @@ need to be modified appropriately, and used as a new user-defined output functio
 vtk Dumps
 =========
 
-The following example shows an <output> block in an input file that generates a vtk dump of the primitive variables:
+The following example shows an \<output\> block in an input file that generates a vtk dump of the primitive variables:
 
 	<output1>
 	out_fmt = vtk               # vtk data dump
@@ -40,7 +40,7 @@ vtk Outputs
 Single variables can also be output as vtk files.  In addition, new (user-defined) variables can be output as
 vtk files by following the steps described in
 [User-defined Outputs]({{site.baseurl}}/AthenaDocsUGUserExpress).  For example,
-the following shows an <output> block in an input file that generates a vtk dump of a user defined variable:
+the following shows an \<output\> block in an input file that generates a vtk dump of a user defined variable:
 
 	<output1>
 	out_fmt = vtk               # vtk data dump

@@ -6,7 +6,7 @@ layout: page
 [Documentation]({{site.baseurl}}/AthenaDocs)/[UserGuide]({{site.baseurl}}/AthenaDocsUG)/Binary Files
 
 Contain unformatted write of all (primitive or conserved) dependent variables over all active zones.  A new sequentially numbered
-file is created whenever the integration time exceeds an integer multiple of <output>/dt. At the end of execution, the lesser of tlim/dt or <time>/nlim 
+file is created whenever the integration time exceeds an integer multiple of `<output>/dt`. At the end of execution, the lesser of tlim/dt or `<time>/nlim`
 sequentially numbered files will be created.
 
 An example of an `<output>` block which creates binary dumps is given below.
