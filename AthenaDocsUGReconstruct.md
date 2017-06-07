@@ -60,4 +60,4 @@ To use slope-limiting in the primitive variables, configure with
 The most complicated, and most accurate, reconstruction algorithm in Athena.  Formally, other parts
 of the algorithm (e.g. the [Integrators]({{site.baseurl}}/AthenaDocsUGInt)) limit the overall accuracy to second-order, but using
 third-order reconstruction can noticably reduce errors (see Fig. 33 of the 
-[ApJS Method Paper](http://adsabs.harvard.edu/abs/2008ApJS..178..137S ApJS Method Paper)).
+[ApJS Method Paper](http://adsabs.harvard.edu/abs/2008ApJS..178..137S)).

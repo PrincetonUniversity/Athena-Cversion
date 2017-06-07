@@ -37,7 +37,7 @@ It may also be necessary to include special user-defined functions in the same f
 new output variables, or new output formats, are used.
 
 A large number of problem generators are included in the 
-[https://trac.princeton.edu/Athena/browser/trunk/src/prob ./athena/src/prob]
+[./athena/src/prob](https://github.com/PrincetonUniversity/Athena-Cversion/tree/master/src/prob)
 directory.
 
 Parsing the Input File

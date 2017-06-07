@@ -17,7 +17,7 @@ are required to create the images.  Moreover, since they are not compressed, the
 ppm images much larger than other formats.
 
 It is easy to post-process the image files created by Athena into other formats, including mpeg (or other format) animations, using
-image conversion software such as [http://www.imagemagick.org ImageMagick].
+image conversion software such as [ImageMagick](http://www.imagemagick.org).
 
 Both ppm and pgm image files contain a snapshot of the data at a particular time.  New files are created whenever the integration time exceeds an integer multiple of <output>/dt. At the end of execution, the lesser of tlim/dt or <time>/nlim sequentially numbered files will be created.
 
