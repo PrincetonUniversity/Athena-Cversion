@@ -10,25 +10,25 @@ To install, configure, compile, and run a test of the code do the following.
 
  1. Download, then uncompress and untar the source code distribution file.
 
-	% gunzip athena4.0.tar.gz
-	% tar xf athena4.0.tar
+        % gunzip athena4.0.tar.gz
+        % tar xf athena4.0.tar
 
 
  2. Create the configure script by running `autoconf` in the `./athena` directory.
 
-	% cd athena4.0
-	% autoconf
+        % cd athena4.0
+        % autoconf
 
 
  3. Test the install by running `configure`; `make all`; `make test`.
 
-	% configure
-	% make all
-	% make test
-	(cd tst/1D-mhd; ./run.test)
-	zone-cycles/cpu-second = 4.826353e+05
-	zone-cycles/wall-second = 2.407434e+05
-	L1 norm for density: 6.333383e-11
+        % configure
+        % make all
+        % make test
+        (cd tst/1D-mhd; ./run.test)
+        zone-cycles/cpu-second = 4.826353e+05
+        zone-cycles/wall-second = 2.407434e+05
+        L1 norm for density: 6.333383e-11
 
  `make test` runs a linear wave convergence test on a grid of 512 zones, then computes and outputs the L1 error norm in the fast magnetosonic wave compared
  to the analytic solution. If the benchmark fails to run, or if the resulting error norm is large, then something has gone wrong in the installation
@@ -41,8 +41,8 @@ To install, configure, compile, and run a test of the code do the following.
  4. The steps above will have created an executable called `athena` in a new directory `./athena/bin`.  There are various command line arguments you can use
  with the executable, one of the most useful is
 
-	% cd bin
-	% athena -c
+        % cd bin
+        % athena -c
 
  This will output information about the configuration (physics and algorithm options) of this executable.  It is extremely useful if you running many problems at once
  and forget which executable does what.  A list of the valid options is given by the `-h` option.
