@@ -6,7 +6,7 @@ layout: page
 [Documentation]({{site.baseurl}}/AthenaDocs)/[UserGuide]({{site.baseurl}}/AthenaDocsUG)/Log Block
 
 Parameters in this optional block control output to stdout and stderr.  On many
-machines, output to stderr and stdout does not scale well (to 10^4-5^
+machines, output to stderr and stdout does not scale well (to $10^4-10^5$
 processors).  However, having output from all MPI processes can be useful
 for debugging.  Thus, some kind of runtime control that allows output to
 stderr and stdout be turned off for production runs, or redirected to
