@@ -21,7 +21,7 @@ The interface between the fluids is an unresolved discontinuity (a *slip-surface
 is equal to the sound speed $C_s$.  The test is based on the KH instability test in the 
 [Athena test suite](http://www.astro.princeton.edu/~jstone/tests/index.html); the figure below sketches the initial conditions.
 
-<a style="padding:0; border: none" href="{{site.baseurl}}/images/KH-Initial.png"><img width="25%" src="{{site.baseurl}}/images/KH-Initial.png"></a>
+![alt KH Initial]({{site.baseurl}}/images/KH-Initial.png)
 
 Results with Unresolved Interfaces
 ==================================
@@ -31,14 +31,14 @@ in a frame moving at the sound speed to the right (*center*), and a frame moving
 sound speed to the right (*right*).  Note the instability seems to disappear in the moving frames.  This is
 because numerical diffusion at the interface damps the unstable modes.
 
-<a style="padding:0; border: none" href="{{site.baseurl}}/images/arepo-kh.png"><img width="50%" src="{{site.baseurl}}/images/arepo-kh.png"></a>
+![alt arepo KH]({{site.baseurl}}/images/arepo-kh.png)
 
 Of course, numerical diffusion is not only a problem in the moving frames.  It also dominates the solution in the
 rest frame.  The images below show the same test run at different resolutions *in the rest frame*.  Note the solution
 is vastly different at each resolution, and the instability seems to disappear at the lowest resolution (where the truncation error
 is largest).
 
-<a style="padding:0; border: none" href="{{site.baseurl}}/images/kh-resolution.png"><img width="50%" src="{{site.baseurl}}/images/kh-resolution.png"></a>
+![alt KH Resolution]({{site.baseurl}}/images/kh-resolution.png)
 
 So which solution is correct?  That is, *which solution should the code reproduce in any inertial frame?*.  Of course,
 this question cannot be answered unless the test is based on a resolved solution.
@@ -58,8 +58,8 @@ An even more quantitative test is to measure the kinetic energy associated with 
 There are two lines shown in the figure at left below, one taken from each calculation.  It only appears there is one line,
 because the results are very nearly identical.  In both cases, exponential growth in the linear regime is captured correctly.
 
-<a style="padding:0; border: none" href="{{site.baseurl}}/images/kh-V1V2.png"><img width="25%" src="{{site.baseurl}}/images/kh-V1V2.png"></a>
-<a style="padding:0; border: none" href="{{site.baseurl}}/images/KH-KEy.png"><img width="40%" src="{{site.baseurl}}/images/KH-KEy.png"></a>
+![alt KH V1V2]({{site.baseurl}}/images/kh-V1V2.png)
+![alt KH KEy]({{site.baseurl}}/images/KH-KEy.png)
 
 Lessons Learned
 ===============

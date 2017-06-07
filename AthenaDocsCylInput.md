@@ -25,7 +25,7 @@ describes an annular region periodic in $\phi$.
 The standard boundary conditions do not apply in the R-direction.
 Typically one must write and enroll their own function in a problem
 generator according to some particular application.  We have written a
-simple Dirichlet boundary condition function called do_nothing_bc, which
+simple Dirichlet boundary condition function called `do_nothing_bc`, which
 leaves the initialized ghost zones intact throughout the integration.
 
 Note that the nature of constrained transport in Athena causes the
@@ -74,7 +74,7 @@ scale well with increasing dimension, but the user may specify an error
 tolerance and maximum iteration number, and they need only be run to
 initialize a problem.  Typically, one can get away with averaging in
 the R-direction only.  For example, to study the Rayleigh stability
-of a system with shear parameter q, we could compute M_\phi by hand
+of a system with shear parameter q, we could compute $M_\phi$ by hand
 as a function of q, or we could simply define a function `M2()` for the
 azimuthal momentum,
 
@@ -82,7 +82,7 @@ azimuthal momentum,
 	  return rho0*omega0*pow(x1,1.0-q);
 	}
 
-Then to initialize the momentum in the \phi-direction, we set
+Then to initialize the momentum in the $\phi$-direction, we set
 
 	pG->U[k][j][i].M2 = avg1d(M2,pG,i,j,k);
 
