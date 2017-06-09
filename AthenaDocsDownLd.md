@@ -19,11 +19,11 @@ Now download the latest version.
 ================================
 
 <!---
-[athena4.0.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.0.tar.gz) (r1202 from the SVN repository)
+[athena4.0.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.0.tar.gz) [efbe1ec](https://github.com/PrincetonUniversity/Athena-Cversion/commit/efbe1ec1fc65955b60bafa264e211e6f0c57996e)
 
-[athena4.1.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.1.tar.gz) (r1281 from the SVN repository)
+[athena4.1.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.1.tar.gz) [5cafca3](https://github.com/PrincetonUniversity/Athena-Cversion/commit/5cafca3b8a76d01ed18859e5e511c8b0481aaaa7)
 -->
 
-[athena4.2.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.2.tar.gz) (r1490 from the SVN repository)
+[athena4.2.tar.gz](http://www.astro.princeton.edu/~jstone/downloads/athena/athena4.2.tar.gz) [00f2669](https://github.com/PrincetonUniversity/Athena-Cversion/commit/00f2669b452c636c99c9f13824601a626974474c)
 
 This file will be updated infrequently to the latest revision, so check back for bug fixes and updates.
